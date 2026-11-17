@@ -1,0 +1,7 @@
+{
+  "title": "Perseus: persistent homology over Q, with every bad prime certified",
+  "upload_type": "software",
+  "creators": [{"name": "Nanda, Vidit", "affiliation": "University of Oxford"}],
+  "license": "MIT",
+  "keywords": ["persistent homology", "topological data analysis", "torsion", "computational topology"]
+}

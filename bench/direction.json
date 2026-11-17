@@ -1,0 +1,102 @@
+[
+ {
+  "case": "LM Y2 n=40 (all triangles)",
+  "seconds": {
+   "cohomology": 0.039,
+   "homology": 0.076,
+   "forward": 0.005
+  },
+  "agree": true,
+  "best": "forward"
+ },
+ {
+  "case": "LM Y2 n=70 (55%)",
+  "seconds": {
+   "cohomology": 1.867,
+   "homology": 2.641,
+   "forward": 0.263
+  },
+  "agree": true,
+  "best": "forward"
+ },
+ {
+  "case": "LM Y2 n=100 (40%)",
+  "seconds": {
+   "cohomology": 18.164,
+   "homology": 23.719,
+   "forward": 3.282
+  },
+  "agree": true,
+  "best": "forward"
+ },
+ {
+  "case": "LM Y3 n=25 (all tetrahedra)",
+  "seconds": {
+   "cohomology": 0.948,
+   "homology": 1.951,
+   "forward": 0.324
+  },
+  "agree": true,
+  "best": "forward"
+ },
+ {
+  "case": "random simplicial n=40, 3000 facets dim<=4",
+  "seconds": {
+   "cohomology": 0.003,
+   "homology": 0.007,
+   "forward": 0.004
+  },
+  "agree": true,
+  "best": "cohomology"
+ },
+ {
+  "case": "cubical 1000^2",
+  "seconds": {
+   "cohomology": 0.117,
+   "homology": 0.464,
+   "forward": 0.355
+  },
+  "agree": true,
+  "best": "cohomology"
+ },
+ {
+  "case": "cubical 80^3",
+  "seconds": {
+   "cohomology": 0.165,
+   "homology": 0.304,
+   "forward": 0.531
+  },
+  "agree": true,
+  "best": "cohomology"
+ },
+ {
+  "case": "cubical torus 512^2",
+  "seconds": {
+   "cohomology": 0.029,
+   "homology": 4.706,
+   "forward": 0.084
+  },
+  "agree": true,
+  "best": "cohomology"
+ },
+ {
+  "case": "Rips explicit 120 pts R^4 H<=2",
+  "seconds": {
+   "cohomology": 0.117,
+   "homology": 4.636,
+   "forward": 0.116
+  },
+  "agree": true,
+  "best": "forward"
+ },
+ {
+  "case": "Rips explicit 60 pts R^8 H<=3",
+  "seconds": {
+   "cohomology": 0.028,
+   "homology": 0.283,
+   "forward": 0.034
+  },
+  "agree": true,
+  "best": "cohomology"
+ }
+]

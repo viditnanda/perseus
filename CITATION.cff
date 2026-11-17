@@ -1,0 +1,25 @@
+cff-version: 1.2.0
+message: "If Perseus helps your research, please cite the software as below."
+title: "Perseus: persistent homology over Q, with every bad prime certified"
+version: 6.0.0
+date-released: 2026-11-17
+license: MIT
+authors:
+  - family-names: Nanda
+    given-names: Vidit
+repository-code: "https://github.com/viditnanda/perseus"
+url: "https://people.maths.ox.ac.uk/nanda/perseus/"
+references:
+  - type: article
+    title: "Morse theory for filtrations and efficient computation of persistent homology"
+    authors:
+      - family-names: Mischaikow
+        given-names: Konstantin
+      - family-names: Nanda
+        given-names: Vidit
+    journal: "Discrete & Computational Geometry"
+    volume: 50
+    issue: 2
+    start: 330
+    end: 353
+    year: 2013

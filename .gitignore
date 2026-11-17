@@ -1,0 +1,8 @@
+/perseus
+*.o
+bin/
+python/build/
+python/*.egg-info/
+python/include/
+__pycache__/
+output_*.txt

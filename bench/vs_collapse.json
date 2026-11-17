@@ -1,0 +1,68 @@
+[
+ {
+  "case": "sphere H<=2",
+  "edges": 17857,
+  "edges_after_collapse": 17668,
+  "build_s": 0.0,
+  "collapse_s": 1.04,
+  "ripser_on_collapsed_s": 0.8,
+  "collapse_pipeline_total_s": 1.84,
+  "perseus6_s": 0.5,
+  "agree": true
+ },
+ {
+  "case": "o3_1024 H<=3",
+  "edges": 33189,
+  "edges_after_collapse": 7179,
+  "build_s": 0.01,
+  "collapse_s": 0.12,
+  "ripser_on_collapsed_s": 0.06,
+  "collapse_pipeline_total_s": 0.2,
+  "perseus6_s": 0.06,
+  "agree": true
+ },
+ {
+  "case": "o3_4096 H<=3",
+  "edges": 234145,
+  "edges_after_collapse": 29724,
+  "build_s": 0.17,
+  "collapse_s": 0.96,
+  "ripser_on_collapsed_s": 0.3,
+  "collapse_pipeline_total_s": 1.43,
+  "perseus6_s": 0.72,
+  "agree": true
+ },
+ {
+  "case": "random16 H<=7",
+  "edges": 942,
+  "edges_after_collapse": 331,
+  "build_s": 0.0,
+  "collapse_s": 0.0,
+  "ripser_on_collapsed_s": 0.01,
+  "collapse_pipeline_total_s": 0.02,
+  "perseus6_s": 0.01,
+  "agree": true
+ },
+ {
+  "case": "fractal H<=2",
+  "edges": 122835,
+  "edges_after_collapse": 27871,
+  "build_s": 0.01,
+  "collapse_s": 5.08,
+  "ripser_on_collapsed_s": 1.13,
+  "collapse_pipeline_total_s": 6.22,
+  "perseus6_s": 1.21,
+  "agree": true
+ },
+ {
+  "case": "dragon H<=1",
+  "edges": 1388645,
+  "edges_after_collapse": 12034,
+  "build_s": 0.15,
+  "collapse_s": 22.06,
+  "ripser_on_collapsed_s": 0.04,
+  "collapse_pipeline_total_s": 22.24,
+  "perseus6_s": 0.64,
+  "agree": true
+ }
+]

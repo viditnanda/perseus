@@ -1,0 +1,18 @@
+[build-system]
+requires = ["setuptools>=64", "pybind11>=2.10"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "perseus-tda"
+version = "6.0.0"
+description = "Persistent homology over Q with certified bad primes, or over any prime field"
+requires-python = ">=3.8"
+dependencies = ["numpy"]
+readme = "README.md"
+license = {text = "MIT"}
+authors = [{name = "Vidit Nanda"}]
+classifiers = ["Programming Language :: C++", "Programming Language :: Python :: 3", "License :: OSI Approved :: MIT License", "Topic :: Scientific/Engineering :: Mathematics"]
+
+[project.urls]
+Homepage = "https://people.maths.ox.ac.uk/nanda/perseus/"
+Source = "https://github.com/viditnanda/perseus"

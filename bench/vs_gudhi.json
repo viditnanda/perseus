@@ -1,0 +1,184 @@
+[
+ {
+  "case": "cubtop img256",
+  "size": "256x256",
+  "intervals": 15522,
+  "agree_with_gudhi": {
+   "perseus6_py": true,
+   "perseus6_cli": true,
+   "perseus5_cli": true
+  },
+  "seconds": {
+   "gudhi": 0.125,
+   "perseus6_py": 0.087,
+   "perseus6_cli": 0.115,
+   "perseus5_cli": 1.068
+  }
+ },
+ {
+  "case": "cubtop img1000",
+  "size": "1000x1000",
+  "intervals": 283890,
+  "agree_with_gudhi": {
+   "perseus6_py": true,
+   "perseus6_cli": true,
+   "perseus5_cli": true
+  },
+  "seconds": {
+   "gudhi": 2.513,
+   "perseus6_py": 1.636,
+   "perseus6_cli": 1.922,
+   "perseus5_cli": 17.569
+  }
+ },
+ {
+  "case": "cubtop img2000",
+  "size": "2000x2000",
+  "intervals": 1116500,
+  "agree_with_gudhi": {
+   "perseus6_py": true,
+   "perseus6_cli": true
+  },
+  "seconds": {
+   "gudhi": 12.366,
+   "perseus6_py": 7.588,
+   "perseus6_cli": 8.344
+  }
+ },
+ {
+  "case": "cubtop vol64",
+  "size": "64x64x64",
+  "intervals": 48674,
+  "agree_with_gudhi": {
+   "perseus6_py": true,
+   "perseus6_cli": true,
+   "perseus5_cli": true
+  },
+  "seconds": {
+   "gudhi": 1.603,
+   "perseus6_py": 1.092,
+   "perseus6_cli": 1.169,
+   "perseus5_cli": 12.963
+  }
+ },
+ {
+  "case": "cubtop vol128",
+  "size": "128x128x128",
+  "intervals": 596300,
+  "agree_with_gudhi": {
+   "perseus6_py": true,
+   "perseus6_cli": true
+  },
+  "seconds": {
+   "gudhi": 19.809,
+   "perseus6_py": 11.037,
+   "perseus6_cli": 11.713
+  }
+ },
+ {
+  "case": "cubtop torus512 periodic",
+  "size": "512x512",
+  "intervals": 67465,
+  "agree_with_gudhi": {
+   "perseus6_py": true,
+   "perseus6_cli": true,
+   "perseus5_cli": true
+  },
+  "seconds": {
+   "gudhi": 0.611,
+   "perseus6_py": 0.403,
+   "perseus6_cli": 0.517,
+   "perseus5_cli": 4.532
+  }
+ },
+ {
+  "case": "cubtop cyl64 periodic",
+  "size": "64x64x64",
+  "intervals": 57545,
+  "agree_with_gudhi": {
+   "perseus6_py": true,
+   "perseus6_cli": true,
+   "perseus5_cli": true
+  },
+  "seconds": {
+   "gudhi": 1.743,
+   "perseus6_py": 1.125,
+   "perseus6_cli": 1.37,
+   "perseus5_cli": 14.677
+  }
+ },
+ {
+  "case": "nmfsimtop lm40",
+  "size": "n=40, 10660 listed simplices",
+  "intervals": 9881,
+  "agree_with_gudhi": {
+   "perseus6_py": true,
+   "perseus6_cli": true,
+   "perseus5_cli": true
+  },
+  "seconds": {
+   "gudhi": 0.021,
+   "perseus6_py": 0.066,
+   "perseus6_cli": 0.165,
+   "perseus5_cli": 140.314
+  }
+ },
+ {
+  "case": "nmfsimtop lm70",
+  "size": "n=70, 32415 listed simplices",
+  "intervals": 30001,
+  "agree_with_gudhi": {
+   "perseus6_py": true,
+   "perseus6_cli": true,
+   "perseus5_cli": false
+  },
+  "seconds": {
+   "gudhi": 0.425,
+   "perseus6_py": 2.093,
+   "perseus6_cli": 2.476,
+   "perseus5_cli": 496.667
+  }
+ },
+ {
+  "case": "distmat dm60",
+  "size": "n=60, simplices to dim 3",
+  "intervals": 277437,
+  "agree_with_gudhi": {
+   "perseus6_cli": true,
+   "perseus5_cli": true
+  },
+  "seconds": {
+   "gudhi": 0.336,
+   "perseus6_cli": 0.566,
+   "perseus5_cli": 80.735
+  }
+ },
+ {
+  "case": "distmat dm120",
+  "size": "n=120, simplices to dim 3",
+  "intervals": 1532,
+  "agree_with_gudhi": {
+   "perseus6_cli": true,
+   "perseus5_cli": true
+  },
+  "seconds": {
+   "gudhi": 0.011,
+   "perseus6_cli": 0.033,
+   "perseus5_cli": 0.116
+  }
+ },
+ {
+  "case": "brips br150",
+  "size": "n=150 points in R^2",
+  "intervals": 388188,
+  "agree_with_gudhi": {
+   "perseus6_cli": true,
+   "perseus5_cli": true
+  },
+  "seconds": {
+   "gudhi": 0.537,
+   "perseus6_cli": 0.617,
+   "perseus5_cli": 4.789
+  }
+ }
+]

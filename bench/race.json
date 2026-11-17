@@ -1,0 +1,112 @@
+[
+ {
+  "case": "sphere H<=2",
+  "perseus_Q_s": 0.52,
+  "perseus_Q_MB": 109,
+  "perseus_F2_s": 0.5,
+  "perseus_F2_MB": 83,
+  "ripser_s": 0.79,
+  "ripser_MB": 103,
+  "redzed_s": 0.26,
+  "redzed_MB": 16
+ },
+ {
+  "case": "o3_1024 H<=3",
+  "perseus_Q_s": 0.1,
+  "perseus_Q_MB": 19,
+  "perseus_F2_s": 0.09,
+  "perseus_F2_MB": 18,
+  "ripser_s": 2.57,
+  "ripser_MB": 22,
+  "redzed_s": 0.9,
+  "redzed_MB": 110
+ },
+ {
+  "case": "o3_4096 H<=1",
+  "perseus_Q_s": 0.59,
+  "perseus_Q_MB": 117,
+  "perseus_F2_s": 0.5,
+  "perseus_F2_MB": 116,
+  "ripser_s": 1.32,
+  "ripser_MB": 68,
+  "redzed_s": 0.32,
+  "redzed_MB": 51
+ },
+ {
+  "case": "o3_4096 H<=3",
+  "perseus_Q_s": 0.86,
+  "perseus_Q_MB": 208,
+  "perseus_F2_s": 0.74,
+  "perseus_F2_MB": 208,
+  "ripser_s": 50.32,
+  "ripser_MB": 244,
+  "redzed_s": 29.22,
+  "redzed_MB": 1337
+ },
+ {
+  "case": "random16 H<=1",
+  "perseus_Q_s": 0.03,
+  "perseus_Q_MB": 13,
+  "perseus_F2_s": 0.03,
+  "perseus_F2_MB": 13,
+  "ripser_s": 0.03,
+  "ripser_MB": 13,
+  "redzed_s": 0.03,
+  "redzed_MB": 13
+ },
+ {
+  "case": "random16 H<=7",
+  "perseus_Q_s": 0.03,
+  "perseus_Q_MB": 13,
+  "perseus_F2_s": 0.03,
+  "perseus_F2_MB": 13,
+  "ripser_s": 4.45,
+  "ripser_MB": 124,
+  "redzed_s": 5.91,
+  "redzed_MB": 746
+ },
+ {
+  "case": "fractal H<=1",
+  "perseus_Q_s": 0.1,
+  "perseus_Q_MB": 13,
+  "perseus_F2_s": 0.1,
+  "perseus_F2_MB": 13,
+  "ripser_s": 0.2,
+  "ripser_MB": 21,
+  "redzed_s": 0.07,
+  "redzed_MB": 13
+ },
+ {
+  "case": "fractal H<=2",
+  "perseus_Q_s": 1.21,
+  "perseus_Q_MB": 13,
+  "perseus_F2_s": 1.22,
+  "perseus_F2_MB": 13,
+  "ripser_s": 5.75,
+  "ripser_MB": 24,
+  "redzed_s": 2.46,
+  "redzed_MB": 36
+ },
+ {
+  "case": "dragon H<=1",
+  "perseus_Q_s": 0.63,
+  "perseus_Q_MB": 100,
+  "perseus_F2_s": 0.63,
+  "perseus_F2_MB": 99,
+  "ripser_s": 1.7,
+  "ripser_MB": 138,
+  "redzed_s": 0.21,
+  "redzed_MB": 29
+ },
+ {
+  "case": "randdist180 H<=1",
+  "perseus_Q_s": 0.06,
+  "perseus_Q_MB": 13,
+  "perseus_F2_s": 0.04,
+  "perseus_F2_MB": 13,
+  "ripser_s": 0.66,
+  "ripser_MB": 56,
+  "redzed_s": 0.04,
+  "redzed_MB": 13
+ }
+]

@@ -1,0 +1,72 @@
+# On a version tag (e.g. v6.0.0): build the command-line binaries and attach them to a GitHub release,
+# build the Python wheels and sdist, and publish them to PyPI (trusted publishing; see RELEASING.md).
+name: release
+on:
+  push:
+    tags: ["v*"]
+permissions:
+  contents: write
+jobs:
+  binaries:
+    strategy:
+      matrix:
+        include:
+          - { os: ubuntu-latest, name: perseus-linux-x86_64, cmd: "g++ -std=c++17 -O3 -pthread -Iinclude src/perseus.cpp -o out -static" }
+          - { os: macos-14,      name: perseus-macos-arm64,  cmd: "clang++ -std=c++17 -O3 -pthread -Iinclude src/perseus.cpp -o out" }
+          - { os: macos-13,      name: perseus-macos-x86_64, cmd: "clang++ -std=c++17 -O3 -pthread -Iinclude src/perseus.cpp -o out" }
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - run: ${{ matrix.cmd }} && mv out ${{ matrix.name }} && ./${{ matrix.name }} cells tests/fixtures/crt_alias_1.cells --print none
+      - uses: actions/upload-artifact@v4
+        with: { name: "${{ matrix.name }}", path: "${{ matrix.name }}" }
+  windows:
+    runs-on: windows-latest
+    defaults: { run: { shell: msys2 {0} } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: msys2/setup-msys2@v2
+        with: { msystem: UCRT64, install: "mingw-w64-ucrt-x86_64-gcc" }
+      - run: g++ -std=c++17 -O3 -pthread -Iinclude src/perseus.cpp -o perseus-windows-x86_64.exe -static && ./perseus-windows-x86_64.exe cells tests/fixtures/crt_alias_1.cells --print none
+      - uses: actions/upload-artifact@v4
+        with: { name: perseus-windows-x86_64.exe, path: perseus-windows-x86_64.exe }
+  github-release:
+    needs: [binaries, windows]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with: { path: dist, merge-multiple: true }
+      - uses: softprops/action-gh-release@v2
+        with: { files: "dist/*" }
+  wheels:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-14, macos-13]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pypa/cibuildwheel@v2.21
+        with: { package-dir: python }
+        env:
+          CIBW_SKIP: "pp* *musllinux* *i686*"
+          CIBW_TEST_REQUIRES: numpy
+          CIBW_TEST_COMMAND: python -c "import perseus; r = perseus.cells([(0, 0.0, []), (1, 1.0, []), (2, 2.0, [(1, 12)])]); assert perseus.bad_primes(r) == [2, 3]"
+      - uses: actions/upload-artifact@v4
+        with: { name: "wheels-${{ matrix.os }}", path: wheelhouse/*.whl }
+  sdist:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: cp -r include python/include && pipx run build --sdist python --outdir dist
+      - uses: actions/upload-artifact@v4
+        with: { name: sdist, path: dist/*.tar.gz }
+  pypi:
+    needs: [wheels, sdist]
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with: { path: dist, merge-multiple: true }
+      - uses: pypa/gh-action-pypi-publish@release/v1

@@ -1,0 +1,110 @@
+# The Q certificate
+
+Perseus 6 reports the barcode over Q and the set of *bad primes*: the p for which the barcode over F_p
+differs. This note says exactly what is guaranteed and why.
+
+## 1. Candidates
+
+Let D be the filtered boundary matrix and run any column reduction R = D V over Q (V upper unitriangular,
+R reduced).
+
+**Lemma 2.** If a prime p divides no numerator and no denominator of a pivot value, then the same reduction
+taken mod p is a valid F_p reduction with the same pivots, hence the same barcode.
+
+*Proof.* Every multiplier has a pivot value as denominator, so every intermediate entry is p-integral. An
+addition whose multiplier vanishes mod p is the identity mod p. Each pivot is nonzero mod p and the entries
+below it are zero, so every column keeps its lowest entry and the pairing is unchanged. ∎
+
+So the bad primes lie among the prime factors of the pivot values, and each candidate is settled by a rerun
+mod p. That rerun starts in the first degree where p divides a pivot, because lower degrees and their
+clearing data are unchanged.
+
+**Pivot values are invariants.** Let (i, j) be a pair. Let J be the paired columns c ≤ j with low(c) ≥ i,
+and I their lows: the pairs nested in (i, j). Then R[I, J] is triangular, and Cauchy–Binet with the
+unitriangular V gives det D[I, J] = det R[I, J] = ±∏_{c∈J} π(c). Removing (i, j) gives
+
+    π(i, j) = ± det D[I, J] / det D[I \ i, J \ j].
+
+The pivot values therefore depend only on D and the filtration order, not on the reduction. Lower-left
+blocks map to lower-left blocks under anti-transposition, so cohomology gives the same values. The test
+suite checks this exactly, in exact arithmetic, across all three explicit reduction directions
+(`exact_oracle.py`: identical values on 150 random torsion-rich complexes). Two engines are annotation
+algorithms rather than column reductions: forward cohomology, and the Rips H1 engine. For those the
+identity is verified by these tests but not yet written up as a proof.
+
+## 2. Three ways to run the Q reduction
+
+**proved** (`--mode proved`). Exact rational arithmetic. Each degree is tried with int64 numerators and
+denominators, with every operation overflow-checked. A degree that overflows is rerun with arbitrary
+precision. The barcode and the pivot values are exact, so Lemma 2 applies as stated.
+
+**fast** (`--mode fast`). The reduction is carried modulo K primes drawn uniformly at random from
+[2^61, 2^62). The primes are distinct, the seed is reported, and `--seed` reproduces a run.
+
+*Faithfulness.* Each lane computes the Q reduction mod its prime, up to the first Q-pivot that the prime
+divides: until then it drops exactly the entries that vanish mod p, and those additions are no-ops mod p.
+If such a pivot vanishes in some lanes but not all, the run is flagged and repeated with fresh primes. It
+goes wrong undetectably only if **every** lane prime divides a nonzero integer that the input fixes:
+
+* the numerator of a Q-pivot, which makes the column look zero or its pivot move;
+* numerator ∓ denominator of a non-unit Q-pivot, which makes it look like ±1, so it is never factored;
+* a ≠ v·b for a wrong reconstruction a/b of a pivot v (see below).
+
+*Bound.* Every minor of the matrix reduced in degree k has log2 |det| ≤ h_k, by Hadamard over rows or over
+columns, whichever is smaller (engines record h_k). A positive integer below 2^(h+2) has at most
+m = ⌊(h+2)/61⌋ prime factors in the window, and the window contains N ≥ 5.39·10^16 primes. This is a
+rigorous lower bound from Dusart's estimates for π(x). Therefore
+
+    Pr[wrong barcode or wrong candidate set] ≤ Σ_k 3 P_k (m_k / N)^K  +  Σ_reconstructed (m'/N)^2,
+
+with P_k at most the number of pairs in degree k. The bound holds for every input; there is no assumption
+about where the input came from. Perseus adds lanes until it is below 2^-64 (`--target`) and reports it.
+
+*Reconstruction.* A non-unit pivot is reconstructed by Wang's method from all lanes but two. It is accepted
+only if it agrees with those two independent lanes. Degrees holding non-unit pivots are rerun with more
+fresh lanes (4, 8, 16, 32) as needed, and each rerun must reproduce the pairing of the first run.
+
+**auto** (default). First try exact int64 arithmetic. When it does not overflow, which is the common case,
+the result is a proof and costs about as much as the multi-modular run. When it does overflow
+(torsion-heavy inputs), the fast mode runs and the output says so.
+
+## 3. Classifying candidates
+
+Candidates below 2^63 are settled by reruns over F_p, in parallel.
+
+Pivot values are factored by trial division, then by dividing out primes already found from other pivots,
+then by Pollard–Brent rho with batched gcds, then by gcds between the leftover cofactors. Large primes and
+unsplit composites are **not** factored further. Each such number N is classified by a single run modulo N
+itself, using multi-limb Montgomery arithmetic:
+
+**Lemma 3.** Run the reduction over Z/N, for N odd and possibly composite. Suppose every pivot is either a
+unit mod N or, if it shares a factor with N, the run stops and reports gcd(pivot, N), splitting N. If the
+run finishes without a split, then for every prime p dividing N it is a valid F_p run with the same pivots.
+Hence all prime factors of N have the same barcode.
+
+*Proof.* As for Lemma 2. A pivot that is a unit mod N is nonzero mod every p | N. A dropped entry is zero
+mod N, hence mod p. An addition with a multiplier that vanishes mod p is the identity mod p. ∎
+
+So the certificate can say "every prime factor of N is bad, with these interval changes" without knowing
+the factors (`"every_prime_factor_of": true` in the JSON). It is still complete. A split refines N, and
+the parts are classified in turn. Lemma 3 applies whether or not N is prime, so primes above 2^64, which
+Miller–Rabin only identifies as probable primes (`"probable_prime": true`), need no primality proof.
+
+## 4. What the output says
+
+* `mode`: `proved` or `fast`.
+* `guarantee.barcode_certified`: false only if every set of trial primes was unlucky, or two independent
+  runs disagreed. Then nothing is claimed.
+* `guarantee.log2_error_bound` (fast mode): the bound of §2.
+* `bad_primes_status`: `complete` (every candidate classified), `candidates only` (`--no-classify`), or
+  `incomplete`.
+* `complete`: true when the barcode is certified and the bad primes are completely described.
+
+## 5. A remark on planar inputs
+
+For a filtration of subcomplexes of the plane, every relative group H_q(X, A; Z) is torsion-free. By
+Alexander duality, H_1(A) → H_1(X) is dual to restriction H̃^0(S²∖A) → H̃^0(S²∖X). That restriction is
+the pullback of locally constant functions along the map of component sets, and its cokernel is free.
+H_2(X, A) ≅ ker(H_1(A) → H_1(X)) is free, and so is H_0(X, A). So 2D cubical inputs (non-periodic) have no
+bad primes: their Q and F_p barcodes coincide for every p. Three-dimensional inputs can have torsion: a
+(2,1) curve on the core of a solid torus gives Z/2.

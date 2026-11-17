@@ -1,0 +1,16 @@
+=== section A
+A sphere: bad primes []
+A o3_1024: bad primes [2]
+A random16: bad primes []
+A randdist180: bad primes [2]
+A randdist250: bad primes [2, 3, 5, 7, 11, 13]
+=== section B
+=== section C
+skip C (no p2ref)
+=== section D
+skip D (no perseus5)
+=== section E
+=== section F
+=== section G
+
+863 passed, 0 failed

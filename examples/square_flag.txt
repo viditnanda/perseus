@@ -1,0 +1,7 @@
+# the 4-cycle a-b-c-d with a chord appearing later; vertex d is born late
+d 0.5
+a b 1
+b c 1
+c d 1
+d a 1
+a c 2

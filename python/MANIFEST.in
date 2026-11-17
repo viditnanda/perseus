@@ -1,0 +1,2 @@
+include perseus_py.cpp README.md
+recursive-include include *.hpp
