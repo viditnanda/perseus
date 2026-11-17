@@ -1,6 +1,6 @@
 cff-version: 1.2.0
 message: "If Perseus helps your research, please cite the software as below."
-title: "Perseus: persistent homology over Q, with every bad prime certified"
+title: "Perseus: the Persistent Homology software"
 version: 6.0.0
 date-released: 2026-11-17
 license: MIT
