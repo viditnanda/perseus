@@ -30,7 +30,7 @@ jobs:
       matrix:
         include:
           - { os: ubuntu-latest, name: perseus-linux-x86_64, cmd: "g++ -std=c++17 -O3 -pthread -Iinclude src/perseus.cpp -o out -static" }
-          - { os: macos-14,      name: perseus-macos-arm64,  cmd: "clang++ -std=c++17 -O3 -pthread -Iinclude src/perseus.cpp -o out" }
+          - { os: macos-15,      name: perseus-macos-arm64,  cmd: "clang++ -std=c++17 -O3 -pthread -Iinclude src/perseus.cpp -o out" }
           - { os: macos-15-intel,      name: perseus-macos-x86_64, cmd: "clang++ -std=c++17 -O3 -pthread -Iinclude src/perseus.cpp -o out" }
     runs-on: ${{ matrix.os }}
     steps:
@@ -66,7 +66,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-14, macos-15-intel]
+        os: [ubuntu-latest, macos-15, macos-15-intel]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
