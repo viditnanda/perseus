@@ -151,22 +151,22 @@ On geometric data a proof costs nothing extra; time beyond F_2 is classification
 
 ### Cubical (implicit engine, F_2, same machine)
 
-| case | Perseus 6 | original 6.0 | CubicalRipser (`computePH_T`) | GUDHI |
+| case | Perseus 6 | original 6.0 | CubicalRipser (`computePH_T`) | GUDHI 3.13 (`CubicalPersistence`) |
 |---|---|---|---|---|
-| smoothed noise 512² | 0.06 s / 22 MB | 0.46 s / 150 MB | 0.06 s | 0.45 s |
-| smoothed noise 1024² | 0.37 s / 70 MB | 2.18 s / 572 MB | 0.29 s | 2.16 s |
-| white noise 1024² | 0.42 s / 70 MB | 2.38 s / 572 MB | 0.29 s | 3.24 s |
-| smoothed noise 96³ | 0.87 s / 136 MB | 4.42 s / 982 MB | 0.78 s | 5.10 s |
-| white noise 96³ | 2.40 s / 173 MB | 5.48 s / 988 MB | 2.41 s | 8.05 s |
-| smoothed noise 4096² | 8.0 s / 0.9 GB | — | 7.4 s / 3.1 GB | 58.5 s / 3.3 GB |
-| white noise 4096² | 11.6 s / 0.9 GB | — | 8.5 s / 3.1 GB | 92.5 s / 4.1 GB |
-| smoothed noise 192³ | 10.4 s / 1.0 GB | — | 9.3 s / 0.8 GB | 55.9 s / 2.7 GB |
-| white noise 192³ | 26.0 s / 1.4 GB | — | 24.9 s / 1.8 GB | 97.5 s / 3.2 GB |
-| smoothed noise 32⁴ | 3.0 s / 0.4 GB | — | 2.7 s / 0.3 GB | 16.7 s / 0.8 GB |
-| white noise 32⁴ | 19.3 s / 0.6 GB | — | 15.2 s / 1.0 GB | 36.1 s / 1.0 GB |
-| smoothed noise 48⁴ | 20.3 s / 1.6 GB | — | 16.0 s / 1.1 GB | 100.2 s / 4.0 GB |
+| smoothed noise 512² | 0.06 s / 22 MB | 0.46 s / 150 MB | 0.06 s | **0.002 s** |
+| smoothed noise 1024² | 0.37 s / 70 MB | 2.18 s / 572 MB | 0.29 s | **0.010 s** |
+| white noise 1024² | 0.42 s / 70 MB | 2.38 s / 572 MB | 0.29 s | **0.060 s** |
+| smoothed noise 96³ | 0.87 s / 136 MB | 4.42 s / 982 MB | 0.78 s | 3.5 s |
+| white noise 96³ | 2.40 s / 173 MB | 5.48 s / 988 MB | 2.41 s | 7.8 s |
+| smoothed noise 4096² | 8.0 s / 0.9 GB | — | 7.4 s / 3.1 GB | **0.43 s** |
+| white noise 4096² | 11.6 s / 0.9 GB | — | 8.5 s / 3.1 GB | **1.66 s** |
+| smoothed noise 192³ | 10.4 s / 1.0 GB | — | 9.3 s / 0.8 GB | 54.7 s |
+| white noise 192³ | 26.0 s / 1.4 GB | — | 24.9 s / 1.8 GB | 89.8 s |
+| smoothed noise 32⁴ | 3.0 s / 0.4 GB | — | 2.7 s / 0.3 GB | 15.3 s |
+| white noise 32⁴ | 19.3 s / 0.6 GB | — | 15.2 s / 1.0 GB | 37.1 s |
+| smoothed noise 48⁴ | 20.3 s / 1.6 GB | — | 16.0 s / 1.1 GB | 97.6 s |
 
-All three compute the T-construction (top-cell values) and give identical barcodes. Perseus times include process start and reading the file; the others are in-process calls, and memory for them includes the Python process and the input array. CubicalRipser's `computePH` with `top_dim=True` is not the T-construction: it returns only the top degree.
+All three compute the T-construction (top-cell values) and give identical barcodes. **In 2D, GUDHI is far faster than both** (20–35× on these images): its `CubicalPersistence` uses a dedicated algorithm for images. GUDHI's older `CubicalComplex` interface, which earlier versions of this table used, is 30–100× slower in 2D. In 3D and 4D `CubicalPersistence` uses the general algorithm, and Perseus and CubicalRipser are 3–5× faster. Perseus times include process start and reading the file; the others are in-process calls, and memory for them includes the Python process and the input array. CubicalRipser's `computePH` with `top_dim=True` is not the T-construction: it returns only the top degree.
 
 How the engine works: births are stored as indices into the sorted distinct values; only cells of dimensions 1..d−1 are sorted (stable 8-bit radix); H0 and degree d−1 are union-finds indexed by grid position; the degrees between are cohomology with clearing, apparent pairs recognised without building columns, and a working column that switches from a sorted vector to a heap when it grows long. The remaining gap to CubicalRipser on 2D noise is in the two union-find passes (about 4 s each at 4096²).
 
@@ -198,12 +198,10 @@ Against plain Ripser and RedZeD:
 | dragon H≤1 | 0.63 s / 100 MB | 0.63 s / 99 MB | 1.70 s / 138 MB | 0.21 s / 29 MB |
 | randdist180 H≤1 | 0.06 s / 13 MB | 0.04 s / 13 MB | 0.66 s / 56 MB | 0.04 s / 13 MB |
 
-Against GUDHI on the corresponding constructions (`bench/vs_gudhi.py`, F_2, identical intervals in every case):
+Against GUDHI on simplicial complexes (`bench/vs_gudhi.py`, F_2, identical intervals in every case; for cubical see the table above):
 
 | case | GUDHI | Perseus 6 |
 |---|---|---|
-| cubical 2000×2000 | 12.4 s | 7.6 s |
-| cubical 128³ | 19.8 s | 11.0 s |
 | Linial–Meshulam, n=70 | 0.35 s | 0.27 s |
 | Linial–Meshulam, n=100 | 4.7 s | 2.9 s |
 

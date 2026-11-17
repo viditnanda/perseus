@@ -62,7 +62,7 @@
 <ul>
   <li><b>Rational barcodes with a certificate.</b> One run gives you the barcode over Q and all <em>bad primes</em>, meaning the primes p for which the F<sub>p</sub> barcode is different. For each bad prime it tells you exactly which intervals change. On typical data the rational computation is exact, so the certificate is a proof, and it costs little more than computing over a single prime field.</li>
   <li><b>General inputs.</b> Vietoris–Rips filtrations of point clouds and distance matrices, clique filtrations of weighted graphs, cubical complexes (images and volumes, including periodic ones, straight from numpy), simplicial complexes, and arbitrary filtered cell complexes with integer boundary coefficients.</li>
-  <li><b>Speed.</b> For Vietoris–Rips in degree 2 and up it is usually much faster than Ripser and than edge collapse followed by Ripser. It is faster than GUDHI on cubical, simplicial and sparse Rips inputs, and close to Cubical Ripser on images and volumes. See <a href="#perf">performance</a>, including where other tools win.</li>
+  <li><b>Speed.</b> For Vietoris–Rips in degree 2 and up it is usually much faster than Ripser and than edge collapse followed by Ripser. On volumes and 4D grids it is 3–5× faster than GUDHI and close to Cubical Ripser; on 2D images GUDHI's dedicated image algorithm is much faster than both. On sparse point clouds it is on a par with GUDHI. See <a href="#perf">performance</a>, including where other tools win.</li>
 </ul>
 <div class="note">
 For example, take 1024 points sampled from SO(3) ≅ RP<sup>3</sup>. Perseus 6 proves that 2 is the only bad prime:
@@ -195,7 +195,7 @@ perseus.rips(points=X, maxdim=2, mode="proved")    # exact throughout</pre>
   <tr><td>sphere (192 points), H≤2</td><td>0.50 s</td><td>1.84 s</td><td>0.79 s</td><td>0.26 s</td></tr>
   <tr><td>dragon (2000 points), H≤1</td><td>0.63 s</td><td>22.2 s</td><td>1.70 s</td><td>0.21 s</td></tr>
 </table>
-<p class="muted">RedZeD remains faster for H<sub>1</sub> alone and on some small examples (the 192-point sphere), and edge collapse followed by Ripser is as fast on the 16-point example. For sparse point clouds Perseus builds the radius graph directly. For example, 8,000 points in the unit cube with 13,056 edges at r = 0.047 take 0.04 s and 13 MB through H<sub>2</sub>, against 0.14 s for GUDHI.</p>
+<p class="muted">RedZeD remains faster for H<sub>1</sub> alone and on some small examples (the 192-point sphere), and edge collapse followed by Ripser is as fast on the 16-point example. For sparse point clouds Perseus builds the radius graph directly. For example, 8,000 points in the unit cube with 13,056 edges at r = 0.047 take 0.02 s and 13 MB through H<sub>2</sub>, close to GUDHI's <code>RipsPersistence</code> (0.016 s against 0.012 s, both in-process).</p>
 
 <h3>What the certificate costs</h3>
 <table>
@@ -212,13 +212,13 @@ perseus.rips(points=X, maxdim=2, mode="proved")    # exact throughout</pre>
 
 <h3>Cubical complexes (F<sub>2</sub>)</h3>
 <table>
-  <tr><th>case</th><th>Perseus 6</th><th>Cubical Ripser</th><th>GUDHI</th></tr>
-  <tr><td>image, 1024 × 1024</td><td>0.37 s</td><td>0.29 s</td><td>2.16 s</td></tr>
-  <tr><td>image, 4096 × 4096 (smooth / noise)</td><td>8.0 s / 11.6 s</td><td>7.4 s / 8.5 s</td><td>58.5 s / 92.5 s</td></tr>
-  <tr><td>volume, 192³ (smooth / noise)</td><td>10.4 s / 26.0 s</td><td>9.3 s / 24.9 s</td><td>55.9 s / 97.5 s</td></tr>
-  <tr><td>4D grid, 48⁴ (smooth)</td><td>20.3 s</td><td>16.0 s</td><td>100 s</td></tr>
+  <tr><th>case</th><th>Perseus 6</th><th>Cubical Ripser</th><th>GUDHI 3.13</th></tr>
+  <tr><td>image, 1024 × 1024</td><td>0.37 s</td><td>0.29 s</td><td><b>0.010 s</b></td></tr>
+  <tr><td>image, 4096 × 4096 (smooth / noise)</td><td>8.0 s / 11.6 s</td><td>7.4 s / 8.5 s</td><td><b>0.43 s / 1.66 s</b></td></tr>
+  <tr><td>volume, 192³ (smooth / noise)</td><td>10.4 s / 26.0 s</td><td>9.3 s / 24.9 s</td><td>54.7 s / 89.8 s</td></tr>
+  <tr><td>4D grid, 48⁴ (smooth)</td><td>20.3 s</td><td>16.0 s</td><td>97.6 s</td></tr>
 </table>
-<p class="muted">All three compute the same complex (top-cell values) and the same barcode. Perseus uses less than a third of Cubical Ripser's memory on large images (0.9 GB against 3.1 GB at 4096²).</p>
+<p class="muted">All three compute the same complex (top-cell values) and the same barcode. GUDHI times are for <code>CubicalPersistence</code>, its recommended entry point, which uses a dedicated algorithm for 2D images and is 20–35× faster than Perseus and Cubical Ripser there. In 3 and 4 dimensions it uses the general algorithm. Perseus uses less than a third of Cubical Ripser's memory on large images (0.9 GB against 3.1 GB at 4096²).</p>
 
 <h2 id="compat">9. Old Perseus files</h2>
 <p>Perseus 6 does not read the Perseus 4/5 input formats (<code>cubtop</code>, <code>scubtop</code>, <code>simtop</code>, <code>nmfsimtop</code>, <code>cellcomp</code>, <code>distmat</code>, <code>corrmat</code>, <code>rips</code>, <code>brips</code>) directly. Instead, convert them:</p>

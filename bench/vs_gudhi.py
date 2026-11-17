@@ -66,7 +66,11 @@ def cubical_case(name, shape, periodic):
     bars, times = {}, {}
     def g():
         if any(periodic): cc = gudhi.PeriodicCubicalComplex(top_dimensional_cells=A.astype(float), periodic_dimensions=periodic)
-        else: cc = gudhi.CubicalComplex(top_dimensional_cells=A.astype(float))
+        else:   # GUDHI's recommended entry point; in 2D it uses a dedicated image algorithm
+            from gudhi.sklearn.cubical_persistence import CubicalPersistence
+            dims = list(range(A.ndim))
+            out = CubicalPersistence(homology_dimensions=dims, homology_coeff_field=2, n_jobs=1).fit_transform([A.astype(float)])[0]
+            return [(k, (b, d)) for k, arr in zip(dims, out) for b, d in arr]
         return cc.persistence(homology_coeff_field=2)
     pg, times["gudhi"] = timed(g); bars["gudhi"] = from_gudhi(pg)
     r, times["perseus6_py"] = timed(lambda: perseus.cubical(A.astype(float), periodic=list(periodic), coeff=2)); bars["perseus6_py"] = from_p6py(r)
