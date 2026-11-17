@@ -1,5 +1,5 @@
 {
-  "title": "Perseus: persistent homology over Q, with every bad prime certified",
+  "title": "Perseus: the Persistent Homology software",
   "upload_type": "software",
   "creators": [{"name": "Nanda, Vidit", "affiliation": "University of Oxford"}],
   "license": "MIT",
