@@ -21,3 +21,10 @@ Everything is automated by `.github/workflows/release.yml` once two one-time ste
 
 Windows Python wheels are not built: the code relies on 128-bit integers, which Microsoft's compiler lacks.
 Windows users can use the executable, or the Python package under WSL.
+
+## Rerunning a release
+
+If the release workflow fails after the tag exists, fix the workflow on `main`, then rerun it for the same
+tag without moving the tag (which Zenodo has already archived): push a branch `release/<tag>`, e.g.
+`git push origin main:release/v6.0.0`, or use "Run workflow" on the release workflow in the Actions tab.
+The code built is always the tag's; only the workflow comes from the branch.
