@@ -151,7 +151,7 @@ bad primes: 2  (2 non-unit pivots)</pre>
 
 <h2 id="output">6. Understanding the output</h2>
 <ul>
-  <li><code>prefix_k.txt</code> holds the intervals in degree k, one per line as <code>birth death</code>. A death of <code>−1</code> means the class never dies. This is the same format as Perseus 4, so <a href="persdia.m">persdia.m</a> still plots it.</li>
+  <li><code>prefix_k.txt</code> holds the intervals in degree k, one per line as <code>birth death</code>. A death of <code>−1</code> means the class never dies. This is the same format as Perseus 4, so <a href="../source/persdia.m">persdia.m</a> still plots it.</li>
   <li><code>prefix_betti.txt</code> holds the Betti numbers at every filtration value where they change.</li>
   <li><code>prefix_cert.json</code> (over Q) contains:
     <ul>
@@ -230,7 +230,7 @@ perseus.rips(points=X, maxdim=2, mode="proved")    # exact throughout</pre>
   <li>For Rips-type files, the old programs reported spurious infinite intervals in their top degree. The converter caps <code>--maxdim</code> just below it.</li>
   <li>The compiler problems with Clang and recent gcc are gone.</li>
 </ul>
-<p>Older versions remain available: <a href="perseusLin">Linux</a>, <a href="perseusMac">macOS</a>, <a href="perseusWin.exe">Windows</a>, <a href="perseus_4_beta.zip">source</a> (Perseus 4 beta). The old example files are still here: <a href="cubgrid.txt">cubgrid.txt</a>, <a href="scubtop.txt">scubtop.txt</a>, <a href="simtop.txt">simtop.txt</a>, <a href="nmfst.txt">nmfst.txt</a>, <a href="brips.txt">brips.txt</a>, <a href="rips.txt">rips.txt</a>, <a href="distmat.txt">distmat.txt</a>.</p>
+<p>Older versions remain available: <a href="../source/perseusLin">Linux</a>, <a href="../source/perseusMac">macOS</a>, <a href="../source/perseusWin.exe">Windows</a>, <a href="../source/perseus_4_beta.zip">source</a> (Perseus 4 beta). The old example files are still here: <a href="../source/cubgrid.txt">cubgrid.txt</a>, <a href="../source/scubtop.txt">scubtop.txt</a>, <a href="../source/simtop.txt">simtop.txt</a>, <a href="../source/nmfst.txt">nmfst.txt</a>, <a href="../source/brips.txt">brips.txt</a>, <a href="../source/rips.txt">rips.txt</a>, <a href="../source/distmat.txt">distmat.txt</a>.</p>
 
 <h2 id="how">10. How it works, and credits</h2>
 <p>Perseus 4 and 5 were built on discrete Morse theory. Perseus 6 uses different algorithms, combining many published ideas with some of its own:</p>
