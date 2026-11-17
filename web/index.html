@@ -108,7 +108,7 @@ bad primes: 2  (2 non-unit pivots)</pre>
   <tr><td><code>--threshold r</code></td><td>Rips: ignore edges longer than r (default: the enclosing radius)</td></tr>
   <tr><td><code>--periodic 0,2</code></td><td>cubical: make these axes periodic</td></tr>
   <tr><td><code>--mode auto|fast|proved</code></td><td>how the rational barcode is certified; see <a href="#coeff">section 4</a> (<code>--proved</code> is short for <code>--mode proved</code>)</td></tr>
-  <tr><td><code>--target t</code>, <code>--seed s</code></td><td>fast mode: aim for an error probability below 2<sup>−t</sup> (default 64); reproduce a run</td></tr>
+  <tr><td><code>--target t</code>, <code>--seed s</code></td><td>fast mode: aim for an error probability below 2<sup>−t</sup> (default 64); reproduce a run from its reported seed (a reproduced run is not certified)</td></tr>
   <tr><td><code>--no-classify</code></td><td>list the candidate primes without settling them</td></tr>
   <tr><td><code>--engine e</code></td><td>Rips/flag: <code>auto</code>, <code>implicit</code> or <code>sparse</code>; cubical: <code>auto</code> or <code>explicit</code></td></tr>
   <tr><td><code>--collapse auto|on|full|off</code></td><td>Rips: iterated edge collapse before the reduction</td></tr>
@@ -128,7 +128,7 @@ bad primes: 2  (2 non-unit pivots)</pre>
 <h3>How the certificate works</h3>
 <ol>
   <li><b>The rational reduction.</b> A prime that divides no pivot value of the reduction over Q cannot change the barcode. These pivot values are invariants of the filtered complex: ratios of minors of the boundary matrix.</li>
-  <li><b>Arithmetic.</b> By default (<code>--mode auto</code>) the reduction over Q runs in exact 64-bit arithmetic with overflow checks, and the result is a proof. If the numbers outgrow 64 bits, which happens with heavy torsion, Perseus reduces modulo a few primes drawn at random from [2<sup>61</sup>, 2<sup>62</sup>) instead. It then reports a bound on the probability of error, which holds for every input (below 2<sup>−64</sup> by default). <code>--mode proved</code> uses exact arithmetic throughout, switching to big integers where needed. <code>--mode fast</code> always uses random primes.</li>
+  <li><b>Arithmetic.</b> By default (<code>--mode auto</code>) the reduction over Q runs in exact 64-bit arithmetic with overflow checks, and the result is a proof. If the numbers outgrow 64 bits, which happens with heavy torsion, Perseus reduces modulo a few primes drawn at random from [2<sup>61</sup>, 2<sup>62</sup>) instead. It then reports a bound on the probability of error, which holds for every input (below 2<sup>−64</sup> by default); the probability is over a fresh 256-bit random seed. <code>--mode proved</code> uses exact arithmetic throughout, switching to big integers where needed. <code>--mode fast</code> always uses random primes.</li>
   <li><b>Candidates.</b> The prime factors of the pivot values are the candidates. Each candidate is settled by a rerun modulo that prime, in parallel.</li>
   <li><b>Numbers too hard to factor.</b> A pivot value that resists factoring does not leave a gap. One run modulo the number N itself either splits N, or proves that all prime factors of N behave identically. The certificate then states the answer for all of them at once, for example "every prime factor of N is bad".</li>
 </ol>

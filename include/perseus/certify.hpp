@@ -87,7 +87,8 @@ struct Certificate {
     bool barcode_ok = true;               // false: the run could not be made reliable (see note)
     std::string note;
     double log2_error = -std::numeric_limits<double>::infinity();   // fast mode: log2 of the error bound
-    uint64_t seed = 0;
+    std::string seed;                     // fast mode: the 256-bit seed, as 64 hex digits
+    bool seed_user = false;               // the seed came from --seed: the run reproduces, it does not certify
     int lanes = 0, retries = 0;
     std::vector<uint64_t> moduli;
     std::string arithmetic;               // proved mode: "int64", or which degrees needed bigint
@@ -100,7 +101,10 @@ struct Certificate {
     std::vector<BigInt> groups;           // big candidates not known to be prime
     bool classified = false;              // every candidate < 2^63 was settled by a rerun
     std::vector<BadPrime> bad;
-    bool candidates_complete() const { return barcode_ok && unreconstructed == 0 && unresolved.empty(); }
+    // A fast run certifies only when its seed was drawn afresh: the error bound is a probability over the
+    // seed, so it means nothing for a seed chosen before (or together with) the input.
+    bool certified() const { return barcode_ok && !seed_user; }
+    bool candidates_complete() const { return certified() && unreconstructed == 0 && unresolved.empty(); }
     bool complete() const { return candidates_complete() && classified; }
     double t_q = 0, t_recon = 0, t_classify = 0;
 };
@@ -120,7 +124,7 @@ struct CertifyOptions {
     int threads = 1;
     bool classify = true;                 // rerun mod each candidate prime
     std::string mode = "auto";            // "auto" (exact int64 if it suffices, else fast), "fast" or "proved"
-    uint64_t seed = 0;                    // fast mode: 0 = from std::random_device
+    std::string seed;                     // fast mode: hex seed to reproduce a run; empty = fresh from std::random_device
     double target_log2 = -64;             // fast mode: aim for an error bound below 2^target
     int max_lanes = 32;
 };
@@ -219,8 +223,9 @@ std::pair<BRun<typename B::Clear>, Certificate> certify(const B& be, const Certi
         }
     } else {
         // 1. the Q run modulo K random 62-bit primes, retried with fresh primes when unlucky
-        cert.seed = opt.seed ? opt.seed : ((uint64_t)std::random_device()() << 32 | std::random_device()());
-        std::mt19937_64 rng(cert.seed);
+        std::array<uint64_t, 4> sd = opt.seed.empty() ? fresh_seed() : parse_seed(opt.seed);
+        cert.seed = seed_hex(sd); cert.seed_user = !opt.seed.empty();
+        ChaCha20 rng(sd);
         std::set<uint64_t> used;
         auto fresh = [&](int K) { auto m = random_primes(K, 62, rng, used); for (auto x : m) used.insert(x); return m; };
         int K = 2;
@@ -303,6 +308,15 @@ std::pair<BRun<typename B::Clear>, Certificate> certify(const B& be, const Certi
     std::sort(ord.begin(), ord.end(), [&](size_t a, size_t b) { return std::max(cert.values[a].num.bits(), cert.values[a].den.bits()) < std::max(cert.values[b].num.bits(), cert.values[b].den.bits()); });
     std::vector<BigInt> known;                            // primes found so far (any size)
     std::vector<std::pair<BigInt, int>> hard;             // composite cofactors rho could not split, with degree
+    // A number may turn up in several degrees; it must always keep the EARLIEST one, since a rerun modulo
+    // its primes starts there and would miss changes in any earlier degree.
+    auto add_pair = [](std::vector<std::pair<BigInt, int>>& L, const BigInt& b, int k) {
+        for (auto& c : L) if (c.first == b) { c.second = std::min(c.second, k); return; }
+        L.push_back({b, k});
+    };
+    auto add_small = [&](uint64_t p, int k) {
+        auto it = cert.candidates.find(p); if (it == cert.candidates.end() || it->second > k) cert.candidates[p] = k;
+    };
     for (size_t idx : ord) {
         auto& v = cert.values[idx];
         std::map<uint64_t, int> pr; std::vector<BigInt> bp, unres;
@@ -312,7 +326,7 @@ std::pair<BRun<typename B::Clear>, Certificate> certify(const B& be, const Certi
         }
         for (auto& kv : pr) known.push_back(BigInt::from_u64(kv.first));
         for (auto& b : bp) known.push_back(b);
-        for (auto& u : unres) hard.push_back({u, v.k});
+        for (auto& u : unres) add_pair(hard, u, v.k);
         // record the primes of this value (including known ones dividing it)
         for (auto& p : known) {
             bool divides = false;
@@ -325,38 +339,36 @@ std::pair<BRun<typename B::Clear>, Certificate> certify(const B& be, const Certi
             if (kv.first >= (1ULL << 63)) { bp.push_back(BigInt::from_u64(kv.first)); continue; }
             auto it = cert.candidates.find(kv.first); if (it == cert.candidates.end() || it->second > v.k) cert.candidates[kv.first] = v.k;
         }
-        for (auto& b : bp) {
-            bool found = false;
-            for (auto& c : cert.big_candidates) if (c.first == b) { c.second = std::min(c.second, v.k); found = true; }
-            if (!found) cert.big_candidates.push_back({b, v.k});
-        }
+        for (auto& b : bp) add_pair(cert.big_candidates, b, v.k);
     }
-    {   // pairwise gcds between hard composites, and against all known primes again, until nothing splits
+    {   // pairwise gcds between hard composites, until nothing splits. Equal composites were merged above
+        // (keeping the earliest degree); a composite dividing another splits the larger one.
         bool progress = true;
         while (progress && !hard.empty()) {
             progress = false;
             for (size_t i = 0; i < hard.size() && !progress; ++i)
                 for (size_t j = i + 1; j < hard.size() && !progress; ++j) {
                     BigInt g = gcd(hard[i].first, hard[j].first);
-                    if (g == BigInt(1) || g == hard[i].first) continue;
-                    int k = std::min(hard[i].second, hard[j].second);
-                    BigInt a = hard[i].first, b = hard[j].first;
+                    if (g == BigInt(1) || (g == hard[i].first && g == hard[j].first)) continue;
+                    BigInt a = hard[i].first, b = hard[j].first; int ka = hard[i].second, kb = hard[j].second;
                     hard.erase(hard.begin() + j); hard.erase(hard.begin() + i);
-                    for (BigInt part : {g, a / g, b / g}) {
+                    // g divides both, so it inherits the earlier degree; each cofactor keeps its own
+                    for (auto pk : {std::make_pair(g, std::min(ka, kb)), std::make_pair(a / g, ka), std::make_pair(b / g, kb)}) {
+                        const BigInt& part = pk.first; int k = pk.second;
                         if (part == BigInt(1)) continue;
                         std::map<uint64_t, int> pr; std::vector<BigInt> bp, unres;
                         factor_big(part, pr, unres, bp);
-                        for (auto& kv : pr) if (kv.first < (1ULL << 63)) { auto it = cert.candidates.find(kv.first); if (it == cert.candidates.end() || it->second > k) cert.candidates[kv.first] = k; }
-                        else bp.push_back(BigInt::from_u64(kv.first));
-                        for (auto& bb : bp) { bool f2 = false; for (auto& c : cert.big_candidates) if (c.first == bb) f2 = true; if (!f2) cert.big_candidates.push_back({bb, k}); }
-                        for (auto& u : unres) hard.push_back({u, k});
+                        for (auto& kv : pr) { if (kv.first < (1ULL << 63)) add_small(kv.first, k); else bp.push_back(BigInt::from_u64(kv.first)); }
+                        for (auto& bb : bp) add_pair(cert.big_candidates, bb, k);
+                        for (auto& u : unres) add_pair(hard, u, k);
                     }
                     progress = true;
                 }
         }
         for (auto& h : hard) {                         // unsplit composites: classified as groups below
-            bool dup = false; for (auto& c : cert.big_candidates) if (c.first == h.first) dup = true;
-            if (!dup) { cert.big_candidates.push_back(h); cert.groups.push_back(h.first); }
+            add_pair(cert.big_candidates, h.first, h.second);
+            bool dup = false; for (auto& g : cert.groups) if (g == h.first) dup = true;
+            if (!dup) cert.groups.push_back(h.first);
         }
     }
     auto t2 = now();
@@ -371,12 +383,12 @@ std::pair<BRun<typename B::Clear>, Certificate> certify(const B& be, const Certi
             auto job = queue.back(); queue.pop_back();
             const BigInt& N = job.first; int k0 = job.second;
             if (N.fits_u64() && N.to_u64() < (1ULL << 63) && is_prime64(N.to_u64())) {
-                auto it = cert.candidates.find(N.to_u64()); if (it == cert.candidates.end() || it->second > k0) cert.candidates[N.to_u64()] = k0;
+                add_small(N.to_u64(), k0);
                 continue;
             }
             if (N.fits_u64() && N.to_u64() < (1ULL << 63)) {        // a small composite: factor it outright
                 std::map<uint64_t, int> f; factor64(N.to_u64(), f);
-                for (auto& kv : f) { auto it = cert.candidates.find(kv.first); if (it == cert.candidates.end() || it->second > k0) cert.candidates[kv.first] = k0; }
+                for (auto& kv : f) add_small(kv.first, k0);
                 continue;
             }
             BRun<Clear> r; BigInt g;
@@ -384,10 +396,8 @@ std::pair<BRun<typename B::Clear>, Certificate> certify(const B& be, const Certi
                 BigInt h = N / g;
                 bool grp = is_group(N) || !is_probable_prime(N);
                 for (BigInt part : {g, h}) {
-                    bool dup = false; for (auto& x : queue) if (x.first == part) dup = true;
-                    if (dup) continue;
-                    queue.push_back({part, k0});
-                    if (grp && !is_probable_prime(part)) cert.groups.push_back(part);
+                    add_pair(queue, part, k0);
+                    if (grp && !is_probable_prime(part) && !is_group(part)) cert.groups.push_back(part);
                 }
                 continue;
             }

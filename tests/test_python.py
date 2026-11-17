@@ -86,11 +86,16 @@ def read_cells(path):
         d, b = int(tok[0]), float(tok[1]); rest = list(map(int, tok[2:]))
         cells.append((d, b, list(zip(rest[::2], rest[1::2]))))
     return cells
-for f in ("crt_alias_0.cells", "crt_alias_1.cells", "crt_group.cells", "crt_group_split.cells"):
+for f in ("crt_alias_0.cells", "crt_alias_1.cells", "crt_group.cells", "crt_group_split.cells", "crt_group_degree.cells", "crt_shared_degree.cells"):
     cells = read_cells(os.path.join(FIX, f))
     for mode in ("auto", "fast", "proved"):
         r = perseus.cells(cells, mode=mode, seed=1)
         compare(f"cells {f} {mode}", r, ["cells", os.path.join(FIX, f), "--seed", "1"], mode)
+        r2 = perseus.cells(cells, mode=mode)
+        _, j = cli(["cells", os.path.join(FIX, f), "--mode", mode])
+        mine = sorted((p, d["every_prime_factor_of"], d["first_degree"]) for p, d in r2["certificate"]["bad_primes"].items())
+        theirs = sorted((int(x["p"]), bool(x.get("every_prime_factor_of")), x["first_degree"]) for x in j["bad_primes"])
+        check(f"cells {f} {mode} keys, groups and degrees as on the command line", mine == theirs and 0 not in r2["certificate"]["bad_primes"], f"{mine} vs {theirs}")
 r = perseus.cells(read_cells(os.path.join(FIX, "crt_alias_1.cells")))
 big = [p for p, d in r["certificate"]["bad_primes"].items() if d["probable_prime"]]
 check("cells: 98-bit bad prime reported", big == [294719631262177595678027596519], big)
@@ -98,7 +103,13 @@ r = perseus.cells(read_cells(os.path.join(FIX, "crt_group.cells")))
 g = [p for p, d in r["certificate"]["bad_primes"].items() if d["every_prime_factor_of"]]
 check("cells: group entry", g == [36028797018976327 * 1152921504606848017], g)
 r = perseus.cells(read_cells(os.path.join(FIX, "crt_alias_1.cells")), mode="fast", seed=3)
-check("fast mode reports a bound and the seed", r["certificate"]["log2_error_bound"] < -64 and r["certificate"]["seed"] == 3)
+c = r["certificate"]
+check("fast mode with a supplied seed: bound and seed reported, not certified", c["log2_error_bound"] < -64 and int(c["seed"], 16) == 3
+      and c["seed_supplied"] and not c["barcode_certified"] and not c["complete"])
+r = perseus.cells(read_cells(os.path.join(FIX, "crt_alias_1.cells")), mode="fast"); c = r["certificate"]
+check("fast mode, fresh seed: certified", c["barcode_certified"] and c["complete"] and len(c["seed"]) == 64 and not c["seed_supplied"])
+r2 = perseus.cells(read_cells(os.path.join(FIX, "crt_alias_1.cells")), mode="fast", seed=c["seed"])
+check("fast mode: the reported seed reproduces the run", r2["certificate"]["moduli"] == c["moduli"])
 r = perseus.cells([(0, 0.0, []), (1, 1.0, []), (2, 2.0, [(1, 12)])])
 check("Moore space M(Z/12,1): bad primes [2, 3]", perseus.bad_primes(r) == [2, 3], perseus.bad_primes(r))
 

@@ -30,6 +30,12 @@ inline double enclosing_radius_any(const RipsInput& R) {
 }
 
 // all edges of length <= thr (each once, a > b)
+// the grid route needs every coordinate finite and |x| / thr <= 2^40 (see radius_edges)
+inline bool grid_safe(const RipsInput& R, double thr) {
+    const double lim = std::ldexp(thr, 40);
+    for (double x : R.pts) if (!std::isfinite(x) || std::fabs(x) > lim) return false;
+    return true;
+}
 inline std::vector<WEdge> radius_edges(const RipsInput& R, double thr) {
     std::vector<WEdge> out;
     const int n = R.n;
@@ -43,12 +49,14 @@ inline std::vector<WEdge> radius_edges(const RipsInput& R, double thr) {
             auto it = best.find(key); if (it == best.end()) best.emplace(key, w); else it->second = std::min(it->second, w);
         }
         for (auto& kv : best) out.push_back({(int)(kv.first / n), (int)(kv.first % n), kv.second});
-    } else if (R.lower.empty() && R.pdim > 0 && R.pdim <= 6 && std::isfinite(thr) && thr > 0) {
-        // uniform grid of cell size thr: neighbours lie in the 3^d surrounding cells
+    } else if (R.lower.empty() && R.pdim > 0 && R.pdim <= 6 && std::isfinite(thr) && thr > 0 && grid_safe(R, thr)) {
+        // Uniform grid: neighbours lie in the 3^d surrounding cells. Cells are floor(x / w) with w slightly
+        // above thr and |x / w| <= 2^40 (checked by grid_safe), so the rounding of x / w (relative 2^-53, so
+        // absolute at most 2^-13) cannot push two coordinates within thr of each other two cells apart; no
+        // shift by a minimum, whose subtraction would round when coordinates differ greatly in size.
         const int d = R.pdim;
-        std::vector<double> lo(d, std::numeric_limits<double>::infinity());
-        for (int i = 0; i < n; ++i) for (int k = 0; k < d; ++k) lo[k] = std::min(lo[k], R.pts[(size_t)i * d + k]);
-        auto cell = [&](int i, int k) { return (int64_t)std::floor((R.pts[(size_t)i * d + k] - lo[k]) / thr); };
+        const double w = thr * (1 + 1.0 / 1024);
+        auto cell = [&](int i, int k) { return (int64_t)std::floor(R.pts[(size_t)i * d + k] / w); };
         auto hkey = [&](const int64_t* c) { uint64_t h = 1469598103934665603ULL; for (int k = 0; k < d; ++k) { h ^= (uint64_t)c[k] + 0x9e3779b97f4a7c15ULL + (h << 6) + (h >> 2); } return h; };
         std::unordered_map<uint64_t, std::vector<int>> grid; grid.reserve(n * 2);
         std::vector<int64_t> c(d), cc(d);
@@ -73,6 +81,49 @@ inline std::vector<WEdge> radius_edges(const RipsInput& R, double thr) {
         for (int a = 1; a < n; ++a) for (int b = 0; b < a; ++b) { double w = R.dist(a, b); if (std::isfinite(w) && w <= thr) out.push_back({a, b, w}); }
     }
     return out;
+}
+
+// Whether the automatic engine choice should build the flag complex explicitly. The explicit route costs
+// roughly 1.5 us per simplex, the implicit one roughly 30 ns per entry of the n x n distance table, so the
+// explicit route is taken only for n >= 2048, average degree <= 64 and at most n^2 / 50 simplices up to
+// dimension skel. Simplices are counted (not stored) and the count stops at the budget. On return E holds
+// the radius graph when it was built.
+inline bool prefer_sparse(const RipsInput& R, std::vector<WEdge>& E, int skel) {
+    const int n = R.n;
+    if (n < 2048) return false;
+    E = radius_edges(R, R.threshold);
+    if ((double)E.size() > 32.0 * n) return false;
+    const double budget = (double)n * n / 50;
+    std::vector<std::vector<int>> up(n);
+    for (auto& e : E) up[std::min(e.a, e.b)].push_back(std::max(e.a, e.b));
+    for (auto& v : up) std::sort(v.begin(), v.end());
+    double count = n + (double)E.size();
+    if (count > budget) return false;
+    // cliques of size >= 3: extend each clique by common later neighbours
+    std::vector<std::vector<int>> cand(skel + 2);
+    auto rec = [&](auto&& self, int depth) -> bool {          // cand[depth]: common neighbours of the clique
+        if (depth >= skel) return true;                       // clique of size depth + 1 = dimension depth
+        for (int w : cand[depth]) {
+            auto& nxt = cand[depth + 1]; nxt.clear();
+            const auto& uw = up[w];
+            std::set_intersection(cand[depth].begin(), cand[depth].end(), uw.begin(), uw.end(), std::back_inserter(nxt));
+            count += (double)nxt.size();
+            if (count > budget) return false;
+            if (!nxt.empty() && !self(self, depth + 1)) return false;
+        }
+        return true;
+    };
+    for (int v = 0; v < n; ++v) {
+        if (skel < 2) break;
+        for (int w : up[v]) {                                 // edge v-w: triangles through common later neighbours
+            auto& c2 = cand[2]; c2.clear();
+            std::set_intersection(up[v].begin(), up[v].end(), up[w].begin(), up[w].end(), std::back_inserter(c2));
+            count += (double)c2.size();
+            if (count > budget) return false;
+            if (!c2.empty() && !rec(rec, 2)) return false;
+        }
+    }
+    return true;
 }
 
 // the flag complex of a weighted graph up to dimension skel (simplex value = max of its edge values and

@@ -32,13 +32,16 @@ struct SolveOpts {
     bool classify = true;
     int threads = 0;
     std::vector<uint64_t> fp;
-    uint64_t seed = 0;
+    std::string seed;
     double target = 64;
 };
 static SolveOpts make_opts(py::object coeff, bool classify, int threads, std::vector<uint64_t> fp, std::string mode, py::object seed, double target) {
     SolveOpts o; o.coeff = py::str(coeff).cast<std::string>(); o.classify = classify; o.threads = threads; o.fp = std::move(fp);
     if (mode != "auto" && mode != "fast" && mode != "proved") throw std::invalid_argument("mode must be 'auto', 'fast' or 'proved'");
-    o.mode = mode; o.seed = seed.is_none() ? 0 : seed.cast<uint64_t>(); o.target = target;
+    o.mode = mode; if (seed.is_none()) o.seed.clear();
+    else if (py::isinstance<py::int_>(seed)) o.seed = py::str(py::module_::import("builtins").attr("format")(seed, "x")).cast<std::string>();
+    else o.seed = seed.cast<std::string>();
+    if (!o.seed.empty()) parse_seed(o.seed); o.target = target;
     return o;
 }
 
@@ -56,15 +59,15 @@ static py::dict solve(const B& be, const SolveOpts& o) {
         res["barcode"] = bars_to_py(r.first.bars);
         py::dict cert;
         cert["mode"] = c.mode;
-        cert["barcode_certified"] = c.barcode_ok;
+        cert["barcode_certified"] = c.certified();
         if (!c.note.empty()) cert["note"] = c.note;
         if (c.mode == "fast") {
             cert["log2_error_bound"] = std::isinf(c.log2_error) ? py::object(py::none()) : py::object(py::float_(c.log2_error));
-            cert["seed"] = py::int_(c.seed); cert["lanes"] = c.lanes; cert["retries"] = c.retries;
+            cert["seed"] = c.seed; cert["seed_supplied"] = c.seed_user; cert["lanes"] = c.lanes; cert["retries"] = c.retries;
             py::list mods; for (auto m : c.moduli) mods.append(py::int_(m)); cert["moduli"] = mods;
         }
         if (c.mode == "proved") cert["arithmetic"] = c.arithmetic;
-        cert["bad_primes_status"] = !c.candidates_complete() ? "incomplete" : (c.classified ? "complete" : "candidates only");
+        cert["bad_primes_status"] = c.seed_user && c.barcode_ok ? "conditional on the supplied seed" : !c.candidates_complete() ? "incomplete" : (c.classified ? "complete" : "candidates only");
         cert["complete"] = c.complete();
         py::list vals;
         py::object Fraction = py::module_::import("fractions").attr("Fraction");
@@ -111,14 +114,14 @@ static py::dict solve(const B& be, const SolveOpts& o) {
 }
 
 // the same route choice as the command line: the sparse flag complex for vertex births, for
-// engine="sparse", or automatically for n >= 2048 with average degree <= 64; otherwise the implicit
+// engine="sparse", or automatically when prefer_sparse says the flag complex is small; otherwise the implicit
 // Rips engine, edge-collapsed for maxdim >= 2
 static py::dict solve_rips(RipsInput& R, int maxdim, const std::string& engine, const std::string& collapse, const SolveOpts& o) {
     if (engine != "auto" && engine != "implicit" && engine != "sparse") throw std::invalid_argument("engine must be 'auto', 'implicit' or 'sparse'");
     if (!std::isfinite(R.threshold)) R.threshold = enclosing_radius_any(R);
     std::vector<WEdge> E;
     bool sparse = engine == "sparse" || !R.vertex_birth.empty();
-    if (!sparse && engine == "auto" && R.n >= 2048) { E = radius_edges(R, R.threshold); sparse = (double)E.size() <= 32.0 * R.n; }
+    if (!sparse && engine == "auto") sparse = prefer_sparse(R, E, maxdim + 1);
     if (sparse) {
         if (E.empty()) E = radius_edges(R, R.threshold);
         FilteredComplex C = flag_complex(R.n, E, R.vertex_birth, maxdim + 1);

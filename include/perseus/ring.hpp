@@ -28,6 +28,10 @@
 #include <stdexcept>
 #include <random>
 #include <set>
+#include <array>
+#include <string>
+#include <cstdio>
+#include <stdexcept>
 #include <cmath>
 #include "types.hpp"
 
@@ -234,12 +238,66 @@ inline std::vector<uint64_t> big_primes(int count, int offset = 0) {
 }
 
 // K distinct primes drawn uniformly at random from [2^(b-1), 2^b), b <= 62, excluding `avoid`
-inline std::vector<uint64_t> random_primes(int K, int b, std::mt19937_64& rng, const std::set<uint64_t>& avoid = {}) {
-    std::uniform_int_distribution<uint64_t> U((1ULL << (b - 1)), (1ULL << b) - 1);
+// ChaCha20 (RFC 8439) as a stream of 64-bit words, keyed by a 256-bit seed. Fast mode draws its primes
+// from this stream, so the error bound rests on the seed being random and on ChaCha20 being a secure
+// generator, not on the statistical quality of a non-cryptographic generator.
+struct ChaCha20 {
+    using result_type = uint64_t;
+    uint32_t key[8], ctr = 0; uint32_t buf[16]; int pos = 16;
+    static constexpr result_type min() { return 0; }
+    static constexpr result_type max() { return ~0ULL; }
+    explicit ChaCha20(const std::array<uint64_t, 4>& seed) {
+        for (int i = 0; i < 4; ++i) { key[2 * i] = (uint32_t)seed[i]; key[2 * i + 1] = (uint32_t)(seed[i] >> 32); }
+    }
+    static uint32_t rotl(uint32_t x, int r) { return (x << r) | (x >> (32 - r)); }
+    static void qr(uint32_t& a, uint32_t& b, uint32_t& c, uint32_t& d) {
+        a += b; d ^= a; d = rotl(d, 16); c += d; b ^= c; b = rotl(b, 12);
+        a += b; d ^= a; d = rotl(d, 8);  c += d; b ^= c; b = rotl(b, 7);
+    }
+    static void block(const uint32_t key[8], uint32_t counter, const uint32_t nonce[3], uint32_t out[16]) {
+        uint32_t x[16] = {0x61707865, 0x3320646e, 0x79622d32, 0x6b206574,
+                          key[0], key[1], key[2], key[3], key[4], key[5], key[6], key[7], counter, nonce[0], nonce[1], nonce[2]};
+        uint32_t s0[16]; for (int i = 0; i < 16; ++i) s0[i] = x[i];
+        for (int i = 0; i < 10; ++i) {
+            qr(x[0], x[4], x[8], x[12]); qr(x[1], x[5], x[9], x[13]); qr(x[2], x[6], x[10], x[14]); qr(x[3], x[7], x[11], x[15]);
+            qr(x[0], x[5], x[10], x[15]); qr(x[1], x[6], x[11], x[12]); qr(x[2], x[7], x[8], x[13]); qr(x[3], x[4], x[9], x[14]);
+        }
+        for (int i = 0; i < 16; ++i) out[i] = x[i] + s0[i];
+    }
+    result_type operator()() {
+        if (pos >= 16) { const uint32_t nonce[3] = {0, 0, 0}; block(key, ctr++, nonce, buf); pos = 0; }
+        uint64_t v = (uint64_t)buf[pos] | ((uint64_t)buf[pos + 1] << 32); pos += 2; return v;
+    }
+};
+// 256-bit seeds, written as 64 hex digits (shorter strings are read as numbers and zero-padded)
+inline std::string seed_hex(const std::array<uint64_t, 4>& s) {
+    char b[65]; snprintf(b, sizeof b, "%016llx%016llx%016llx%016llx", (unsigned long long)s[3], (unsigned long long)s[2], (unsigned long long)s[1], (unsigned long long)s[0]);
+    return b;
+}
+inline std::array<uint64_t, 4> parse_seed(const std::string& h) {
+    std::string t = h; if (t.size() > 2 && t[0] == '0' && (t[1] == 'x' || t[1] == 'X')) t = t.substr(2);
+    if (t.empty() || t.size() > 64) throw std::runtime_error("--seed: expected 1 to 64 hex digits");
+    std::array<uint64_t, 4> s{0, 0, 0, 0};
+    for (char c : t) {
+        int d = (c >= '0' && c <= '9') ? c - '0' : (c >= 'a' && c <= 'f') ? c - 'a' + 10 : (c >= 'A' && c <= 'F') ? c - 'A' + 10 : -1;
+        if (d < 0) throw std::runtime_error("--seed: expected 1 to 64 hex digits");
+        for (int i = 3; i > 0; --i) s[i] = (s[i] << 4) | (s[i - 1] >> 60);
+        s[0] = (s[0] << 4) | (uint64_t)d;
+    }
+    return s;
+}
+inline std::array<uint64_t, 4> fresh_seed() {
+    std::random_device rd; std::array<uint64_t, 4> s;
+    for (auto& w : s) w = ((uint64_t)rd() << 32) | (uint64_t)rd();
+    return s;
+}
+template <class RNG>
+inline std::vector<uint64_t> random_primes(int K, int b, RNG& rng, const std::set<uint64_t>& avoid = {}) {
+    const uint64_t lo = 1ULL << (b - 1), mask = lo - 1;
     std::set<uint64_t> got; std::vector<uint64_t> out;
     while ((int)out.size() < K) {
-        uint64_t x = U(rng) | 1;                   // a uniform odd number, then rejection: uniform over primes
-        if (x >= (1ULL << b) || !is_prime64(x) || got.count(x) || avoid.count(x)) continue;
+        uint64_t x = (lo | (rng() & mask)) | 1;   // a uniform odd number in [2^(b-1), 2^b), then rejection: uniform over primes
+        if (!is_prime64(x) || got.count(x) || avoid.count(x)) continue;
         got.insert(x); out.push_back(x);
     }
     return out;

@@ -50,7 +50,7 @@ For example, 1024 random points of SO(3) ≅ RP³ (`bench/o3_1024`, H≤3, thres
 
 Run the reduction over Q and look at the pivots. If a prime p divides no numerator and no denominator of a pivot value, then the same run reduced mod p is a valid F_p reduction with the same pivots. So the F_p barcode equals the Q barcode, and the bad primes are among the prime factors of the pivot values. Pivot values are invariants of the filtered matrix (ratios of minors), whichever reduction computes them. Perseus 6:
 
-1. **Reduces over Q.** By default (`--mode auto`) it tries exact int64 arithmetic first. If that suffices, the barcode and pivots are exact. Otherwise it reduces modulo K random primes from [2^61, 2^62) and reports a bound on the probability of error that holds for every input (default below 2^-64; `--target`, `--seed`). `--mode proved` uses exact arithmetic throughout, with bigints where int64 overflows. `--mode fast` always uses random primes.
+1. **Reduces over Q.** By default (`--mode auto`) it tries exact int64 arithmetic first. If that suffices, the barcode and pivots are exact. Otherwise it reduces modulo K random primes from [2^61, 2^62) and reports a bound on the probability of error that holds for every input (default below 2^-64; `--target`). The bound is over a fresh 256-bit seed; `--seed` reproduces a run but does not certify it. `--mode proved` uses exact arithmetic throughout, with bigints where int64 overflows. `--mode fast` always uses random primes.
 2. **Reconstructs** non-unit pivot values in fast mode, by Wang reconstruction checked against two independent primes.
 3. **Factors** the pivot values: trial division, division by primes already found, Pollard–Brent rho, and gcds between leftovers. Large primes and unsplit composites N are not factored further.
 4. **Settles every candidate.** Primes below 2^63 are settled by reruns over F_p, in parallel. Each remaining N is settled by one run modulo N. Either the run splits N, or every prime factor of N gives the same barcode. Then the certificate states the answer for all of them at once, e.g. "every prime factor of N is bad", without knowing the factors.
@@ -80,7 +80,7 @@ The output states what is guaranteed about the barcode (`proved`, or `probabilis
 * `prefix_betti.txt`: Betti numbers at every time they change.
 * `prefix_cert.json` (Q mode). Fields:
   * `barcode`
-  * `mode` (`proved` or `fast`) and `guarantee` (`barcode_certified`, and in fast mode `log2_error_bound`, `seed`, `moduli`)
+  * `mode` (`proved` or `fast`) and `guarantee` (`barcode_certified`, and in fast mode `log2_error_bound`, `seed`, `seed_supplied`, `moduli`)
   * `bad_primes_status` (`complete`, `candidates only`, `incomplete`) and `complete`
   * `nonunit_pivots` (degree, birth, death, exact value)
   * `candidates`
@@ -121,7 +121,7 @@ H0 uses union-find whenever every 1-cell has boundary ±(v − w).
 
 **Cubical grids** (`cubical`, `npy`): an implicit engine. It stores one birth and one rank per cell of the doubled grid and generates coboundaries on the fly. H0 is union-find. Degree d−1 is union-find on the dual graph: every (d−1)-cell has at most two cofaces, so δ^(d−1) is an incidence matrix and all its pivots are ±1. The degrees in between are cohomology with clearing. `--engine explicit` builds the complex instead.
 
-**Sparse Rips / flag** (`--engine sparse`; automatic for n ≥ 2048 with average degree at most 64 at the threshold): the radius graph is built directly, with a grid for low-dimensional point clouds, and the flag complex is enumerated from adjacency lists. Memory is linear in the number of simplices. Example: 8,000 points in the unit cube with 13,056 edges at r = 0.047 take 0.04 s and 13 MB through H2. The dense engine needs 0.7 s and 750 MB for the same input.
+**Sparse Rips / flag** (`--engine sparse`; automatic when the flag complex is small next to n²: n ≥ 2048, average degree at most 64 at the threshold, and at most n²/50 simplices, counted before anything is built): the radius graph is built directly, with a grid for low-dimensional point clouds, and the flag complex is enumerated from adjacency lists. Memory is linear in the number of simplices. Example: 8,000 points in the unit cube with 13,056 edges at r = 0.047 take 0.04 s and 13 MB through H2. The dense engine needs 0.7 s and 750 MB for the same input.
 
 **Vietoris–Rips** (dense): the complex is never built. For maxdim ≥ 2 it is first edge-collapsed (`--collapse auto|on|full|off`), then one of two engines runs:
 

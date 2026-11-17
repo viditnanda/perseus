@@ -39,7 +39,17 @@ denominators, with every operation overflow-checked. A degree that overflows is 
 precision. The barcode and the pivot values are exact, so Lemma 2 applies as stated.
 
 **fast** (`--mode fast`). The reduction is carried modulo K primes drawn uniformly at random from
-[2^61, 2^62). The primes are distinct, the seed is reported, and `--seed` reproduces a run.
+[2^61, 2^62). The primes are distinct. They come from ChaCha20 keyed by a fresh 256-bit seed from the
+operating system's random source (`std::random_device`), and the seed is reported.
+
+*Seeds.* The bound below is a probability over the seed, for a seed drawn after the input is fixed. It says
+nothing about a seed chosen beforehand: for any given seed one can build an input that fools it. So
+`--seed` reproduces a run (same primes, same answer) but does not certify it. Such runs report
+`"barcode_certified": false`, `"seed_supplied": true`, `"complete": false`, and bad primes "conditional on
+the supplied seed". The seed has 256 bits, so the seed space itself contributes at most 2^-256, and the
+analysis treats ChaCha20's output as uniform, the standard assumption for a cryptographic generator.
+Perseus 6.0's first build took 64-bit seeds into a non-cryptographic generator and certified runs with a
+supplied seed; with a fixed seed an input can be built to defeat it.
 
 *Faithfulness.* Each lane computes the Q reduction mod its prime, up to the first Q-pivot that the prime
 divides: until then it drops exactly the entries that vanish mod p, and those additions are no-ops mod p.
@@ -57,8 +67,9 @@ rigorous lower bound from Dusart's estimates for π(x). Therefore
 
     Pr[wrong barcode or wrong candidate set] ≤ Σ_k 3 P_k (m_k / N)^K  +  Σ_reconstructed (m'/N)^2,
 
-with P_k at most the number of pairs in degree k. The bound holds for every input; there is no assumption
-about where the input came from. Perseus adds lanes until it is below 2^-64 (`--target`) and reports it.
+with P_k at most the number of pairs in degree k, the probability being over the fresh seed. The bound
+holds for every input; there is no assumption about where the input came from. Perseus adds lanes until it
+is below 2^-64 (`--target`) and reports it.
 
 *Reconstruction.* A non-unit pivot is reconstructed by Wang's method from all lanes but two. It is accepted
 only if it agrees with those two independent lanes. Degrees holding non-unit pivots are rerun with more
@@ -70,7 +81,13 @@ the result is a proof and costs about as much as the multi-modular run. When it 
 
 ## 3. Classifying candidates
 
-Candidates below 2^63 are settled by reruns over F_p, in parallel.
+Candidates below 2^63 are settled by reruns over F_p, in parallel. Every candidate is rerun from the first
+degree k0 in which it divides a pivot, reusing the Q run's clearing data below k0. This is valid by Lemma 2:
+the prime divides no pivot in degrees below k0, so the F_p run agrees with the Q run there. It is essential
+that k0 be the *first* such degree. A number that turns up in several degrees (say 3N in degree 1 and N in
+degree 2) keeps the earliest. A rerun from a later degree would miss every change below it. The first build
+of Perseus 6.0 could keep the later degree for a composite cofactor and miss its primes entirely when the
+later degree showed no change.
 
 Pivot values are factored by trial division, then by dividing out primes already found from other pivots,
 then by Pollard–Brent rho with batched gcds, then by gcds between the leftover cofactors. Large primes and

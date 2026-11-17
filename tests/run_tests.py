@@ -350,11 +350,30 @@ def section_F():
         _, j = perseus_json(["cells", os.path.join(FIX, "crt_group.cells"), "--mode", mode])
         g = [b for b in j["bad_primes"] if b.get("every_prime_factor_of")]
         check(f"F crt_group {mode}: one group entry for p*q", len(g) == 1 and int(g[0]["p"]) == 36028797018976327 * 1152921504606848017, f"{j['bad_primes']}")
-    # fast mode with fixed seeds reproduces; different seeds give the same answer
+    # a composite cofactor N appears in degree 1 (inside 3N) and again in degree 2, where it changes no bar
+    # of positive length: N must keep its earliest degree, or its primes are missed
+    N1 = 2305843009213706309 * 2305843010201348287; N2 = 2306033382932562277 * 2306753820319319929
+    for f, expect in (("crt_group_degree.cells", [(3, False), (N1, True)]), ("crt_shared_degree.cells", [(2, False), (3, False), (N2, True)])):
+        for mode in ("auto", "fast", "proved"):
+            _, j = perseus_json(["cells", os.path.join(FIX, f), "--mode", mode])
+            got = sorted((int(b["p"]), bool(b.get("every_prime_factor_of"))) for b in j["bad_primes"])
+            check(f"F {f} {mode} bad primes", got == sorted(expect) and j["complete"], f"{got}")
+            check(f"F {f} {mode} groups from degree 1", all(b["first_degree"] == 1 for b in j["bad_primes"]), f"{j['bad_primes']}")
+    # fast mode: a fresh run draws a 256-bit seed and certifies; a supplied seed reproduces the run exactly
+    # but certifies nothing (the bound is a probability over a seed drawn after the input is fixed)
     a = perseus_json(["cells", os.path.join(FIX, "crt_alias_1.cells"), "--mode", "fast", "--seed", "1"])[1]
+    a2 = perseus_json(["cells", os.path.join(FIX, "crt_alias_1.cells"), "--mode", "fast", "--seed", "0x1"])[1]
     b = perseus_json(["cells", os.path.join(FIX, "crt_alias_1.cells"), "--mode", "fast", "--seed", "2"])[1]
-    check("F seeds: same answer", a["barcode"] == b["barcode"] and a["bad_primes"] == b["bad_primes"])
+    f1 = perseus_json(["cells", os.path.join(FIX, "crt_alias_1.cells"), "--mode", "fast"])[1]
+    check("F seeds: same answer", a["barcode"] == b["barcode"] == f1["barcode"] and a["bad_primes"] == b["bad_primes"] == f1["bad_primes"])
     check("F seeds: different primes", a["guarantee"]["moduli"] != b["guarantee"]["moduli"])
+    check("F seeds: a seed reproduces its run", a["guarantee"]["moduli"] == a2["guarantee"]["moduli"])
+    check("F seeds: supplied seed is not certified", not a["guarantee"]["barcode_certified"] and not a["complete"] and a["guarantee"]["seed_supplied"]
+          and a["bad_primes_status"].startswith("conditional"), f"{a['guarantee']} {a['complete']}")
+    check("F seeds: fresh seed is 256 bits and certifies", len(f1["guarantee"]["seed"]) == 64 and f1["guarantee"]["barcode_certified"] and f1["complete"]
+          and not f1["guarantee"]["seed_supplied"])
+    r = perseus_json(["cells", os.path.join(FIX, "crt_alias_1.cells"), "--mode", "fast", "--seed", f1["guarantee"]["seed"]])[1]
+    check("F seeds: the reported seed reproduces a fresh run", r["guarantee"]["moduli"] == f1["guarantee"]["moduli"])
 
 # ---------------------------------------------------------------- G. new engines vs explicit references
 def section_G(trials=60):
@@ -383,6 +402,15 @@ def section_G(trials=60):
             else:
                 a = perseus_field(args + ["--engine", "sparse"], p); b = perseus_field(args + ["--engine", "implicit"], p)
             check(f"G sparse rips n={n} d={dd} H<={md} {p} sparse == implicit", a == b, f"{dict(a-b)} {dict(b-a)}")
+    # the grid must not lose edges when coordinates differ hugely in size (cells of nearby points round apart)
+    for t, (big, near) in enumerate([(-2.0**55, (3, 5)), (2.0**60, (-1, 1.5)), (-2.0**45, (0.1, 2.9)), (1e30, (7, 9))]):
+        path = f"{TMP}/bigc{t}.txt"
+        with open(path, "w") as fh:
+            fh.write(f"{big!r} 0 0\n{near[0]} 0 0\n{near[1]} 0 0\n")
+            for i in range(20): fh.write(f"{near[0] + 0.137 * i} {0.01 * i} 0\n")
+        a = perseus_field(["points", path, "--threshold", "3", "--engine", "sparse"], 2)
+        b = perseus_field(["points", path, "--threshold", "3", "--engine", "implicit"], 2)
+        check(f"G sparse grid, large coordinates {big:g}", a == b, f"{dict(a-b)} {dict(b-a)}")
 
 if __name__ == "__main__":
     which = sys.argv[1:] or ["A", "B", "C", "D", "E", "F", "G"]

@@ -33,7 +33,9 @@ static const char* USAGE =
 "                   | proved (exact rational arithmetic, bigint where int64 overflows)\n"
 "  --proved         same as --mode proved\n"
 "  --target t       fast mode: use enough primes for an error bound below 2^-t (default 64)\n"
-"  --seed s         fast mode: seed for the random primes (default: fresh; reported)\n"
+"  --seed hex       fast mode: reproduce a run from its reported seed (up to 64 hex digits).\n"
+"                   A run with a supplied seed is not certified: the error bound is a probability\n"
+"                   over a seed drawn after the input is fixed (default: fresh 256-bit seed)\n"
 "  --fp p,q,...     also report the barcodes over these prime fields\n"
 "  --maxdim d       highest homological degree (Rips/flag default 1, otherwise the top dimension)\n"
 "  --threshold r    Rips/flag: ignore edges longer than r (default: enclosing radius)\n"
@@ -44,7 +46,8 @@ static const char* USAGE =
 "  --collapse c     Rips/flag: auto | on | full | off   iterated edge collapse (Boissonnat-Pritam,\n"
 "                   Glisse-Pritam); auto = on for maxdim >= 2 when it removes enough edges\n"
 "  --engine e       Rips/flag: auto | implicit | sparse (explicit flag complex from the radius graph;\n"
-"                   auto picks sparse for n >= 2048 with average degree <= 64)\n"
+"                   auto picks sparse when the flag complex is small next to n^2: n >= 2048,\n"
+"                   average degree <= 64, at most n^2/50 simplices)\n"
 "  --direction d    explicit complexes: auto | cohomology | homology | forward\n"
 "  --print fmt      ripser | perseus | json | none   (stdout; default ripser unless a prefix is given)\n"
 "  --stats          timing and engine statistics on stderr\n"
@@ -58,7 +61,7 @@ struct Opts {
     std::vector<int> periodic;
     int maxdim = -1, threads = 0;
     double threshold = -1, target = 64;
-    std::string mode = "auto"; uint64_t seed = 0;
+    std::string mode = "auto"; std::string seed;
     bool classify = true, zero = false, stats = false;
 };
 
@@ -80,6 +83,7 @@ static std::string guarantee_text(const Certificate& c) {
     if (c.mode == "planar") return "proved (planar complex: no torsion)";
     if (std::isinf(c.log2_error)) snprintf(b, sizeof b, "probabilistic, error probability 0 (no integer can have a 62-bit prime factor)");
     else snprintf(b, sizeof b, "probabilistic, error probability < 2^%.1f", std::ceil(c.log2_error * 10) / 10);
+    if (c.seed_user) return "NOT certified (reproduced from a supplied seed; a fresh seed would give " + std::string(b).substr(15) + ")";
     return std::string(b) + (c.note.empty() ? "" : " (" + c.note + ")");
 }
 static std::string json_cert(const Barcode& q, const Certificate& c, int coeff_q) {
@@ -87,10 +91,10 @@ static std::string json_cert(const Barcode& q, const Certificate& c, int coeff_q
     s += "  \"barcode\": " + json_bars(q) + ",\n";
     if (coeff_q) {
         s += "  \"mode\": \"" + c.mode + "\",\n";
-        s += "  \"guarantee\": {\"barcode_certified\": " + std::string(c.barcode_ok ? "true" : "false");
+        s += "  \"guarantee\": {\"barcode_certified\": " + std::string(c.certified() ? "true" : "false");
         if (c.mode == "fast") {
             char b[64]; snprintf(b, sizeof b, "%.2f", c.log2_error);
-            s += ", \"log2_error_bound\": " + (std::isinf(c.log2_error) ? std::string("null") : std::string(b)) + ", \"seed\": " + std::to_string(c.seed) +
+            s += ", \"log2_error_bound\": " + (std::isinf(c.log2_error) ? std::string("null") : std::string(b)) + ", \"seed\": \"" + c.seed + "\", \"seed_supplied\": " + (c.seed_user ? "true" : "false") +
                  ", \"lanes\": " + std::to_string(c.lanes) + ", \"retries\": " + std::to_string(c.retries) + ", \"moduli\": [";
             for (size_t i = 0; i < c.moduli.size(); ++i) s += (i ? "," : "") + std::to_string(c.moduli[i]);
             s += "]";
@@ -98,7 +102,7 @@ static std::string json_cert(const Barcode& q, const Certificate& c, int coeff_q
         if (c.mode == "proved") s += ", \"arithmetic\": \"" + c.arithmetic + "\"";
         if (!c.note.empty()) s += ", \"note\": \"" + c.note + "\"";
         s += "},\n";
-        s += "  \"bad_primes_status\": \"" + std::string(!c.candidates_complete() ? "incomplete" : (c.classified ? "complete" : "candidates only")) + "\",\n";
+        s += "  \"bad_primes_status\": \"" + std::string(c.seed_user && c.barcode_ok ? "conditional on the supplied seed" : !c.candidates_complete() ? "incomplete" : (c.classified ? "complete" : "candidates only")) + "\",\n";
     }
     s += "  \"complete\": " + std::string(c.complete() || !coeff_q ? "true" : "false") + ",\n";
     s += "  \"nonunit_pivots\": [";
@@ -160,6 +164,8 @@ static int solve(const B& be, const Opts& o) {
         fprintf(stderr, "Q barcode: %s\n", guarantee_text(cert).c_str());
         fprintf(stderr, "bad primes: ");
         if (!cert.barcode_ok) fprintf(stderr, "not determined");
+        else if (cert.seed_user) fprintf(stderr, "(conditional on the supplied seed) ");
+        if (!cert.barcode_ok) {}
         else if (!cert.classified) { fprintf(stderr, "not classified; candidates:"); for (auto& kv : cert.candidates) fprintf(stderr, " %llu", (unsigned long long)kv.first); for (auto& kv : cert.big_candidates) fprintf(stderr, " %s", kv.first.str().c_str()); if (cert.candidates.empty() && cert.big_candidates.empty()) fprintf(stderr, " none"); }
         else { if (cert.bad.empty()) fprintf(stderr, "none"); for (auto& b : cert.bad) fprintf(stderr, b.group ? "[every prime factor of %s] " : "%s ", b.str().c_str()); }
         fprintf(stderr, " (%zu non-unit pivots", cert.values.size());
@@ -197,7 +203,7 @@ int main(int argc, char** argv) {
         else if (a == "--mode") { o.mode = val(); if (o.mode != "auto" && o.mode != "fast" && o.mode != "proved") { fprintf(stderr, "--mode: auto, fast or proved\n"); return 1; } }
         else if (a == "--proved") o.mode = "proved";
         else if (a == "--target") o.target = std::stod(val());
-        else if (a == "--seed") o.seed = std::stoull(val());
+        else if (a == "--seed") { o.seed = val(); parse_seed(o.seed); }
         else if (a == "--zero-length") o.zero = true;
         else if (a == "--threads") o.threads = std::stoi(val());
         else if (a == "--engine") o.engine = val();
@@ -263,15 +269,12 @@ int main(int argc, char** argv) {
             int md = o.maxdim >= 0 ? o.maxdim : 1;
             if (!std::isfinite(R.threshold)) R.threshold = enclosing_radius_any(R);
             // sparse route: build the radius graph and the flag complex explicitly. Taken for vertex births,
-            // for --engine explicit|sparse, and automatically when the graph at the threshold is sparse
-            // (a large n and an average degree below 64), where the implicit engine's n x n tables do not pay.
+            // for --engine explicit|sparse, and automatically when the flag complex is small next to the
+            // implicit engine's n x n tables (see prefer_sparse).
             bool sparse_src = !R.dense();
             std::vector<WEdge> E;
             bool want_sparse = o.engine == "explicit" || o.engine == "sparse" || !R.vertex_birth.empty();
-            if (!want_sparse && o.engine == "auto" && R.n >= 2048) {
-                E = radius_edges(R, R.threshold);
-                want_sparse = (double)E.size() <= 32.0 * R.n;
-            }
+            if (!want_sparse && o.engine == "auto") want_sparse = prefer_sparse(R, E, md + 1);
             if (want_sparse) {
                 if (E.empty()) E = radius_edges(R, R.threshold);
                 lap("radius graph");
