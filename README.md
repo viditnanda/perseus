@@ -264,3 +264,7 @@ Vidit Nanda (Perseus, 2010–). Perseus 6 builds on ideas from:
 * *RedZeD*;
 * I. Obayashi and M. Yoshiwaki, field choice and torsion;
 * J.-D. Boissonnat and C. Maria, multi-field persistence and modular reconstruction.
+
+## Citing
+
+Vidit Nanda, *Perseus, the persistent homology software*, version 6.0.0, [doi:10.5281/zenodo.24305983](https://doi.org/10.5281/zenodo.24305983). GitHub's "Cite this repository" button gives the same from `CITATION.cff`.
