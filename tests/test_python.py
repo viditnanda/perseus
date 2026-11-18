@@ -131,6 +131,9 @@ for t in range(10):
         r = perseus.cubical(A, periodic=per, coeff=coeff)
         compare(f"cubical {shape} per={per} {coeff}", r, ["npy", path, "--coeff", str(coeff)] + pa)
     check(f"cubical {shape} implicit == explicit", py_bars(perseus.cubical(A, periodic=per)) == py_bars(perseus.cubical(A, periodic=per, engine="explicit")))
+    check(f"cubical {shape} classic engine == default", py_bars(perseus.cubical(A, periodic=per, engine="classic")) == py_bars(perseus.cubical(A, periodic=per)))
+    if 2 <= d <= 4 and not any(per):
+        check(f"cubical {shape} morse engine == explicit", py_bars(perseus.cubical(A, engine="morse")) == py_bars(perseus.cubical(A, engine="explicit")))
 
 # extra fields
 r = perseus.rips(points=rng.random((40, 2)), maxdim=1, coeff=2, fp=[3, 5])

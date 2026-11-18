@@ -73,7 +73,8 @@ public:
     std::vector<M128> facm, cofm;       // faces / cofaces of each cell as masks
     std::vector<int> off;               // off[i * d + a] in {-1, 0, 1}
     std::vector<int> posd;              // index of each cell among the cells of its dimension
-    mutable std::vector<int> m1, m2, ordv;   // scratch
+    M128 dmask[17];                     // the cells of each dimension
+    mutable std::vector<int> m1, m2, ordv, sq, sq2;   // scratch
     long long exact_calls = 0, imperfect = 0;
 
     explicit LocalCube(int d_) : d(d_) {
@@ -82,7 +83,7 @@ public:
         off.assign((size_t)n * d, 0); dim.assign(n, 0); faces.assign(n, {}); cofaces.assign(n, {});
         for (int i = 0; i < n; ++i) { int r = i; for (int a = 0; a < d; ++a) { off[i * d + a] = r % 3 - 1; r /= 3; if (off[i * d + a] == 0) ++dim[i]; } }
         center = (n - 1) / 2;
-        { int cnt[17] = {0}; posd.assign(n, 0); for (int i = 0; i < n; ++i) posd[i] = cnt[dim[i]]++; }
+        { int cnt[17] = {0}; posd.assign(n, 0); for (int i = 0; i < n; ++i) { posd[i] = cnt[dim[i]]++; dmask[dim[i]].set(i); } }
         int p3[16]; p3[0] = 1; for (int a = 1; a < d; ++a) p3[a] = 3 * p3[a - 1];
         for (int i = 0; i < n; ++i)
             for (int a = 0; a < d; ++a) if (off[i * d + a] == 0)
@@ -122,9 +123,10 @@ public:
 
     // greedy removal from the top (and, if coreduce, from the bottom), on bit masks; returns the mate array
     // (-1 critical, -2 not in L) and the number of critical cells
-    int greedy(const M128& A, bool coreduce, std::vector<int>& mate) const {
+    int greedy(const M128& A, bool coreduce, std::vector<int>& mate, std::vector<int>* seq = nullptr) const {
         M128 live; for (int i = 0; i < n; ++i) if (!A.test(i)) live.set(i);
         mate.assign(n, -2);
+        if (seq) seq->clear();
         for (int i = 0; i < n; ++i) if (live.test(i)) mate[i] = -1;
         auto cnt = [&](const M128& m) { return __builtin_popcountll(m.lo & live.lo) + __builtin_popcountll(m.hi & live.hi); };
         auto none = [&](const M128& m) { return !(m.lo & live.lo) && !(m.hi & live.hi); };
@@ -144,10 +146,10 @@ public:
                     if (!live.test(f) || !none(facm[f])) continue;
                     for (int c : cofaces[f]) if (live.test(c) && cnt(facm[c]) == 1) { pf = f; pc = c; break; }
                 }
-            if (pf >= 0) { mate[pf] = pc; mate[pc] = pf; live.clr(pf); live.clr(pc); continue; }
+            if (pf >= 0) { mate[pf] = pc; mate[pc] = pf; live.clr(pf); live.clr(pc); if (seq) { seq->push_back(pf); seq->push_back(pc); } continue; }
             int best = -1;                                            // stuck: a maximal cell of highest dimension
             for (int c = 0; c < n; ++c) if (live.test(c) && none(cofm[c]) && (best < 0 || dim[c] > dim[best])) best = c;
-            ++crit; live.clr(best);
+            ++crit; live.clr(best); if (seq) seq->push_back(best);
         }
         return crit;
     }
@@ -219,21 +221,34 @@ public:
         return true;
     }
 
-    // the block matching for the pattern A, appended to pool
+    // the block matching for the pattern A, appended to pool. A removal from the top lists every matched
+    // face just before its coface and every other incidence coface first, so its sequence is a topological
+    // order of the modified Hasse diagram. The greedy count is optimal when it equals |chi(L)|, a lower
+    // bound for sum rank H_*(cl tau, A); otherwise the rank decides and, if needed, an exact search.
     Pattern solve(const M128& A, std::vector<PCell>& pool) {
-        Pattern P; P.minimum = (uint8_t)minimum(A);
+        Pattern P;
         std::vector<int>& mate = m1; std::vector<int>& ord = ordv;
-        int crit = greedy(A, false, mate);
-        if (crit > P.minimum) { int c2 = greedy(A, true, m2); if (c2 < crit && order(A, m2, ord)) { crit = c2; mate.swap(m2); } }
-        if (crit > P.minimum) {
+        std::vector<int>& seq = sq;
+        int crit = greedy(A, false, mate, &seq);
+        int nl = (int)seq.size();
+        ord.assign(n, -1);
+        for (int t = 0; t < nl; ++t) ord[seq[t]] = nl - 1 - t;
+        int chi = 0;
+        for (int p = 0; p <= d; ++p) {
+            int c = __builtin_popcountll(dmask[p].lo & ~A.lo) + __builtin_popcountll(dmask[p].hi & ~A.hi);
+            chi += (p & 1) ? -c : c;
+        }
+        int mn = crit == std::abs(chi) ? crit : minimum(A);
+        P.minimum = (uint8_t)mn;
+        if (crit > mn) {
+            int c2 = greedy(A, true, m2);
+            if (c2 < crit && order(A, m2, sq2)) { crit = c2; mate.swap(m2); ord.swap(sq2); }
+        }
+        if (crit > mn) {
             ++exact_calls;
-            for (int b = P.minimum; b < crit; ++b) if (exact(A, b, m2, 200000)) { crit = b; mate.swap(m2); break; }
+            for (int bgt = mn; bgt < crit; ++bgt) if (exact(A, bgt, m2, 200000)) { crit = bgt; mate.swap(m2); if (!order(A, mate, ord)) throw std::runtime_error("cubical morse: cyclic block matching"); break; }
         }
-        if (!order(A, mate, ord)) {                         // cannot happen for removal orders; stay safe
-            crit = greedy(A, false, mate);
-            if (!order(A, mate, ord)) throw std::runtime_error("cubical morse: cyclic block matching");
-        }
-        if (crit > P.minimum) ++imperfect;
+        if (crit > mn) ++imperfect;
         P.critical = (uint8_t)crit; P.start = (uint32_t)pool.size();
         for (int i = 0; i < n; ++i) {
             if (A.test(i)) continue;
@@ -370,11 +385,14 @@ public:
     // coboundary entries pointing to critical cells that are not later in the filtration order
     long long check_order() const {
         long long bad = 0;
-        auto later = [&](int64_t a, int64_t b) { return key_hi(a) > key_hi(b) || (key_hi(a) == key_hi(b) && ORD(a) > ORD(b)); };
         for (int k = 1; k < (int)cols.size(); ++k) {
             const MCols& M = cols[k]; if (M.start.empty()) continue;
             for (size_t j = 0; j + 1 < M.start.size(); ++j)
-                for (uint64_t q = M.start[j]; q < M.start[j + 1]; ++q) if (!later(crit[k + 1][M.row[q]], crit[k][j])) ++bad;
+                for (uint64_t q = M.start[j]; q < M.start[j + 1]; ++q) {
+                    int32_t r = M.row[q];
+                    bool later = ckey[k + 1][r] > ckey[k][j] || (ckey[k + 1][r] == ckey[k][j] && cord[k + 1][r] > cord[k][j]);
+                    if (!later) ++bad;
+                }
         }
         return bad;
     }
@@ -522,12 +540,14 @@ public:
                 };
                 std::vector<Ent> w, tmp, cob, heap;
                 auto cmp = [](const Ent& x, const Ent& y) { return x.row > y.row; };
+                size_t dbg_maxw = 0, dbg_stored = 0; long long dbg_app = 0, add0 = out.additions, dbg_merged = 0; auto dbg_t0 = std::chrono::steady_clock::now();
                 for (size_t jj = nk; jj-- > 0;) {
                     int32_t j = (int32_t)jj;
                     if (clr[j]) continue;
                     ++out.columns;
                     double bj = CV[j];
                     if (M.apparent[j]) {
+                        ++dbg_app;
                         int32_t r = M.row[M.start[j]];
                         piv_col[r] = j; piv_inv[r] = conv(M.coef[M.start[j]]);     // +-1 is its own inverse
                         double dv = CnV[r];
@@ -570,7 +590,7 @@ public:
                             for (; bq < be; ++bq) { T sc = ring.mul(f, (*ci)[bq].c); if (!ring.is_zero(sc)) tmp.push_back({(*ci)[bq].row, sc}); }
                             w.swap(tmp);
                         }
-                        ch = true; ++out.additions;
+                        ch = true; ++out.additions; dbg_merged += (long long)ci->size(); dbg_maxw = std::max(dbg_maxw, heapmode ? heap.size() : w.size());
                     }
                     if (!found) { out.bars[k].push_back({bj, INF}); continue; }
                     T pc = piv.c; int32_t r = piv.row;
@@ -580,7 +600,7 @@ public:
                     if (dv > bj) out.bars[k].push_back({bj, dv});
                     if (!top) next.push_back((uint32_t)r);
                     if (!ring.is_pm1(pc)) { Pivot pv; pv.k = k; pv.key = (uint64_t)j; pv.birth = bj; pv.death = dv; ring.store(pc, pv); out.nonunit.push_back(std::move(pv)); }
-                    if (ch && !heapmode) stored[j] = w;
+                    if (ch && !heapmode) { stored[j] = w; dbg_stored += w.size(); }
                     else if (ch) {
                         std::vector<Ent>& RC = stored[j]; RC.clear(); RC.push_back(piv);
                         std::sort(heap.begin(), heap.end(), [](const Ent& x, const Ent& y) { return x.row < y.row; });
@@ -591,6 +611,8 @@ public:
                         }
                     }
                 }
+                if (dbg) fprintf(stderr, "    [morse reduction degree %d: %.3f s, %lld columns (%lld apparent), %lld additions, %lld merged entries, longest working column %zu, %zu stored entries]\n",
+                                 k, std::chrono::duration<double>(std::chrono::steady_clock::now() - dbg_t0).count(), out.columns, dbg_app, out.additions - add0, dbg_merged, dbg_maxw, dbg_stored);
             }
             std::sort(out.bars[k].begin(), out.bars[k].end());
             out.clear_out[k] = next;
@@ -606,7 +628,9 @@ private:
     uint64_t recip[16];
     std::vector<double> vals;           // sorted distinct input values
     // per position, packed: birth index (bits 0-31, ABSENT if not in the complex), mate code (32-39: 0 critical,
-    // else 1 + 2*axis + side), local index in its block (40-47), order inside the block (48-55)
+    // else 1 + 2*axis + side), local index in its block (40-47), order inside the block (48-55). Once the
+    // critical cells are sorted, each one holds instead its index in its dimension (bits 32-62) and bit 63
+    // (when the counts allow; idx_in_cw), and its key moves to ckey / cord.
     std::vector<uint64_t> cw;
     std::vector<int64_t> offpos;        // position offset of each local cell of a block
     std::vector<cubdmt::Pattern> pats;
@@ -615,13 +639,16 @@ private:
     std::vector<size_t> cnt_;
     std::vector<std::vector<uint32_t>> crit;                        // critical positions by dimension, filtration order
     std::vector<std::vector<double>> cval;                          // their values
+    std::vector<std::vector<uint64_t>> ckey; std::vector<std::vector<uint8_t>> cord;   // and their keys
+    bool idx_in_cw = false;
     std::vector<std::vector<std::pair<uint32_t, int32_t>>> bypos;   // (position, index), sorted by position
     std::vector<std::pair<int32_t, int32_t>> ends0, endsd;          // terminal critical cells of the two V-paths
     struct MCols { std::vector<uint64_t> start; std::vector<int32_t> row; std::vector<int64_t> coef; std::vector<char> apparent; double hbits = 0; };
     std::vector<MCols> cols;
 
     uint32_t B(int64_t p) const { return (uint32_t)cw[p]; }
-    uint8_t MT(int64_t p) const { return (uint8_t)(cw[p] >> 32); }
+    static constexpr uint64_t CRIT = 1ULL << 63;
+    uint8_t MT(int64_t p) const { uint64_t w = cw[p]; return (w & CRIT) ? 0 : (uint8_t)(w >> 32); }
     uint8_t LOC(int64_t p) const { return (uint8_t)(cw[p] >> 40); }
     uint8_t ORD(int64_t p) const { return (uint8_t)(cw[p] >> 48); }
     double val(int64_t pos) const { return vals[B(pos)]; }
@@ -726,39 +753,82 @@ private:
         const int n = lc.n;
         offpos.assign(n, 0);
         for (int o = 0; o < n; ++o) for (int a = 0; a < d; ++a) offpos[o] += lc.off[o * d + a] * stride[a];
-        std::vector<int> nb; std::vector<int64_t> nbpos; std::vector<cubdmt::M128> nbup;
-        for (int e = 0; e < n; ++e) if (e != lc.center) { nb.push_back(e); nbpos.push_back(2 * offpos[e]); nbup.push_back(lc.up[e]); }
+        // births of the top cubes by compact index (axis 0 fastest, the same order as positions): the
+        // neighbour comparisons read this small array instead of the whole grid
+        size_t nt = 1; int64_t mt[16];
+        for (int i = 0; i < d; ++i) { mt[i] = (int64_t)nt; nt *= (size_t)ntx[i]; }
+        std::vector<uint32_t> tb(nt);
+        { int64_t a2[16] = {0}; int64_t pos = 0; for (int i = 0; i < d; ++i) pos += stride[i];
+          for (size_t t = 0; t < nt; ++t) {
+              tb[t] = B(pos);
+              for (int i = 0; i < d; ++i) { pos += 2 * stride[i]; if (++a2[i] < ntx[i]) break; pos -= 2 * stride[i] * ntx[i]; a2[i] = 0; }
+          } }
+        std::vector<int> nb; std::vector<int64_t> nbt; std::vector<cubdmt::M128> nbup;
+        for (int e = 0; e < n; ++e) if (e != lc.center) {
+            int64_t o = 0; for (int a2 = 0; a2 < d; ++a2) o += lc.off[e * d + a2] * mt[a2];
+            nb.push_back(e); nbt.push_back(o); nbup.push_back(lc.up[e]);
+        }
         const size_t nn = nb.size();
+        // the earlier neighbours as a bit word (bit q = neighbour q); A is the union of their shared faces,
+        // assembled from one table per byte of the word
+        const int nbytes = (int)((nn + 7) / 8);
+        std::vector<cubdmt::M128> TT((size_t)nbytes * 256);
+        for (int j = 0; j < nbytes; ++j)
+            for (int v = 0; v < 256; ++v) {
+                cubdmt::M128 m;
+                for (int bit = 0; bit < 8; ++bit) if ((v >> bit) & 1 && 8 * j + bit < (int)nn) m |= nbup[8 * j + bit];
+                TT[(size_t)j * 256 + v] = m;
+            }
+        std::vector<uint8_t> before(nn); for (size_t q = 0; q < nn; ++q) before[q] = nbt[q] < 0;   // earlier in position order
         cubdmt::PatternCache cache;
-        size_t nt = 1; for (int i = 0; i < d; ++i) nt *= (size_t)ntx[i];
-        int64_t c[16]; int64_t pos = 0;
-        for (int i = 0; i < d; ++i) { c[i] = 1; pos += stride[i]; }
-        for (size_t t = 0; t < nt; ++t) {
-            uint32_t b = B(pos);
-            if (b != ABSENT) {
-                bool interior = true;
-                for (int i = 0; i < d; ++i) if (c[i] < 3 || c[i] > L[i] - 4) { interior = false; break; }
-                cubdmt::M128 A;
-                for (size_t q = 0; q < nn; ++q) {
-                    if (!interior) {
-                        int e = nb[q]; bool in = true;
-                        for (int a = 0; a < d && in; ++a) { int64_t x = c[a] + 2 * lc.off[e * d + a]; if (x < 1 || x > L[a] - 2) in = false; }
-                        if (!in) continue;
+        // blocks in tiles (top cubes T^d at a time), so that the cells a tile writes stay in cache
+        const int64_t T = d == 2 ? 64 : d == 3 ? 16 : 8;
+        int64_t ntile[16], tc[16] = {0};
+        size_t ntl = 1; for (int i = 0; i < d; ++i) { ntile[i] = (ntx[i] + T - 1) / T; ntl *= (size_t)ntile[i]; }
+        for (size_t tl = 0; tl < ntl; ++tl) {
+            int64_t lo[16], ext[16]; size_t inner = 1;
+            for (int i = 0; i < d; ++i) { lo[i] = tc[i] * T; ext[i] = std::min(T, ntx[i] - lo[i]); inner *= (size_t)ext[i]; }
+            int64_t c[16], t = 0, pos = 0;                  // c: grid coordinates of the top cube t
+            for (int i = 0; i < d; ++i) { c[i] = lo[i]; t += lo[i] * mt[i]; pos += (2 * lo[i] + 1) * stride[i]; }
+            for (size_t in = 0; in < inner; ++in) {
+                uint32_t b = tb[t];
+                if (b != ABSENT) {
+                    bool interior = true;
+                    for (int i = 0; i < d; ++i) if (c[i] < 1 || c[i] > ntx[i] - 2) { interior = false; break; }
+                    uint64_t E0 = 0, E1 = 0;                     // ABSENT is the largest index: never earlier
+                    if (interior) {
+                        const uint32_t* tp = tb.data() + t;
+                        size_t q = 0;
+                        for (; q < nn && q < 64; ++q) { uint32_t b2 = tp[nbt[q]]; E0 |= (uint64_t)((b2 < b) | ((b2 == b) & before[q])) << q; }
+                        for (; q < nn; ++q) { uint32_t b2 = tp[nbt[q]]; E1 |= (uint64_t)((b2 < b) | ((b2 == b) & before[q])) << (q - 64); }
+                    } else {
+                        for (size_t q = 0; q < nn; ++q) {
+                            int e = nb[q]; bool ok = true;
+                            for (int a2 = 0; a2 < d && ok; ++a2) { int64_t x = c[a2] + lc.off[e * d + a2]; if (x < 0 || x >= ntx[a2]) ok = false; }
+                            if (!ok) continue;
+                            uint32_t b2 = tb[t + nbt[q]];
+                            uint64_t bit = (uint64_t)((b2 < b) | ((b2 == b) & before[q]));
+                            if (q < 64) E0 |= bit << q; else E1 |= bit << (q - 64);
+                        }
                     }
-                    int64_t p2 = pos + nbpos[q];
-                    uint32_t b2 = B(p2);
-                    if (b2 < b || (b2 == b && p2 < pos)) A |= nbup[q];        // ABSENT is the largest index
+                    cubdmt::M128 A;
+                    for (int j = 0; j < nbytes; ++j) { uint64_t v = j < 8 ? (E0 >> (8 * j)) & 0xFF : (E1 >> (8 * (j - 8))) & 0xFF; if (v) A |= TT[(size_t)j * 256 + v]; }
+                    int32_t id = cache.get(A);
+                    if (id < 0) { id = (int32_t)pats.size(); pats.push_back(lc.solve(A, pool)); cache.put(A, id); }
+                    const cubdmt::Pattern& P = pats[id];
+                    if (P.critical > P.minimum) ++imperfect_blocks_;
+                    for (uint32_t q = P.start, e = P.start + P.len; q < e; ++q) {
+                        const cubdmt::PCell& cl = pool[q];
+                        cw[pos + offpos[cl.loc]] |= (uint64_t)cl.code << 32 | (uint64_t)cl.loc << 40 | (uint64_t)cl.ord << 48;
+                    }
                 }
-                int32_t id = cache.get(A);
-                if (id < 0) { id = (int32_t)pats.size(); pats.push_back(lc.solve(A, pool)); cache.put(A, id); }
-                const cubdmt::Pattern& P = pats[id];
-                if (P.critical > P.minimum) ++imperfect_blocks_;
-                for (uint32_t q = P.start, e = P.start + P.len; q < e; ++q) {
-                    const cubdmt::PCell& cl = pool[q];
-                    cw[pos + offpos[cl.loc]] |= (uint64_t)cl.code << 32 | (uint64_t)cl.loc << 40 | (uint64_t)cl.ord << 48;
+                for (int i = 0; i < d; ++i) {
+                    ++c[i]; t += mt[i]; pos += 2 * stride[i];
+                    if (c[i] < lo[i] + ext[i]) break;
+                    c[i] = lo[i]; t -= ext[i] * mt[i]; pos -= 2 * ext[i] * stride[i];
                 }
             }
-            for (int i = 0; i < d; ++i) { c[i] += 2; pos += 2 * stride[i]; if (c[i] < L[i]) break; pos -= (c[i] - 1) * stride[i]; c[i] = 1; }
+            for (int i = 0; i < d; ++i) { if (++tc[i] < ntile[i]) break; tc[i] = 0; }
         }
         if (dbg) fprintf(stderr, "    [morse: %zu block patterns, %lld exact searches, %lld imperfect patterns, %lld imperfect blocks]\n",
                          pats.size(), lc.exact_calls, lc.imperfect, imperfect_blocks_);
@@ -767,7 +837,7 @@ private:
     // critical cells by dimension in filtration order (radix sort on (key, order) of the cells found in
     // position order), with the inverse map
     void collect() {
-        crit.assign(d + 1, {}); cnt_.assign(d + 1, 0); bypos.assign(d + 1, {}); cval.assign(d + 1, {});
+        crit.assign(d + 1, {}); cnt_.assign(d + 1, 0); bypos.assign(d + 1, {}); cval.assign(d + 1, {}); ckey.assign(d + 1, {}); cord.assign(d + 1, {});
         std::vector<std::vector<uint32_t>> P(d + 1);
         { int64_t c[16] = {0}; int k = 0;
           for (int64_t pos = 0; pos < N; ++pos) {
@@ -782,10 +852,21 @@ private:
             radix64(key, j);                                        // by order inside the block, then (stable) by block
             for (size_t i = 0; i < m; ++i) key[i] = key_hi(P[kk][j[i]]);
             radix64(key, j);
+            bool keys = kk >= 1 && kk <= d - 1 && d >= 3;              // keys are needed in degrees 1..d-2 (and their rows)
             crit[kk].resize(m); bypos[kk].resize(m); cval[kk].resize(m);
-            for (size_t i = 0; i < m; ++i) { crit[kk][i] = P[kk][j[i]]; bypos[kk][j[i]] = {P[kk][j[i]], (int32_t)i}; cval[kk][i] = vals[key[i] >> 32]; }
+            if (keys) { ckey[kk].resize(m); cord[kk].resize(m); }
+            for (size_t i = 0; i < m; ++i) {
+                uint32_t p = P[kk][j[i]];
+                crit[kk][i] = p; bypos[kk][j[i]] = {p, (int32_t)i}; cval[kk][i] = vals[key[i] >> 32];
+                if (keys) { ckey[kk][i] = key[i]; cord[kk][i] = ORD(p); }
+            }
             std::vector<uint32_t>().swap(P[kk]);
         }
+        idx_in_cw = true;
+        for (int kk = 0; kk <= d; ++kk) if (crit[kk].size() >= (1ULL << 31)) idx_in_cw = false;
+        if (idx_in_cw)
+            for (int kk = 0; kk <= d; ++kk)
+                for (size_t i = 0; i < crit[kk].size(); ++i) { uint64_t& w = cw[crit[kk][i]]; w = (w & 0xFFFFFFFFULL) | CRIT | (uint64_t)i << 32; }
         if (dbg) { fprintf(stderr, "    [morse: critical cells"); for (int kk = 0; kk <= d; ++kk) fprintf(stderr, " %zu/%zu", crit[kk].size(), cnt_[kk]); fprintf(stderr, "]\n"); }
     }
 
@@ -865,7 +946,10 @@ private:
     void morse_columns() {
         cols.assign(d + 1, MCols());
         int kmax = std::min(dmax, d - 2);
-        struct Item { uint64_t hi; uint8_t ord; uint32_t pos; };
+        // heap items: a k-cell u on an ascending path, keyed by its partner rho = V(u) (sigma by itself), with
+        // rho carried along. Along a step u -> rho' -> f the key of rho' exceeds that of V(u): in one block
+        // the modified Hasse diagram has rho' -> u -> V(u); otherwise rho' lies in a later block.
+        struct Item { uint64_t hi; uint8_t ord; uint32_t pos, skip; };
         auto later = [](const Item& a, const Item& b) { return a.hi != b.hi ? a.hi > b.hi : a.ord > b.ord; };
         std::vector<Item> heap; cubdmt::PosMap wt, res;
         long long visited = 0; size_t maxreg = 0;
@@ -877,16 +961,16 @@ private:
             std::vector<double> lognorm(nc, 0);
             std::vector<std::pair<int32_t, int64_t>> col;
             for (size_t jp = 0; jp < nc; ++jp) {
-                const uint32_t sigma = bypos[k][jp].first;
+                const uint32_t sigma = bypos[k][jp].first; const int32_t sidx = bypos[k][jp].second;
                 heap.clear(); wt.reset(); res.reset();
-                bool ins; wt.at(sigma, ins) = 1; heap.push_back({key_hi(sigma), ORD(sigma), sigma});
+                bool ins; wt.at(sigma, ins) = 1; heap.push_back({ckey[k][sidx], cord[k][sidx], sigma, 0xFFFFFFFFu});
                 size_t reg = 0;
                 while (!heap.empty()) {
                     std::pop_heap(heap.begin(), heap.end(), later); Item it = heap.back(); heap.pop_back();
                     int64_t w = wt.at(it.pos, ins); ++reg;
                     if (w == 0) continue;
                     int64_t u = it.pos, cu[16]; decode(u, cu);
-                    int64_t skip = mate_pos(u);              // the coface u is matched with (none for sigma itself)
+                    const int64_t skip = it.skip == 0xFFFFFFFFu ? -1 : (int64_t)it.skip;   // V(u), none for sigma
                     int odd = 0;
                     for (int i = 0; i < d; ++i) {
                         if (cu[i] & 1) { ++odd; continue; }
@@ -899,8 +983,9 @@ private:
                             uint64_t wr = cw[rho];
                             if ((uint32_t)wr == ABSENT) continue;
                             int64_t inc = (s2 == 0) != neg ? 1 : -1;      // [rho : u], as in the classic engine
+                            if (wr & CRIT) { add_ck(res.at((uint32_t)(wr >> 32) & 0x7FFFFFFFu, ins), w * inc); continue; }
                             uint8_t mc = (uint8_t)(wr >> 32);
-                            if (mc == 0) { add_ck(res.at((uint32_t)rho, ins), w * inc); continue; }
+                            if (mc == 0) { add_ck(res.at((uint32_t)crit_index(k + 1, (uint32_t)rho), ins), w * inc); continue; }
                             int ax = (mc - 1) >> 1; int64_t sd = (mc - 1) & 1 ? 1 : -1;
                             // rho's coordinate along ax: odd means its mate is a face, even an upward mate (the path ends)
                             int64_t cax = ax == i ? x : cu[ax];
@@ -909,7 +994,11 @@ private:
                             int oddb = 0; for (int a = 0; a < ax; ++a) oddb += (int)((a == i ? x : cu[a]) & 1);
                             int64_t incf = ((sd > 0) != (oddb & 1)) ? 1 : -1;   // [rho : f]
                             int64_t& fw = wt.at((uint32_t)f, ins);
-                            if (ins) { fw = -w * inc * incf; heap.push_back({key_hi(f), ORD(f), (uint32_t)f}); std::push_heap(heap.begin(), heap.end(), later); }
+                            if (ins) {
+                                fw = -w * inc * incf;
+                                uint64_t khi = (wr & 0xFFFFFFFFULL) << 32 | (uint64_t)(rho - offpos[(wr >> 40) & 0xFF]);
+                                heap.push_back({khi, (uint8_t)(wr >> 48), (uint32_t)f, (uint32_t)rho}); std::push_heap(heap.begin(), heap.end(), later);
+                            }
                             else add_ck(fw, -w * inc * incf);
                         }
                     }
@@ -919,7 +1008,7 @@ private:
                 double nrm = 0;
                 for (size_t q = 0; q < res.size(); ++q) {
                     int64_t v = res.val_of(q);
-                    if (v) { col.push_back({crit_index(k + 1, res.key_of(q)), v}); nrm += (double)v * (double)v; }
+                    if (v) { col.push_back({(int32_t)res.key_of(q), v}); nrm += (double)v * (double)v; }
                 }
                 std::sort(col.begin(), col.end());
                 for (auto& e : col) { rw.push_back(e.first); cf.push_back(e.second); }

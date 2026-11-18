@@ -107,7 +107,7 @@ perseus.rips(points=X, coeff=3)                 # plain F_3
 perseus.rips(points=X, mode="proved")           # exact arithmetic throughout (also "fast", seed=..., target=...)
 ```
 
-Every function takes `coeff`, `mode`, `seed`, `target`, `classify`, `threads` and `fp`, as on the command line; `rips` and `flag` also take `engine` (`auto`, `implicit`, `sparse`) and `collapse`, and `cubical` takes `engine` (`auto`, `explicit`). A key of `certificate["bad_primes"]` whose entry has `every_prime_factor_of` set is a number all of whose prime factors are bad; `probable_prime` marks a prime above 2^64 known only by Miller–Rabin. `tests/test_python.py` checks the module against the command line.
+Every function takes `coeff`, `mode`, `seed`, `target`, `classify`, `threads` and `fp`, as on the command line; `rips` and `flag` also take `engine` (`auto`, `implicit`, `sparse`) and `collapse`, and `cubical` takes `engine` (`auto`, `morse`, `classic`, `explicit`). A key of `certificate["bad_primes"]` whose entry has `every_prime_factor_of` set is a number all of whose prime factors are bad; `probable_prime` marks a prime above 2^64 known only by Miller–Rabin. `tests/test_python.py` checks the module against the command line.
 
 ## Engines
 
@@ -119,7 +119,12 @@ Every function takes `coeff`, `mode`, `seed`, `target`, `classify`, `threads` an
 
 H0 uses union-find whenever every 1-cell has boundary ±(v − w).
 
-**Cubical grids** (`cubical`, `npy`): an implicit engine. It stores one birth and one rank per cell of the doubled grid and generates coboundaries on the fly. H0 is union-find. Degree d−1 is union-find on the dual graph: every (d−1)-cell has at most two cofaces, so δ^(d−1) is an incidence matrix and all its pivots are ±1. The degrees in between are cohomology with clearing. `--engine explicit` builds the complex instead.
+**Cubical grids** (`cubical`, `npy`): two implicit engines; neither builds the complex.
+
+* **Discrete gradient** (the default in dimensions 2–4 without periodic axes; `--engine morse`). A cell enters with its first top coface τ. The cells entering with τ are matched among themselves by a per-pattern discrete gradient, which depends only on which of τ's 3^d − 1 neighbours came earlier. This is the filtered Morse reduction of Mischaikow–Nanda. Every pattern in 2D and 3D, and every pattern we have met in 4D, is matched perfectly: it leaves exactly as many critical cells as bars start or end at τ. H0 and degree d−1 are union-finds on critical cells along gradient paths. The degrees in between are cohomology with clearing on the integer Morse complex, which is filtered chain-homotopy equivalent to the cubical complex. So barcodes, Q certificates and bad primes are the same as with the classic engine. See `docs/TECHNIQUES.md` §4.6.
+* **Classic** (periodic axes, dimension 1 or above 4; `--engine classic`). It stores one birth and one rank per cell of the doubled grid and generates coboundaries on the fly. H0 is union-find. Degree d−1 is union-find on the dual graph: every (d−1)-cell has at most two cofaces, so δ^(d−1) is an incidence matrix and all its pivots are ±1. The degrees in between are cohomology with clearing.
+
+`--engine explicit` builds the complex instead.
 
 **Sparse Rips / flag** (`--engine sparse`; automatic when the flag complex is small next to n²: n ≥ 2048, average degree at most 64 at the threshold, and at most n²/50 simplices, counted before anything is built): the radius graph is built directly, with a grid for low-dimensional point clouds, and the flag complex is enumerated from adjacency lists. Memory is linear in the number of simplices. Example: 8,000 points in the unit cube with 13,056 edges at r = 0.047 take 0.04 s and 13 MB through H2. The dense engine needs 0.7 s and 750 MB for the same input.
 
@@ -240,7 +245,8 @@ Two things differ from the old programs:
 * **E:** the new formats against independent constructions (`flag` against explicit cliques and against `lower-distance`, `cubes` against `cubical`).
 * **F:** certificate regressions with exact expected answers in auto, fast and proved mode. These include inputs built so that a pivot vanishes or looks like a unit modulo fixed primes, a 98-bit bad prime, and products of large primes that are only classified as groups.
 * **Python:** `tests/test_python.py` runs every entry point of the module against the command line, in every certificate mode.
-* **G:** the implicit cubical engine against the explicit complex (1–4 dimensions, periodic axes, absent cells), and the sparse Rips route against the dense engine.
+* **G:** the implicit cubical engines against the explicit complex and against each other (1–4 dimensions, periodic axes, absent cells, zero-length bars, 4D white noise and quantised fields), and the sparse Rips route against the dense engine.
+* **Cubical engines:** `make test-cubical` (`tests/t_cubical_morse.cpp`) runs the discrete-gradient engine against the classic one on random grids with heavy ties, absent cells and nearly distinct values. It compares barcodes over F_2, F_3, F_5 and Q (int64 and multi-modular), with and without zero-length bars, and from every degree with clearing data. It also compares certificates in auto and fast mode. It checks the Morse complex itself: every column is recomputed by recursion over gradient paths, along with the filtration order, δδ = 0, and the apparent pairs.
 
 The current tree passes all of them.
 
@@ -260,6 +266,10 @@ The current tree passes all of them.
 Vidit Nanda (Perseus, 2010–). Perseus 6 builds on ideas from:
 
 * U. Bauer, *Ripser*;
+* K. Mischaikow and V. Nanda, *Morse theory for filtrations and efficient computation of persistent homology* (the filtered discrete gradient of the cubical engine);
+* V. Robins, P. J. Wood and A. P. Sheppard, *ProcessLowerStars* (discrete gradients of grayscale images);
+* P. Guillou, J. Vidal and J. Tierny, *Discrete Morse Sandwich* (union-find on critical cells for the extreme degrees);
+* S. Kaji, T. Sudo and K. Ahara, *Cubical Ripser* (the implicit cubical design of the classic engine);
 * J.-D. Boissonnat and S. Pritam, edge collapse and edge domination;
 * *RedZeD*;
 * I. Obayashi and M. Yoshiwaki, field choice and torsion;

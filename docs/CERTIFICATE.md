@@ -32,6 +32,16 @@ suite checks this exactly, in exact arithmetic, across all three explicit reduct
 algorithms rather than column reductions: forward cohomology, and the Rips H1 engine. For those the
 identity is verified by these tests but not yet written up as a proof.
 
+**The cubical Morse engine reduces a different matrix.** It reduces the Morse complex M of a filtered
+discrete gradient (`cubical_morse.hpp`), not D. Its entries are integer sums over gradient paths. They need
+not be ±1: in 4D, entries ±2 occur. M is filtered chain-homotopy equivalent to the cubical complex over Z,
+because every matched pair lies inside one filtration step. So over every field F_p and over Q the two
+barcodes are equal, and so the bad primes are the same. Lemma 2, applied to M, puts them among the prime
+factors of M's pivot values. Those values are invariants of M, not of D. The *candidate* list can therefore
+differ between the engines; for example, a pivot of 2 adds the candidate 2. Each candidate is settled by a
+rerun, so the list of *bad* primes does not change. Fast mode bounds the minors of M by Hadamard, using
+the norms of M's columns (the largest m of them, for pairs bounded by m).
+
 ## 2. Three ways to run the Q reduction
 
 **proved** (`--mode proved`). Exact rational arithmetic. Each degree is tried with int64 numerators and
