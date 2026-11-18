@@ -2,7 +2,8 @@
 """Fuzz the cubical engines through the Python module.
 
   * against the explicit complex (ground truth; small grids, absent cells allowed): F_2 and F_3 barcodes,
-    the Q barcode and its bad primes, for the default (gradient) engine and the classic engine;
+    the Q barcode and its bad primes, for the default engine (planar in 2D, gradient in 3D and 4D) and the
+    classic engine; in 2D also the planar engine against the gradient and classic engines;
   * against CubicalRipser (tcripser, if installed; finite grids): positive-length F_2 intervals.
 
 Value distributions stress ties: few integer levels, smoothed fields quantised to few levels, step
@@ -65,7 +66,7 @@ def check(ok, what):
     if not ok: fails.append(what); print("FAIL", what, flush=True)
 
 for s in [(0, 5), (3, 0, 2), (2, 2, 0, 2)]:          # axes of length 0: the empty complex
-    for e in ("auto", "classic", "morse", "explicit"):
+    for e in ("auto", "classic", "morse", "explicit") + (("planar",) if len(s) == 2 else ()):
         check(bars(perseus.cubical(np.zeros(s), engine=e)) == Counter(), f"empty {s} engine {e}")
 
 for t in range(trials):
@@ -76,6 +77,9 @@ for t in range(trials):
         B = A.copy(); B[rng.random(s) < rnd.choice([0.1, 0.3, 0.6, 1.0])] = np.nan
         for p in (2, 3):
             check(bars(perseus.cubical(B, coeff=p)) == bars(perseus.cubical(B, coeff=p, engine="explicit")), f"{tag} absent F_{p} default == explicit")
+        if B.ndim == 2:
+            Bi = np.where(np.isnan(B), rnd.choice([np.inf, -np.inf, np.nan]), B)    # every non-finite value is absent
+            check(bars(perseus.cubical(Bi, coeff=2, engine="planar")) == bars(perseus.cubical(B, coeff=2, engine="classic")), f"{tag} absent F_2 planar == classic")
         a, b = perseus.cubical(B), perseus.cubical(B, engine="explicit")
         check(bars(a) == bars(b) and perseus.bad_primes(a) == perseus.bad_primes(b), f"{tag} absent Q default == explicit")
         continue
@@ -91,6 +95,10 @@ for t in range(trials):
         check(m == cripser_bars(A), f"{tag} F_2 default == CubicalRipser")
     if not small:
         check(m == bars(perseus.cubical(A, coeff=2, engine="classic")), f"{tag} F_2 default == classic")
+    if A.ndim == 2:                                    # the planar engine against the gradient engine, F_3 and Q
+        check(bars(perseus.cubical(A, coeff=3, engine="planar")) == bars(perseus.cubical(A, coeff=3, engine="morse")), f"{tag} F_3 planar == morse")
+        a = perseus.cubical(np.asfortranarray(A))      # also the Fortran-ordered path
+        check(bars(a) == bars(perseus.cubical(A, engine="morse")) and perseus.bad_primes(a) == [], f"{tag} Q planar == morse, no bad primes")
 
 print(f"\n{res['pass']} passed, {res['fail']} failed (seed {seed}, {trials} trials, CubicalRipser {'on' if tcripser else 'not installed'})")
 for f in fails[:30]: print("  ", f)

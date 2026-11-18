@@ -95,7 +95,11 @@ static inline std::vector<std::string> split_ws(const std::string& line) {
 // C order (last axis fastest, as numpy writes them); nan or inf marks an absent top cell.
 // (Axis order only permutes coordinates, so the array is passed to the builder with its axes reversed.)
 // a dense grid of top-cell values, axis 0 fastest (the convention of build_cubical); NaN/inf = absent
-struct CubicalGrid { std::vector<int64_t> ext; std::vector<bool> periodic; std::vector<double> top; };
+struct CubicalGrid {
+    std::vector<int64_t> ext; std::vector<bool> periodic; std::vector<double> top;
+    const double* view = nullptr;    // optional: values held by the caller instead of top (read by the planar engine)
+    const double* data() const { return view ? view : top.data(); }
+};
 inline CubicalGrid grid_from_array(std::vector<int64_t> shape_c, std::vector<double> vals_c, std::vector<bool> periodic_c) {
     if (periodic_c.empty()) periodic_c.assign(shape_c.size(), false);
     if (periodic_c.size() != shape_c.size()) throw std::runtime_error("cubical: --periodic needs one flag per axis");

@@ -14,6 +14,7 @@
 #include "types.hpp"
 #include "cubical_morse.hpp"
 #include "bitcol.hpp"
+#include "cubical_2d.hpp"
 #include <vector>
 #include <unordered_map>
 #include <algorithm>
@@ -453,31 +454,48 @@ private:
     }
 };
 
-// The cubical backend: the discrete-gradient engine (cubical_morse.hpp) where it applies (dimensions 2..4,
-// no periodic axes), the classic engine otherwise. engine = "auto", "morse" or "classic"; the environment
-// variable PERSEUS_CUBICAL overrides "auto".
+// The cubical backend. engine = "auto", "planar", "morse" or "classic":
+//   planar  (cubical_2d.hpp): two union-finds on pixels; 2D without periodic axes; the default there
+//   morse   (cubical_morse.hpp): the discrete-gradient engine; dimensions 2..4 without periodic axes; the
+//           default in 3D and 4D
+//   classic: everything else (periodic axes, dimension 1 or above 4)
+// The environment variable PERSEUS_CUBICAL overrides "auto". Zero-length bars must be asked for here
+// (zero_length) for the planar engine; the others also honour keep_zero_length set later.
 class CubicalBackend {
 public:
     typedef std::vector<uint32_t> Clear;
     bool keep_zero_length = false;
-    CubicalBackend(const CubicalGrid& g, int maxdim, std::string engine = "auto") {
+    CubicalBackend(const CubicalGrid& g, int maxdim, std::string engine = "auto", bool zero_length = false) {
+        keep_zero_length = zero_length;
         if (engine == "auto" || engine == "implicit") { const char* e = getenv("PERSEUS_CUBICAL"); engine = e && *e ? e : "auto"; }
-        if (engine != "auto" && engine != "morse" && engine != "classic") throw std::runtime_error("cubical engine must be auto, morse or classic");
+        if (engine != "auto" && engine != "planar" && engine != "morse" && engine != "classic") throw std::runtime_error("cubical engine must be auto, planar, morse or classic");
         // a grid with an axis of length 0 has no cells: the empty complex, no intervals
         int d = (int)g.ext.size();
         for (int64_t e : g.ext) if (e <= 0) { empty_dmax = std::min(maxdim < 0 ? d : maxdim, d); return; }
+        if (engine == "planar" && !CubicalPlanar::supports(g)) throw std::runtime_error("cubical: the planar engine needs a 2D grid without periodic axes");
         if (engine == "morse" && !CubicalMorse::supports(g)) throw std::runtime_error("cubical: the morse engine needs dimension 2..4 and no periodic axes");
-        if (engine != "classic" && CubicalMorse::supports(g)) {
-            try { m.reset(new CubicalMorse(g, maxdim)); return; }
-            catch (std::overflow_error&) { if (engine == "morse") throw; }    // a path sum beyond int64: classic engine
+        if ((engine == "auto" || engine == "planar") && CubicalPlanar::supports(g)) { p.reset(new CubicalPlanar(g, maxdim, zero_length)); return; }
+        CubicalGrid own;                                 // the other engines read top: copy a caller's view
+        if (g.view) {
+            size_t n = 1; for (int64_t e : g.ext) n *= (size_t)e;
+            own.ext = g.ext; own.periodic = g.periodic; own.top.assign(g.view, g.view + n);
         }
-        c.reset(new CubicalClassic(g, maxdim));
+        const CubicalGrid& G = g.view ? own : g;
+        if (engine != "classic" && CubicalMorse::supports(G)) {
+            try { m.reset(new CubicalMorse(G, maxdim)); return; }
+            catch (std::overflow_error&) { if (engine == "morse") throw; }    // a path sum beyond the bound: classic engine
+        }
+        c.reset(new CubicalClassic(G, maxdim));
     }
-    int maxdim() const { return m ? m->maxdim() : c ? c->maxdim() : empty_dmax; }
-    const char* name() const { return m ? "morse" : c ? "classic" : "empty"; }
+    int maxdim() const { return p ? p->maxdim() : m ? m->maxdim() : c ? c->maxdim() : empty_dmax; }
+    const char* name() const { return p ? "planar" : m ? "morse" : c ? "classic" : "empty"; }
+    // the planar engine reduces only graph incidence matrices (totally unimodular): its barcode is the same
+    // over Q and every F_p, and certify() reports that proof instead of running arithmetic checks
+    bool unimodular() const { return p != nullptr || (!m && !c); }
     const CubicalMorse* morse() const { return m.get(); }
     template <class R>
     BRun<Clear> run(const R& ring, int kmin, int kmax, const Clear* in) const {
+        if (p) { p->keep_zero_length = keep_zero_length; return p->run(ring, kmin, kmax, in); }
         if (m) return m->run(ring, kmin, kmax, in, keep_zero_length);
         if (c) return c->run(ring, kmin, kmax, in, keep_zero_length);
         BRun<Clear> out; out.kmin = kmin;
@@ -490,6 +508,7 @@ private:
     int empty_dmax = 0;
     std::unique_ptr<CubicalClassic> c;
     std::unique_ptr<CubicalMorse> m;
+    std::unique_ptr<CubicalPlanar> p;
 };
 
 } // namespace perseus

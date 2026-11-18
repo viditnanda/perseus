@@ -14,13 +14,17 @@ portable: src/perseus.cpp $(HDR)
 test: perseus
 	python3 tests/run_tests.py
 
-# the discrete-gradient cubical engine against the classic one (barcodes over F_2, F_3, F_5, Q; certificates)
-test-cubical: tests/t_cubical_morse.cpp $(HDR)
+# the discrete-gradient and planar cubical engines against the classic one (barcodes over F_2, F_3, F_5, Q;
+# certificates)
+test-cubical: tests/t_cubical_morse.cpp tests/t_cubical_planar.cpp $(HDR)
 	$(CXX) -std=c++17 -O2 -Wall -pthread $(INC) tests/t_cubical_morse.cpp -o t_cubical_morse
 	./t_cubical_morse 300
 	PERSEUS_LONG_COLUMN=0 ./t_cubical_morse 100
 	$(CXX) -std=c++17 -O2 -Wall $(INC) tests/t_bitcol.cpp -o t_bitcol
 	./t_bitcol 100
+	$(CXX) -std=c++17 -O2 -Wall -pthread $(INC) tests/t_cubical_planar.cpp -o t_cubical_planar
+	./t_cubical_planar 400
+	PERSEUS_PLANAR_COMPRESS=1 ./t_cubical_planar 200 2
 
 clean:
-	rm -f perseus t_cubical_morse t_bitcol
+	rm -f perseus t_cubical_morse t_bitcol t_cubical_planar

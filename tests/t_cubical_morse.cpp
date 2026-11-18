@@ -114,8 +114,8 @@ int main(int argc, char** argv) {
                 for (int md : {-1, 0, 1}) {
                     std::string tag = std::string("shape ") + std::to_string(si) + " " + kinds[kind] + " md " + std::to_string(md);
                     run_case(G, md, tag);
-                    CubicalBackend be(G, md);                      // the default route must pick the gradient engine
-                    check(std::string(be.name()) == "morse", tag + ": default engine");
+                    CubicalBackend be(G, md);                      // the default route: planar in 2D, else the gradient engine
+                    check(std::string(be.name()) == (G.ext.size() == 2 ? "planar" : "morse"), tag + ": default engine");
                 }
             }
             ++si;

@@ -49,14 +49,15 @@ import sys, time, json, resource, numpy as np
 from collections import Counter
 which, path, res = sys.argv[1], sys.argv[2], sys.argv[3]
 A = np.load(path); d = A.ndim
+# imports before the clock starts (GUDHI's sklearn wrapper alone takes most of a second to import)
+if which == "cripser": import tcripser
+else: from gudhi.sklearn.cubical_persistence import CubicalPersistence
 t = time.time()
 if which == "cripser":
-    import tcripser
     r = tcripser.computePH(A, maxdim=d, location="none")
     dt = time.time() - t
     bars = Counter((int(x[0]), float(x[1]), float("inf") if x[2] >= 1.7e308 else float(x[2])) for x in r if x[2] > x[1])
 else:
-    from gudhi.sklearn.cubical_persistence import CubicalPersistence
     dims = list(range(d))           # as in the README table: degrees 0..d-1 (H_d of a full grid is 0)
     out = CubicalPersistence(homology_dimensions=dims, homology_coeff_field=2, n_jobs=1).fit_transform([A])[0]
     dt = time.time() - t

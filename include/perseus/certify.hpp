@@ -82,7 +82,7 @@ struct BadPrime {
     Barcode only_p, only_q;               // bars present over F_p but not over Q, and vice versa
 };
 struct Certificate {
-    std::string mode = "fast";            // "fast", "proved", or "planar" (no torsion possible: proved)
+    std::string mode = "fast";            // "fast", "proved", or "unimodular" (proved by total unimodularity)
     // what is guaranteed about the Q barcode and the pivot values
     bool barcode_ok = true;               // false: the run could not be made reliable (see note)
     std::string note;
@@ -198,11 +198,23 @@ bool run_mod_big(const B& be, const BigInt& N, int k0, int kmax, const typename 
     return go(MontN<32>(N));
 }
 
+// backends whose reductions are of totally unimodular matrices declare unimodular() == true
+template <class B> auto backend_unimodular(const B& b, int) -> decltype(b.unimodular()) { return b.unimodular(); }
+template <class B> bool backend_unimodular(const B&, long) { return false; }
+
 template <class B>
 std::pair<BRun<typename B::Clear>, Certificate> certify(const B& be, const CertifyOptions& opt = CertifyOptions()) {
     typedef typename B::Clear Clear;
     int kmax = std::min(opt.maxdim, be.maxdim());
     Certificate cert; cert.mode = opt.mode;
+    if (backend_unimodular(be, 0)) {
+        // every pivot of a totally unimodular matrix is +-1 (Lemma 2: pivots are ratios of minors), so the
+        // barcode is the same over Q and every F_p: no arithmetic to check, no candidates, no bad primes
+        Q64 R; BRun<Clear> q = be.run(R, 0, kmax, nullptr);
+        cert.mode = "unimodular"; cert.arithmetic = "none needed: totally unimodular boundary matrices";
+        cert.classified = true;
+        return {q, cert};
+    }
     auto now = [] { return std::chrono::steady_clock::now(); };
     auto t0 = now();
     BRun<Clear> q;

@@ -82,7 +82,7 @@ static std::string guarantee_text(const Certificate& c) {
     char b[200];
     if (!c.barcode_ok) return "NOT certified (" + c.note + ")";
     if (c.mode == "proved") return "proved (exact arithmetic: " + c.arithmetic + ")";
-    if (c.mode == "planar") return "proved (planar complex: no torsion)";
+    if (c.mode == "unimodular") return "proved (total unimodularity: the barcode is the same over Q and every F_p)";
     if (std::isinf(c.log2_error)) snprintf(b, sizeof b, "probabilistic, error probability 0 (no integer can have a 62-bit prime factor)");
     else snprintf(b, sizeof b, "probabilistic, error probability < 2^%.1f", std::ceil(c.log2_error * 10) / 10);
     if (c.seed_user) return "NOT certified (reproduced from a supplied seed; a fresh seed would give " + std::string(b).substr(15) + ")";
@@ -101,7 +101,7 @@ static std::string json_cert(const Barcode& q, const Certificate& c, int coeff_q
             for (size_t i = 0; i < c.moduli.size(); ++i) s += (i ? "," : "") + std::to_string(c.moduli[i]);
             s += "]";
         }
-        if (c.mode == "proved") s += ", \"arithmetic\": \"" + c.arithmetic + "\"";
+        if (c.mode == "proved" || c.mode == "unimodular") s += ", \"arithmetic\": \"" + c.arithmetic + "\"";
         if (!c.note.empty()) s += ", \"note\": \"" + c.note + "\"";
         s += "},\n";
         s += "  \"bad_primes_status\": \"" + std::string(c.seed_user && c.barcode_ok ? "conditional on the supplied seed" : !c.candidates_complete() ? "incomplete" : (c.classified ? "complete" : "candidates only")) + "\",\n";
@@ -309,7 +309,7 @@ int main(int argc, char** argv) {
             return solve(be, o);
         }
         if (in.is_grid) {
-            CubicalBackend be(in.grid, o.maxdim, o.engine); be.keep_zero_length = o.zero;
+            CubicalBackend be(in.grid, o.maxdim, o.engine, o.zero); be.keep_zero_length = o.zero;
             CubicalGrid().top.swap(in.grid.top);
             lap("cubical setup");
             if (o.stats) {
