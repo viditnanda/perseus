@@ -994,7 +994,7 @@ private:
                             int64_t incf = ((sd > 0) != (oddb & 1)) ? 1 : -1;   // [rho : f]
                             int64_t& fw = wt.at((uint32_t)f, ins);
                             if (ins) {
-                                fw = -w * inc * incf;
+                                fw = 0; add_ck(fw, -w * inc * incf);
                                 uint64_t khi = (wr & 0xFFFFFFFFULL) << 32 | (uint64_t)(rho - offpos[(wr >> 40) & 0xFF]);
                                 heap.push_back({khi, (uint8_t)(wr >> 48), (uint32_t)f, (uint32_t)rho}); std::push_heap(heap.begin(), heap.end(), later);
                             }
@@ -1040,9 +1040,18 @@ private:
             if (dbg) fprintf(stderr, "    [morse degree %d: %zu columns (%zu apparent), %zu entries, %lld path cells visited, largest region %zu]\n", k, nc, napp, M.row.size(), visited, maxreg);
         }
     }
+    // Path sums are kept within +-path_limit() (2^62 by default), so that every product with an incidence
+    // +-1 and every sum of two of them is exact in int64. Beyond it the constructor throws
+    // std::overflow_error, and CubicalBackend falls back to the classic engine (or, with --engine morse,
+    // reports the error). The Q reduction itself is guarded separately (Q64 overflow -> QBig).
     static void add_ck(int64_t& a, int64_t b) {
-        if (__builtin_add_overflow(a, b, &a)) throw std::overflow_error("cubical morse: path sum overflows int64");
+        const int64_t lim = path_limit();
+        if (__builtin_add_overflow(a, b, &a) || a > lim || a < -lim) throw std::overflow_error("cubical morse: a gradient-path sum exceeds the int64 bound");
     }
+public:
+    // test hook: the bound on path sums (lowering it forces the overflow fallback)
+    static int64_t& path_limit() { static int64_t lim = (int64_t)1 << 62; return lim; }
+private:
 
     // zero-length bars: every k-cell is a birth in degree k or a death in degree k-1, so per value v
     //   z_k(v) = n_k(v) - (positive births_k at v) - z_{k-1}(v) - (positive deaths_{k-1} at v)

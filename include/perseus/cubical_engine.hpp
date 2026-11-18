@@ -468,6 +468,9 @@ public:
     CubicalBackend(const CubicalGrid& g, int maxdim, std::string engine = "auto") {
         if (engine == "auto" || engine == "implicit") { const char* e = getenv("PERSEUS_CUBICAL"); engine = e && *e ? e : "auto"; }
         if (engine != "auto" && engine != "morse" && engine != "classic") throw std::runtime_error("cubical engine must be auto, morse or classic");
+        // a grid with an axis of length 0 has no cells: the empty complex, no intervals
+        int d = (int)g.ext.size();
+        for (int64_t e : g.ext) if (e <= 0) { empty_dmax = std::min(maxdim < 0 ? d : maxdim, d); return; }
         if (engine == "morse" && !CubicalMorse::supports(g)) throw std::runtime_error("cubical: the morse engine needs dimension 2..4 and no periodic axes");
         if (engine != "classic" && CubicalMorse::supports(g)) {
             try { m.reset(new CubicalMorse(g, maxdim)); return; }
@@ -475,14 +478,21 @@ public:
         }
         c.reset(new CubicalClassic(g, maxdim));
     }
-    int maxdim() const { return m ? m->maxdim() : c->maxdim(); }
-    const char* name() const { return m ? "morse" : "classic"; }
+    int maxdim() const { return m ? m->maxdim() : c ? c->maxdim() : empty_dmax; }
+    const char* name() const { return m ? "morse" : c ? "classic" : "empty"; }
     const CubicalMorse* morse() const { return m.get(); }
     template <class R>
     BRun<Clear> run(const R& ring, int kmin, int kmax, const Clear* in) const {
-        return m ? m->run(ring, kmin, kmax, in, keep_zero_length) : c->run(ring, kmin, kmax, in, keep_zero_length);
+        if (m) return m->run(ring, kmin, kmax, in, keep_zero_length);
+        if (c) return c->run(ring, kmin, kmax, in, keep_zero_length);
+        BRun<Clear> out; out.kmin = kmin;
+        int nd = std::max(0, std::min(kmax, empty_dmax) + 1);
+        out.bars.assign(nd, {}); out.clear_out.assign(nd, {});
+        for (int l = 0; l < R::lanes; ++l) out.moduli.push_back(ring.modulus(l));
+        return out;
     }
 private:
+    int empty_dmax = 0;
     std::unique_ptr<CubicalClassic> c;
     std::unique_ptr<CubicalMorse> m;
 };
