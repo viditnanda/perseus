@@ -1,0 +1,227 @@
+[
+ {
+  "graph": "C_7",
+  "vertices": 7,
+  "edges": 7,
+  "lmax": 7,
+  "generators": 13797,
+  "agree_over_F2": true,
+  "perseus_s": 0.127,
+  "perseus_mb": 9.1,
+  "gramag_s": 0.062,
+  "gramag_mb": 17.0,
+  "torsion": []
+ },
+ {
+  "graph": "C_12",
+  "vertices": 12,
+  "edges": 12,
+  "lmax": 10,
+  "generators": 702432,
+  "agree_over_F2": true,
+  "perseus_s": 0.297,
+  "perseus_mb": 9.1,
+  "gramag_s": 2.235,
+  "gramag_mb": 139.7,
+  "torsion": []
+ },
+ {
+  "graph": "directed C_6",
+  "vertices": 6,
+  "edges": 6,
+  "lmax": 8,
+  "generators": 1464,
+  "agree_over_F2": true,
+  "perseus_s": 0.004,
+  "perseus_mb": 9.1,
+  "gramag_s": 0.027,
+  "gramag_mb": 14.5,
+  "torsion": []
+ },
+ {
+  "graph": "grid 4x4",
+  "vertices": 16,
+  "edges": 24,
+  "lmax": 6,
+  "generators": 111468,
+  "agree_over_F2": true,
+  "perseus_s": 0.041,
+  "perseus_mb": 9.1,
+  "gramag_s": 0.311,
+  "gramag_mb": 34.4,
+  "torsion": []
+ },
+ {
+  "graph": "G(20, 0.2)",
+  "vertices": 20,
+  "edges": 47,
+  "lmax": 5,
+  "generators": 294562,
+  "agree_over_F2": true,
+  "perseus_s": 0.091,
+  "perseus_mb": 9.1,
+  "gramag_s": 0.698,
+  "gramag_mb": 64.3,
+  "torsion": []
+ },
+ {
+  "graph": "directed G(16, 0.18)",
+  "vertices": 16,
+  "edges": 48,
+  "lmax": 5,
+  "generators": 25446,
+  "agree_over_F2": true,
+  "perseus_s": 0.013,
+  "perseus_mb": 9.1,
+  "gramag_s": 0.083,
+  "gramag_mb": 20.2,
+  "torsion": []
+ },
+ {
+  "graph": "KY rp2 (all pairs)",
+  "vertices": 15,
+  "edges": 31,
+  "lmax": 6,
+  "generators": 383455,
+  "agree_over_F2": true,
+  "perseus_s": 0.141,
+  "perseus_mb": 9.0,
+  "gramag_s": 1.015,
+  "gramag_mb": 83.2,
+  "torsion": [
+   [
+    3,
+    4,
+    {
+     "2": 2
+    }
+   ],
+   [
+    4,
+    5,
+    {
+     "2": 8
+    }
+   ],
+   [
+    5,
+    6,
+    {
+     "2": 14
+    }
+   ]
+  ]
+ },
+ {
+  "graph": "KY rp2_6 (all pairs)",
+  "vertices": 33,
+  "edges": 76,
+  "lmax": 5,
+  "generators": 393623,
+  "agree_over_F2": true,
+  "perseus_s": 0.154,
+  "perseus_mb": 9.1,
+  "gramag_s": 1.291,
+  "gramag_mb": 87.2,
+  "torsion": [
+   [
+    3,
+    4,
+    {
+     "2": 2
+    }
+   ]
+  ]
+ },
+ {
+  "graph": "KY rp2 (pair (0,1))",
+  "vertices": 15,
+  "edges": 31,
+  "lmax": 8,
+  "generators": 66876,
+  "agree_over_F2": true,
+  "perseus_s": 0.042,
+  "perseus_mb": 10.0,
+  "gramag_s": 19.148,
+  "gramag_mb": 1325.0,
+  "torsion": [
+   [
+    3,
+    4,
+    {
+     "2": 1
+    }
+   ],
+   [
+    5,
+    6,
+    {
+     "2": 1
+    }
+   ],
+   [
+    7,
+    8,
+    {
+     "2": 1
+    }
+   ]
+  ]
+ },
+ {
+  "graph": "KY rp3 (pair (0,1))",
+  "vertices": 42,
+  "edges": 116,
+  "lmax": 7,
+  "generators": 59661,
+  "agree_over_F2": null,
+  "perseus_s": 0.043,
+  "perseus_mb": 9.2,
+  "gramag_s": null,
+  "gramag_mb": null,
+  "torsion": [
+   [
+    3,
+    5,
+    {
+     "2": 1
+    }
+   ],
+   [
+    5,
+    7,
+    {
+     "2": 8
+    }
+   ]
+  ]
+ },
+ {
+  "graph": "KY lens3_2 (pair (0,1))",
+  "vertices": 58,
+  "edges": 168,
+  "lmax": 7,
+  "generators": 112773,
+  "agree_over_F2": null,
+  "perseus_s": 0.09,
+  "perseus_mb": 13.1,
+  "gramag_s": null,
+  "gramag_mb": null,
+  "torsion": [
+   [
+    3,
+    5,
+    {
+     "3": 1
+    }
+   ],
+   [
+    5,
+    7,
+    {
+     "3": 1
+    }
+   ]
+  ]
+ }
+]

@@ -1,0 +1,2397 @@
+[
+ {
+  "case": "rp2_6",
+  "vertices": 33,
+  "edges": 76,
+  "poset_rank": 3,
+  "distance": 4,
+  "lmax": 10,
+  "pairs": 1,
+  "seconds": 20.438,
+  "peak_mb": 1618.7,
+  "largest_complex": 19988734,
+  "groups": [
+   {
+    "k": 1,
+    "l": 4,
+    "free": 0,
+    "torsion": {},
+    "generators": 1,
+    "residual": 0
+   },
+   {
+    "k": 2,
+    "l": 4,
+    "free": 0,
+    "torsion": {},
+    "generators": 31,
+    "residual": 0
+   },
+   {
+    "k": 3,
+    "l": 4,
+    "free": 0,
+    "torsion": {
+     "2": 1
+    },
+    "generators": 90,
+    "residual": 1
+   },
+   {
+    "k": 4,
+    "l": 4,
+    "free": 0,
+    "torsion": {},
+    "generators": 60,
+    "residual": 1
+   },
+   {
+    "k": 3,
+    "l": 6,
+    "free": 0,
+    "torsion": {},
+    "generators": 526,
+    "residual": 0
+   },
+   {
+    "k": 4,
+    "l": 6,
+    "free": 0,
+    "torsion": {},
+    "generators": 2776,
+    "residual": 0
+   },
+   {
+    "k": 5,
+    "l": 6,
+    "free": 30,
+    "torsion": {},
+    "generators": 4200,
+    "residual": 30
+   },
+   {
+    "k": 6,
+    "l": 6,
+    "free": 0,
+    "torsion": {},
+    "generators": 1920,
+    "residual": 0
+   },
+   {
+    "k": 3,
+    "l": 8,
+    "free": 0,
+    "torsion": {},
+    "generators": 330,
+    "residual": 0
+   },
+   {
+    "k": 4,
+    "l": 8,
+    "free": 0,
+    "torsion": {},
+    "generators": 11550,
+    "residual": 0
+   },
+   {
+    "k": 5,
+    "l": 8,
+    "free": 0,
+    "torsion": {},
+    "generators": 70576,
+    "residual": 0
+   },
+   {
+    "k": 6,
+    "l": 8,
+    "free": 0,
+    "torsion": {},
+    "generators": 158236,
+    "residual": 0
+   },
+   {
+    "k": 7,
+    "l": 8,
+    "free": 120,
+    "torsion": {},
+    "generators": 148680,
+    "residual": 120
+   },
+   {
+    "k": 8,
+    "l": 8,
+    "free": 0,
+    "torsion": {},
+    "generators": 49680,
+    "residual": 0
+   },
+   {
+    "k": 3,
+    "l": 10,
+    "free": 0,
+    "torsion": {},
+    "generators": 46,
+    "residual": 0
+   },
+   {
+    "k": 4,
+    "l": 10,
+    "free": 0,
+    "torsion": {},
+    "generators": 13096,
+    "residual": 0
+   },
+   {
+    "k": 5,
+    "l": 10,
+    "free": 0,
+    "torsion": {},
+    "generators": 281760,
+    "residual": 0
+   },
+   {
+    "k": 6,
+    "l": 10,
+    "free": 0,
+    "torsion": {},
+    "generators": 1802040,
+    "residual": 0
+   },
+   {
+    "k": 7,
+    "l": 10,
+    "free": 0,
+    "torsion": {},
+    "generators": 5044096,
+    "residual": 0
+   },
+   {
+    "k": 8,
+    "l": 10,
+    "free": 210,
+    "torsion": {},
+    "generators": 6965776,
+    "residual": 210
+   },
+   {
+    "k": 9,
+    "l": 10,
+    "free": 240,
+    "torsion": {},
+    "generators": 4668480,
+    "residual": 240
+   },
+   {
+    "k": 10,
+    "l": 10,
+    "free": 0,
+    "torsion": {},
+    "generators": 1213440,
+    "residual": 0
+   }
+  ],
+  "mode": "pair"
+ },
+ {
+  "case": "rp2",
+  "vertices": 15,
+  "edges": 31,
+  "poset_rank": 3,
+  "distance": 4,
+  "lmax": 10,
+  "pairs": 1,
+  "seconds": 1.678,
+  "peak_mb": 208.6,
+  "largest_complex": 1920676,
+  "groups": [
+   {
+    "k": 1,
+    "l": 4,
+    "free": 0,
+    "torsion": {},
+    "generators": 1,
+    "residual": 0
+   },
+   {
+    "k": 2,
+    "l": 4,
+    "free": 0,
+    "torsion": {},
+    "generators": 13,
+    "residual": 0
+   },
+   {
+    "k": 3,
+    "l": 4,
+    "free": 0,
+    "torsion": {
+     "2": 1
+    },
+    "generators": 36,
+    "residual": 1
+   },
+   {
+    "k": 4,
+    "l": 4,
+    "free": 0,
+    "torsion": {},
+    "generators": 24,
+    "residual": 1
+   },
+   {
+    "k": 3,
+    "l": 6,
+    "free": 0,
+    "torsion": {},
+    "generators": 97,
+    "residual": 0
+   },
+   {
+    "k": 4,
+    "l": 6,
+    "free": 0,
+    "torsion": {},
+    "generators": 583,
+    "residual": 0
+   },
+   {
+    "k": 5,
+    "l": 6,
+    "free": 6,
+    "torsion": {
+     "2": 1
+    },
+    "generators": 996,
+    "residual": 7
+   },
+   {
+    "k": 6,
+    "l": 6,
+    "free": 0,
+    "torsion": {},
+    "generators": 504,
+    "residual": 1
+   },
+   {
+    "k": 3,
+    "l": 8,
+    "free": 0,
+    "torsion": {},
+    "generators": 42,
+    "residual": 0
+   },
+   {
+    "k": 4,
+    "l": 8,
+    "free": 0,
+    "torsion": {},
+    "generators": 1194,
+    "residual": 0
+   },
+   {
+    "k": 5,
+    "l": 8,
+    "free": 0,
+    "torsion": {},
+    "generators": 8377,
+    "residual": 0
+   },
+   {
+    "k": 6,
+    "l": 8,
+    "free": 0,
+    "torsion": {},
+    "generators": 21997,
+    "residual": 0
+   },
+   {
+    "k": 7,
+    "l": 8,
+    "free": 48,
+    "torsion": {
+     "2": 1
+    },
+    "generators": 23916,
+    "residual": 49
+   },
+   {
+    "k": 8,
+    "l": 8,
+    "free": 0,
+    "torsion": {},
+    "generators": 9096,
+    "residual": 1
+   },
+   {
+    "k": 3,
+    "l": 10,
+    "free": 0,
+    "torsion": {},
+    "generators": 7,
+    "residual": 0
+   },
+   {
+    "k": 4,
+    "l": 10,
+    "free": 0,
+    "torsion": {},
+    "generators": 655,
+    "residual": 0
+   },
+   {
+    "k": 5,
+    "l": 10,
+    "free": 0,
+    "torsion": {},
+    "generators": 15600,
+    "residual": 0
+   },
+   {
+    "k": 6,
+    "l": 10,
+    "free": 0,
+    "torsion": {},
+    "generators": 121374,
+    "residual": 0
+   },
+   {
+    "k": 7,
+    "l": 10,
+    "free": 0,
+    "torsion": {},
+    "generators": 411949,
+    "residual": 0
+   },
+   {
+    "k": 8,
+    "l": 10,
+    "free": 0,
+    "torsion": {
+     "2": 4
+    },
+    "generators": 678439,
+    "residual": 4
+   },
+   {
+    "k": 9,
+    "l": 10,
+    "free": 204,
+    "torsion": {
+     "2": 1
+    },
+    "generators": 532884,
+    "residual": 209
+   },
+   {
+    "k": 10,
+    "l": 10,
+    "free": 0,
+    "torsion": {},
+    "generators": 159768,
+    "residual": 1
+   }
+  ],
+  "mode": "pair"
+ },
+ {
+  "case": "rp3",
+  "vertices": 42,
+  "edges": 116,
+  "poset_rank": 4,
+  "distance": 5,
+  "lmax": 9,
+  "pairs": 1,
+  "seconds": 5.457,
+  "peak_mb": 306.5,
+  "largest_complex": 3587888,
+  "groups": [
+   {
+    "k": 1,
+    "l": 5,
+    "free": 0,
+    "torsion": {},
+    "generators": 1,
+    "residual": 0
+   },
+   {
+    "k": 2,
+    "l": 5,
+    "free": 0,
+    "torsion": {},
+    "generators": 40,
+    "residual": 0
+   },
+   {
+    "k": 3,
+    "l": 5,
+    "free": 0,
+    "torsion": {
+     "2": 1
+    },
+    "generators": 232,
+    "residual": 1
+   },
+   {
+    "k": 4,
+    "l": 5,
+    "free": 0,
+    "torsion": {},
+    "generators": 384,
+    "residual": 1
+   },
+   {
+    "k": 5,
+    "l": 5,
+    "free": 1,
+    "torsion": {},
+    "generators": 192,
+    "residual": 1
+   },
+   {
+    "k": 3,
+    "l": 7,
+    "free": 0,
+    "torsion": {},
+    "generators": 764,
+    "residual": 0
+   },
+   {
+    "k": 4,
+    "l": 7,
+    "free": 0,
+    "torsion": {},
+    "generators": 7136,
+    "residual": 0
+   },
+   {
+    "k": 5,
+    "l": 7,
+    "free": 4,
+    "torsion": {
+     "2": 8
+    },
+    "generators": 20192,
+    "residual": 12
+   },
+   {
+    "k": 6,
+    "l": 7,
+    "free": 8,
+    "torsion": {},
+    "generators": 22272,
+    "residual": 16
+   },
+   {
+    "k": 7,
+    "l": 7,
+    "free": 0,
+    "torsion": {},
+    "generators": 8448,
+    "residual": 0
+   },
+   {
+    "k": 3,
+    "l": 9,
+    "free": 0,
+    "torsion": {},
+    "generators": 508,
+    "residual": 0
+   },
+   {
+    "k": 4,
+    "l": 9,
+    "free": 0,
+    "torsion": {},
+    "generators": 22700,
+    "residual": 0
+   },
+   {
+    "k": 5,
+    "l": 9,
+    "free": 0,
+    "torsion": {},
+    "generators": 213288,
+    "residual": 0
+   },
+   {
+    "k": 6,
+    "l": 9,
+    "free": 0,
+    "torsion": {},
+    "generators": 770528,
+    "residual": 0
+   },
+   {
+    "k": 7,
+    "l": 9,
+    "free": 67,
+    "torsion": {
+     "2": 17
+    },
+    "generators": 1285248,
+    "residual": 85
+   },
+   {
+    "k": 8,
+    "l": 9,
+    "free": 43,
+    "torsion": {},
+    "generators": 1000704,
+    "residual": 61
+   },
+   {
+    "k": 9,
+    "l": 9,
+    "free": 0,
+    "torsion": {},
+    "generators": 294912,
+    "residual": 0
+   }
+  ],
+  "mode": "pair"
+ },
+ {
+  "case": "rp4",
+  "vertices": 123,
+  "edges": 421,
+  "poset_rank": 5,
+  "distance": 6,
+  "lmax": 8,
+  "pairs": 1,
+  "seconds": 2.943,
+  "peak_mb": 141.3,
+  "largest_complex": 1675022,
+  "groups": [
+   {
+    "k": 1,
+    "l": 6,
+    "free": 0,
+    "torsion": {},
+    "generators": 1,
+    "residual": 0
+   },
+   {
+    "k": 2,
+    "l": 6,
+    "free": 0,
+    "torsion": {},
+    "generators": 121,
+    "residual": 0
+   },
+   {
+    "k": 3,
+    "l": 6,
+    "free": 0,
+    "torsion": {
+     "2": 1
+    },
+    "generators": 1320,
+    "residual": 1
+   },
+   {
+    "k": 4,
+    "l": 6,
+    "free": 0,
+    "torsion": {},
+    "generators": 4080,
+    "residual": 1
+   },
+   {
+    "k": 5,
+    "l": 6,
+    "free": 0,
+    "torsion": {
+     "2": 1
+    },
+    "generators": 4800,
+    "residual": 1
+   },
+   {
+    "k": 6,
+    "l": 6,
+    "free": 0,
+    "torsion": {},
+    "generators": 1920,
+    "residual": 1
+   },
+   {
+    "k": 3,
+    "l": 8,
+    "free": 0,
+    "torsion": {},
+    "generators": 5521,
+    "residual": 0
+   },
+   {
+    "k": 4,
+    "l": 8,
+    "free": 0,
+    "torsion": {},
+    "generators": 77141,
+    "residual": 0
+   },
+   {
+    "k": 5,
+    "l": 8,
+    "free": 5,
+    "torsion": {
+     "2": 16
+    },
+    "generators": 329880,
+    "residual": 21
+   },
+   {
+    "k": 6,
+    "l": 8,
+    "free": 65,
+    "torsion": {},
+    "generators": 604880,
+    "residual": 81
+   },
+   {
+    "k": 7,
+    "l": 8,
+    "free": 0,
+    "torsion": {},
+    "generators": 502080,
+    "residual": 0
+   },
+   {
+    "k": 8,
+    "l": 8,
+    "free": 0,
+    "torsion": {},
+    "generators": 155520,
+    "residual": 0
+   }
+  ],
+  "mode": "pair"
+ },
+ {
+  "case": "rp5",
+  "vertices": 366,
+  "edges": 1490,
+  "poset_rank": 6,
+  "distance": 7,
+  "lmax": 7,
+  "pairs": 1,
+  "seconds": 0.683,
+  "peak_mb": 41.3,
+  "largest_complex": 211929,
+  "groups": [
+   {
+    "k": 1,
+    "l": 7,
+    "free": 0,
+    "torsion": {},
+    "generators": 1,
+    "residual": 0
+   },
+   {
+    "k": 2,
+    "l": 7,
+    "free": 0,
+    "torsion": {},
+    "generators": 364,
+    "residual": 0
+   },
+   {
+    "k": 3,
+    "l": 7,
+    "free": 0,
+    "torsion": {
+     "2": 1
+    },
+    "generators": 7084,
+    "residual": 1
+   },
+   {
+    "k": 4,
+    "l": 7,
+    "free": 0,
+    "torsion": {},
+    "generators": 36480,
+    "residual": 1
+   },
+   {
+    "k": 5,
+    "l": 7,
+    "free": 0,
+    "torsion": {
+     "2": 1
+    },
+    "generators": 75840,
+    "residual": 1
+   },
+   {
+    "k": 6,
+    "l": 7,
+    "free": 0,
+    "torsion": {},
+    "generators": 69120,
+    "residual": 1
+   },
+   {
+    "k": 7,
+    "l": 7,
+    "free": 1,
+    "torsion": {},
+    "generators": 23040,
+    "residual": 1
+   }
+  ],
+  "mode": "pair"
+ },
+ {
+  "case": "lens3_2",
+  "vertices": 58,
+  "edges": 168,
+  "poset_rank": 4,
+  "distance": 5,
+  "lmax": 9,
+  "pairs": 1,
+  "seconds": 13.036,
+  "peak_mb": 728.9,
+  "largest_complex": 8411880,
+  "groups": [
+   {
+    "k": 1,
+    "l": 5,
+    "free": 0,
+    "torsion": {},
+    "generators": 1,
+    "residual": 0
+   },
+   {
+    "k": 2,
+    "l": 5,
+    "free": 0,
+    "torsion": {},
+    "generators": 56,
+    "residual": 0
+   },
+   {
+    "k": 3,
+    "l": 5,
+    "free": 0,
+    "torsion": {
+     "3": 1
+    },
+    "generators": 344,
+    "residual": 1
+   },
+   {
+    "k": 4,
+    "l": 5,
+    "free": 0,
+    "torsion": {},
+    "generators": 576,
+    "residual": 1
+   },
+   {
+    "k": 5,
+    "l": 5,
+    "free": 1,
+    "torsion": {},
+    "generators": 288,
+    "residual": 1
+   },
+   {
+    "k": 3,
+    "l": 7,
+    "free": 0,
+    "torsion": {},
+    "generators": 1500,
+    "residual": 0
+   },
+   {
+    "k": 4,
+    "l": 7,
+    "free": 0,
+    "torsion": {},
+    "generators": 13896,
+    "residual": 0
+   },
+   {
+    "k": 5,
+    "l": 7,
+    "free": 19,
+    "torsion": {
+     "3": 1
+    },
+    "generators": 38704,
+    "residual": 20
+   },
+   {
+    "k": 6,
+    "l": 7,
+    "free": 15,
+    "torsion": {},
+    "generators": 41856,
+    "residual": 16
+   },
+   {
+    "k": 7,
+    "l": 7,
+    "free": 0,
+    "torsion": {},
+    "generators": 15552,
+    "residual": 0
+   },
+   {
+    "k": 3,
+    "l": 9,
+    "free": 0,
+    "torsion": {},
+    "generators": 1100,
+    "residual": 0
+   },
+   {
+    "k": 4,
+    "l": 9,
+    "free": 0,
+    "torsion": {},
+    "generators": 55972,
+    "residual": 0
+   },
+   {
+    "k": 5,
+    "l": 9,
+    "free": 0,
+    "torsion": {},
+    "generators": 525144,
+    "residual": 0
+   },
+   {
+    "k": 6,
+    "l": 9,
+    "free": 0,
+    "torsion": {},
+    "generators": 1858432,
+    "residual": 0
+   },
+   {
+    "k": 7,
+    "l": 9,
+    "free": 424,
+    "torsion": {},
+    "generators": 3022112,
+    "residual": 425
+   },
+   {
+    "k": 8,
+    "l": 9,
+    "free": 8,
+    "torsion": {},
+    "generators": 2291328,
+    "residual": 9
+   },
+   {
+    "k": 9,
+    "l": 9,
+    "free": 0,
+    "torsion": {},
+    "generators": 657792,
+    "residual": 0
+   }
+  ],
+  "mode": "pair"
+ },
+ {
+  "case": "lens5_2",
+  "vertices": 90,
+  "edges": 272,
+  "poset_rank": 4,
+  "distance": 5,
+  "lmax": 9,
+  "pairs": 1,
+  "seconds": 33.858,
+  "cpu_seconds": 33.526,
+  "peak_mb": 2020.3,
+  "largest_complex": 27123536,
+  "groups": [
+   {
+    "k": 1,
+    "l": 5,
+    "free": 0,
+    "torsion": {},
+    "generators": 1,
+    "residual": 0
+   },
+   {
+    "k": 2,
+    "l": 5,
+    "free": 0,
+    "torsion": {},
+    "generators": 88,
+    "residual": 0
+   },
+   {
+    "k": 3,
+    "l": 5,
+    "free": 0,
+    "torsion": {
+     "5": 1
+    },
+    "generators": 568,
+    "residual": 1
+   },
+   {
+    "k": 4,
+    "l": 5,
+    "free": 0,
+    "torsion": {},
+    "generators": 960,
+    "residual": 1
+   },
+   {
+    "k": 5,
+    "l": 5,
+    "free": 1,
+    "torsion": {},
+    "generators": 480,
+    "residual": 1
+   },
+   {
+    "k": 3,
+    "l": 7,
+    "free": 0,
+    "torsion": {},
+    "generators": 3716,
+    "residual": 0
+   },
+   {
+    "k": 4,
+    "l": 7,
+    "free": 0,
+    "torsion": {},
+    "generators": 33896,
+    "residual": 0
+   },
+   {
+    "k": 5,
+    "l": 7,
+    "free": 73,
+    "torsion": {
+     "5": 3
+    },
+    "generators": 92624,
+    "residual": 76
+   },
+   {
+    "k": 6,
+    "l": 7,
+    "free": 29,
+    "torsion": {},
+    "generators": 97920,
+    "residual": 32
+   },
+   {
+    "k": 7,
+    "l": 7,
+    "free": 0,
+    "torsion": {},
+    "generators": 35520,
+    "residual": 0
+   },
+   {
+    "k": 3,
+    "l": 9,
+    "free": 0,
+    "torsion": {},
+    "generators": 2980,
+    "residual": 0
+   },
+   {
+    "k": 4,
+    "l": 9,
+    "free": 0,
+    "torsion": {},
+    "generators": 188324,
+    "residual": 0
+   },
+   {
+    "k": 5,
+    "l": 9,
+    "free": 0,
+    "torsion": {},
+    "generators": 1776360,
+    "residual": 0
+   },
+   {
+    "k": 6,
+    "l": 9,
+    "free": 0,
+    "torsion": {},
+    "generators": 6166400,
+    "residual": 0
+   },
+   {
+    "k": 7,
+    "l": 9,
+    "free": 2584,
+    "torsion": {},
+    "generators": 9773472,
+    "residual": 2584
+   },
+   {
+    "k": 8,
+    "l": 9,
+    "free": 16,
+    "torsion": {},
+    "generators": 7205760,
+    "residual": 16
+   },
+   {
+    "k": 9,
+    "l": 9,
+    "free": 0,
+    "torsion": {},
+    "generators": 2010240,
+    "residual": 0
+   }
+  ],
+  "mode": "pair"
+ },
+ {
+  "case": "lens7_2",
+  "vertices": 122,
+  "edges": 376,
+  "poset_rank": 4,
+  "distance": 5,
+  "lmax": 7,
+  "pairs": 1,
+  "seconds": 0.427,
+  "peak_mb": 40.5,
+  "largest_complex": 478212,
+  "groups": [
+   {
+    "k": 1,
+    "l": 5,
+    "free": 0,
+    "torsion": {},
+    "generators": 1,
+    "residual": 0
+   },
+   {
+    "k": 2,
+    "l": 5,
+    "free": 0,
+    "torsion": {},
+    "generators": 120,
+    "residual": 0
+   },
+   {
+    "k": 3,
+    "l": 5,
+    "free": 0,
+    "torsion": {
+     "7": 1
+    },
+    "generators": 792,
+    "residual": 1
+   },
+   {
+    "k": 4,
+    "l": 5,
+    "free": 0,
+    "torsion": {},
+    "generators": 1344,
+    "residual": 1
+   },
+   {
+    "k": 5,
+    "l": 5,
+    "free": 1,
+    "torsion": {},
+    "generators": 672,
+    "residual": 1
+   },
+   {
+    "k": 3,
+    "l": 7,
+    "free": 0,
+    "torsion": {},
+    "generators": 6924,
+    "residual": 0
+   },
+   {
+    "k": 4,
+    "l": 7,
+    "free": 0,
+    "torsion": {},
+    "generators": 62536,
+    "residual": 0
+   },
+   {
+    "k": 5,
+    "l": 7,
+    "free": 159,
+    "torsion": {
+     "7": 5
+    },
+    "generators": 169072,
+    "residual": 164
+   },
+   {
+    "k": 6,
+    "l": 7,
+    "free": 43,
+    "torsion": {},
+    "generators": 176512,
+    "residual": 48
+   },
+   {
+    "k": 7,
+    "l": 7,
+    "free": 0,
+    "torsion": {},
+    "generators": 63168,
+    "residual": 0
+   }
+  ],
+  "mode": "pair"
+ },
+ {
+  "case": "lens2_3",
+  "vertices": 366,
+  "edges": 1490,
+  "poset_rank": 6,
+  "distance": 7,
+  "lmax": 7,
+  "pairs": 1,
+  "seconds": 0.524,
+  "cpu_seconds": 0.529,
+  "peak_mb": 41.3,
+  "largest_complex": 211929,
+  "groups": [
+   {
+    "k": 1,
+    "l": 7,
+    "free": 0,
+    "torsion": {},
+    "generators": 1,
+    "residual": 0
+   },
+   {
+    "k": 2,
+    "l": 7,
+    "free": 0,
+    "torsion": {},
+    "generators": 364,
+    "residual": 0
+   },
+   {
+    "k": 3,
+    "l": 7,
+    "free": 0,
+    "torsion": {
+     "2": 1
+    },
+    "generators": 7084,
+    "residual": 1
+   },
+   {
+    "k": 4,
+    "l": 7,
+    "free": 0,
+    "torsion": {},
+    "generators": 36480,
+    "residual": 1
+   },
+   {
+    "k": 5,
+    "l": 7,
+    "free": 0,
+    "torsion": {
+     "2": 1
+    },
+    "generators": 75840,
+    "residual": 1
+   },
+   {
+    "k": 6,
+    "l": 7,
+    "free": 0,
+    "torsion": {},
+    "generators": 69120,
+    "residual": 1
+   },
+   {
+    "k": 7,
+    "l": 7,
+    "free": 1,
+    "torsion": {},
+    "generators": 23040,
+    "residual": 1
+   }
+  ],
+  "mode": "pair"
+ },
+ {
+  "case": "lens3_3",
+  "vertices": 734,
+  "edges": 3114,
+  "poset_rank": 6,
+  "distance": 7,
+  "lmax": 7,
+  "pairs": 1,
+  "seconds": 2.06,
+  "cpu_seconds": 2.062,
+  "peak_mb": 96.8,
+  "largest_complex": 474937,
+  "groups": [
+   {
+    "k": 1,
+    "l": 7,
+    "free": 0,
+    "torsion": {},
+    "generators": 1,
+    "residual": 0
+   },
+   {
+    "k": 2,
+    "l": 7,
+    "free": 0,
+    "torsion": {},
+    "generators": 732,
+    "residual": 0
+   },
+   {
+    "k": 3,
+    "l": 7,
+    "free": 0,
+    "torsion": {
+     "3": 1
+    },
+    "generators": 15420,
+    "residual": 1
+   },
+   {
+    "k": 4,
+    "l": 7,
+    "free": 0,
+    "torsion": {},
+    "generators": 81216,
+    "residual": 1
+   },
+   {
+    "k": 5,
+    "l": 7,
+    "free": 0,
+    "torsion": {
+     "3": 1
+    },
+    "generators": 170208,
+    "residual": 1
+   },
+   {
+    "k": 6,
+    "l": 7,
+    "free": 0,
+    "torsion": {},
+    "generators": 155520,
+    "residual": 1
+   },
+   {
+    "k": 7,
+    "l": 7,
+    "free": 1,
+    "torsion": {},
+    "generators": 51840,
+    "residual": 1
+   }
+  ],
+  "mode": "pair"
+ },
+ {
+  "case": "rp2_6",
+  "vertices": 33,
+  "edges": 76,
+  "poset_rank": 3,
+  "distance": 4,
+  "lmax": 9,
+  "pairs": 1089,
+  "seconds": 783.509,
+  "cpu_seconds": 651.663,
+  "peak_mb": 259.9,
+  "largest_complex": 2512138,
+  "groups": [
+   {
+    "k": 0,
+    "l": 0,
+    "free": 33,
+    "torsion": {},
+    "generators": 33,
+    "residual": 33
+   },
+   {
+    "k": 1,
+    "l": 1,
+    "free": 152,
+    "torsion": {},
+    "generators": 152,
+    "residual": 152
+   },
+   {
+    "k": 1,
+    "l": 2,
+    "free": 0,
+    "torsion": {},
+    "generators": 360,
+    "residual": 0
+   },
+   {
+    "k": 2,
+    "l": 2,
+    "free": 392,
+    "torsion": {},
+    "generators": 752,
+    "residual": 392
+   },
+   {
+    "k": 1,
+    "l": 3,
+    "free": 0,
+    "torsion": {},
+    "generators": 392,
+    "residual": 0
+   },
+   {
+    "k": 2,
+    "l": 3,
+    "free": 60,
+    "torsion": {},
+    "generators": 3360,
+    "residual": 60
+   },
+   {
+    "k": 3,
+    "l": 3,
+    "free": 724,
+    "torsion": {},
+    "generators": 3632,
+    "residual": 724
+   },
+   {
+    "k": 1,
+    "l": 4,
+    "free": 0,
+    "torsion": {},
+    "generators": 152,
+    "residual": 0
+   },
+   {
+    "k": 2,
+    "l": 4,
+    "free": 0,
+    "torsion": {},
+    "generators": 7502,
+    "residual": 0
+   },
+   {
+    "k": 3,
+    "l": 4,
+    "free": 450,
+    "torsion": {
+     "2": 2
+    },
+    "generators": 24480,
+    "residual": 452
+   },
+   {
+    "k": 4,
+    "l": 4,
+    "free": 1112,
+    "torsion": {},
+    "generators": 17792,
+    "residual": 1114
+   },
+   {
+    "k": 2,
+    "l": 5,
+    "free": 0,
+    "torsion": {},
+    "generators": 9872,
+    "residual": 0
+   },
+   {
+    "k": 3,
+    "l": 5,
+    "free": 0,
+    "torsion": {},
+    "generators": 81032,
+    "residual": 0
+   },
+   {
+    "k": 4,
+    "l": 5,
+    "free": 1680,
+    "torsion": {},
+    "generators": 157680,
+    "residual": 1680
+   },
+   {
+    "k": 5,
+    "l": 5,
+    "free": 1592,
+    "torsion": {},
+    "generators": 86432,
+    "residual": 1592
+   },
+   {
+    "k": 2,
+    "l": 6,
+    "free": 0,
+    "torsion": {},
+    "generators": 7892,
+    "residual": 0
+   },
+   {
+    "k": 3,
+    "l": 6,
+    "free": 0,
+    "torsion": {},
+    "generators": 170432,
+    "residual": 0
+   },
+   {
+    "k": 4,
+    "l": 6,
+    "free": 150,
+    "torsion": {},
+    "generators": 697952,
+    "residual": 150
+   },
+   {
+    "k": 5,
+    "l": 6,
+    "free": 3978,
+    "torsion": {},
+    "generators": 959040,
+    "residual": 3978
+   },
+   {
+    "k": 6,
+    "l": 6,
+    "free": 2152,
+    "torsion": {},
+    "generators": 421952,
+    "residual": 2152
+   },
+   {
+    "k": 2,
+    "l": 7,
+    "free": 0,
+    "torsion": {},
+    "generators": 3632,
+    "residual": 0
+   },
+   {
+    "k": 3,
+    "l": 7,
+    "free": 0,
+    "torsion": {},
+    "generators": 247592,
+    "residual": 0
+   },
+   {
+    "k": 4,
+    "l": 7,
+    "free": 0,
+    "torsion": {},
+    "generators": 1996832,
+    "residual": 0
+   },
+   {
+    "k": 5,
+    "l": 7,
+    "free": 1500,
+    "torsion": {},
+    "generators": 5287232,
+    "residual": 1500
+   },
+   {
+    "k": 6,
+    "l": 7,
+    "free": 7020,
+    "torsion": {},
+    "generators": 5591040,
+    "residual": 7020
+   },
+   {
+    "k": 7,
+    "l": 7,
+    "free": 2792,
+    "torsion": {},
+    "generators": 2053952,
+    "residual": 2792
+   },
+   {
+    "k": 2,
+    "l": 8,
+    "free": 0,
+    "torsion": {},
+    "generators": 782,
+    "residual": 0
+   },
+   {
+    "k": 3,
+    "l": 8,
+    "free": 0,
+    "torsion": {},
+    "generators": 253206,
+    "residual": 0
+   },
+   {
+    "k": 4,
+    "l": 8,
+    "free": 0,
+    "torsion": {},
+    "generators": 4080724,
+    "residual": 0
+   },
+   {
+    "k": 5,
+    "l": 8,
+    "free": 0,
+    "torsion": {},
+    "generators": 19079972,
+    "residual": 0
+   },
+   {
+    "k": 6,
+    "l": 8,
+    "free": 7986,
+    "torsion": {},
+    "generators": 36990152,
+    "residual": 7986
+   },
+   {
+    "k": 7,
+    "l": 8,
+    "free": 10746,
+    "torsion": {},
+    "generators": 31752960,
+    "residual": 10746
+   },
+   {
+    "k": 8,
+    "l": 8,
+    "free": 3512,
+    "torsion": {},
+    "generators": 10015232,
+    "residual": 3512
+   },
+   {
+    "k": 3,
+    "l": 9,
+    "free": 0,
+    "torsion": {},
+    "generators": 181024,
+    "residual": 0
+   },
+   {
+    "k": 4,
+    "l": 9,
+    "free": 0,
+    "torsion": {},
+    "generators": 6244536,
+    "residual": 0
+   },
+   {
+    "k": 5,
+    "l": 9,
+    "free": 0,
+    "torsion": {},
+    "generators": 50038144,
+    "residual": 0
+   },
+   {
+    "k": 6,
+    "l": 9,
+    "free": 360,
+    "torsion": {},
+    "generators": 160880192,
+    "residual": 360
+   },
+   {
+    "k": 7,
+    "l": 9,
+    "free": 25752,
+    "torsion": {},
+    "generators": 244719392,
+    "residual": 25754
+   },
+   {
+    "k": 8,
+    "l": 9,
+    "free": 15360,
+    "torsion": {},
+    "generators": 176585280,
+    "residual": 15362
+   },
+   {
+    "k": 9,
+    "l": 9,
+    "free": 4312,
+    "torsion": {},
+    "generators": 48785792,
+    "residual": 4312
+   }
+  ],
+  "mode": "all"
+ },
+ {
+  "case": "rp2",
+  "vertices": 15,
+  "edges": 31,
+  "poset_rank": 3,
+  "distance": 4,
+  "lmax": 9,
+  "pairs": 225,
+  "seconds": 41.958,
+  "cpu_seconds": 41.462,
+  "peak_mb": 54.5,
+  "largest_complex": 507431,
+  "groups": [
+   {
+    "k": 0,
+    "l": 0,
+    "free": 15,
+    "torsion": {},
+    "generators": 15,
+    "residual": 15
+   },
+   {
+    "k": 1,
+    "l": 1,
+    "free": 62,
+    "torsion": {},
+    "generators": 62,
+    "residual": 62
+   },
+   {
+    "k": 1,
+    "l": 2,
+    "free": 0,
+    "torsion": {},
+    "generators": 96,
+    "residual": 0
+   },
+   {
+    "k": 2,
+    "l": 2,
+    "free": 164,
+    "torsion": {},
+    "generators": 260,
+    "residual": 164
+   },
+   {
+    "k": 1,
+    "l": 3,
+    "free": 0,
+    "torsion": {},
+    "generators": 50,
+    "residual": 0
+   },
+   {
+    "k": 2,
+    "l": 3,
+    "free": 0,
+    "torsion": {},
+    "generators": 792,
+    "residual": 0
+   },
+   {
+    "k": 3,
+    "l": 3,
+    "free": 340,
+    "torsion": {},
+    "generators": 1082,
+    "residual": 340
+   },
+   {
+    "k": 1,
+    "l": 4,
+    "free": 0,
+    "torsion": {},
+    "generators": 2,
+    "residual": 0
+   },
+   {
+    "k": 2,
+    "l": 4,
+    "free": 0,
+    "torsion": {},
+    "generators": 1028,
+    "residual": 0
+   },
+   {
+    "k": 3,
+    "l": 4,
+    "free": 0,
+    "torsion": {
+     "2": 2
+    },
+    "generators": 4974,
+    "residual": 2
+   },
+   {
+    "k": 4,
+    "l": 4,
+    "free": 584,
+    "torsion": {},
+    "generators": 4532,
+    "residual": 586
+   },
+   {
+    "k": 2,
+    "l": 5,
+    "free": 0,
+    "torsion": {},
+    "generators": 650,
+    "residual": 0
+   },
+   {
+    "k": 3,
+    "l": 5,
+    "free": 0,
+    "torsion": {},
+    "generators": 10154,
+    "residual": 0
+   },
+   {
+    "k": 4,
+    "l": 5,
+    "free": 38,
+    "torsion": {
+     "2": 8
+    },
+    "generators": 27564,
+    "residual": 46
+   },
+   {
+    "k": 5,
+    "l": 5,
+    "free": 856,
+    "torsion": {},
+    "generators": 18878,
+    "residual": 864
+   },
+   {
+    "k": 2,
+    "l": 6,
+    "free": 0,
+    "torsion": {},
+    "generators": 194,
+    "residual": 0
+   },
+   {
+    "k": 3,
+    "l": 6,
+    "free": 0,
+    "torsion": {},
+    "generators": 11960,
+    "residual": 0
+   },
+   {
+    "k": 4,
+    "l": 6,
+    "free": 0,
+    "torsion": {},
+    "generators": 77828,
+    "residual": 0
+   },
+   {
+    "k": 5,
+    "l": 6,
+    "free": 344,
+    "torsion": {
+     "2": 14
+    },
+    "generators": 144282,
+    "residual": 358
+   },
+   {
+    "k": 6,
+    "l": 6,
+    "free": 1176,
+    "torsion": {},
+    "generators": 79052,
+    "residual": 1190
+   },
+   {
+    "k": 2,
+    "l": 7,
+    "free": 0,
+    "torsion": {},
+    "generators": 14,
+    "residual": 0
+   },
+   {
+    "k": 3,
+    "l": 7,
+    "free": 0,
+    "torsion": {},
+    "generators": 8414,
+    "residual": 0
+   },
+   {
+    "k": 4,
+    "l": 7,
+    "free": 0,
+    "torsion": {},
+    "generators": 130622,
+    "residual": 0
+   },
+   {
+    "k": 5,
+    "l": 7,
+    "free": 0,
+    "torsion": {},
+    "generators": 513554,
+    "residual": 0
+   },
+   {
+    "k": 6,
+    "l": 7,
+    "free": 1370,
+    "torsion": {
+     "2": 14
+    },
+    "generators": 720480,
+    "residual": 1384
+   },
+   {
+    "k": 7,
+    "l": 7,
+    "free": 1576,
+    "torsion": {},
+    "generators": 329354,
+    "residual": 1590
+   },
+   {
+    "k": 2,
+    "l": 8,
+    "free": 0,
+    "torsion": {},
+    "generators": 2,
+    "residual": 0
+   },
+   {
+    "k": 3,
+    "l": 8,
+    "free": 0,
+    "torsion": {},
+    "generators": 3630,
+    "residual": 0
+   },
+   {
+    "k": 4,
+    "l": 8,
+    "free": 0,
+    "torsion": {},
+    "generators": 146212,
+    "residual": 0
+   },
+   {
+    "k": 5,
+    "l": 8,
+    "free": 0,
+    "torsion": {},
+    "generators": 1135916,
+    "residual": 0
+   },
+   {
+    "k": 6,
+    "l": 8,
+    "free": 0,
+    "torsion": {
+     "2": 2
+    },
+    "generators": 3132752,
+    "residual": 2
+   },
+   {
+    "k": 7,
+    "l": 8,
+    "free": 3782,
+    "torsion": {
+     "2": 15
+    },
+    "generators": 3520230,
+    "residual": 3799
+   },
+   {
+    "k": 8,
+    "l": 8,
+    "free": 2080,
+    "torsion": {},
+    "generators": 1379108,
+    "residual": 2095
+   },
+   {
+    "k": 3,
+    "l": 9,
+    "free": 0,
+    "torsion": {},
+    "generators": 832,
+    "residual": 0
+   },
+   {
+    "k": 4,
+    "l": 9,
+    "free": 0,
+    "torsion": {},
+    "generators": 109146,
+    "residual": 0
+   },
+   {
+    "k": 5,
+    "l": 9,
+    "free": 0,
+    "torsion": {},
+    "generators": 1695808,
+    "residual": 0
+   },
+   {
+    "k": 6,
+    "l": 9,
+    "free": 0,
+    "torsion": {},
+    "generators": 8459330,
+    "residual": 0
+   },
+   {
+    "k": 7,
+    "l": 9,
+    "free": 0,
+    "torsion": {
+     "2": 22
+    },
+    "generators": 17869034,
+    "residual": 23
+   },
+   {
+    "k": 8,
+    "l": 9,
+    "free": 8336,
+    "torsion": {
+     "2": 14
+    },
+    "generators": 16748820,
+    "residual": 8374
+   },
+   {
+    "k": 9,
+    "l": 9,
+    "free": 2712,
+    "torsion": {},
+    "generators": 5745998,
+    "residual": 2727
+   }
+  ],
+  "mode": "all"
+ },
+ {
+  "case": "rp3",
+  "vertices": 42,
+  "edges": 116,
+  "poset_rank": 4,
+  "distance": 5,
+  "lmax": 8,
+  "pairs": 1764,
+  "seconds": 323.341,
+  "cpu_seconds": 320.903,
+  "peak_mb": 64.8,
+  "largest_complex": 677916,
+  "groups": [
+   {
+    "k": 0,
+    "l": 0,
+    "free": 42,
+    "torsion": {},
+    "generators": 42,
+    "residual": 42
+   },
+   {
+    "k": 1,
+    "l": 1,
+    "free": 232,
+    "torsion": {},
+    "generators": 232,
+    "residual": 232
+   },
+   {
+    "k": 1,
+    "l": 2,
+    "free": 0,
+    "torsion": {},
+    "generators": 568,
+    "residual": 0
+   },
+   {
+    "k": 2,
+    "l": 2,
+    "free": 740,
+    "torsion": {},
+    "generators": 1308,
+    "residual": 740
+   },
+   {
+    "k": 1,
+    "l": 3,
+    "free": 0,
+    "torsion": {},
+    "generators": 648,
+    "residual": 0
+   },
+   {
+    "k": 2,
+    "l": 3,
+    "free": 0,
+    "torsion": {},
+    "generators": 6328,
+    "residual": 0
+   },
+   {
+    "k": 3,
+    "l": 3,
+    "free": 1680,
+    "torsion": {},
+    "generators": 7360,
+    "residual": 1680
+   },
+   {
+    "k": 1,
+    "l": 4,
+    "free": 0,
+    "torsion": {},
+    "generators": 272,
+    "residual": 0
+   },
+   {
+    "k": 2,
+    "l": 4,
+    "free": 0,
+    "torsion": {},
+    "generators": 14812,
+    "residual": 0
+   },
+   {
+    "k": 3,
+    "l": 4,
+    "free": 336,
+    "torsion": {},
+    "generators": 53220,
+    "residual": 336
+   },
+   {
+    "k": 4,
+    "l": 4,
+    "free": 3128,
+    "torsion": {},
+    "generators": 41472,
+    "residual": 3128
+   },
+   {
+    "k": 1,
+    "l": 5,
+    "free": 0,
+    "torsion": {},
+    "generators": 2,
+    "residual": 0
+   },
+   {
+    "k": 2,
+    "l": 5,
+    "free": 0,
+    "torsion": {},
+    "generators": 20424,
+    "residual": 0
+   },
+   {
+    "k": 3,
+    "l": 5,
+    "free": 0,
+    "torsion": {
+     "2": 2
+    },
+    "generators": 188472,
+    "residual": 2
+   },
+   {
+    "k": 4,
+    "l": 5,
+    "free": 2312,
+    "torsion": {},
+    "generators": 398816,
+    "residual": 2314
+   },
+   {
+    "k": 5,
+    "l": 5,
+    "free": 5274,
+    "torsion": {},
+    "generators": 233728,
+    "residual": 5274
+   },
+   {
+    "k": 2,
+    "l": 6,
+    "free": 0,
+    "torsion": {},
+    "generators": 17356,
+    "residual": 0
+   },
+   {
+    "k": 3,
+    "l": 6,
+    "free": 0,
+    "torsion": {},
+    "generators": 419412,
+    "residual": 0
+   },
+   {
+    "k": 4,
+    "l": 6,
+    "free": 8,
+    "torsion": {
+     "2": 16
+    },
+    "generators": 1889436,
+    "residual": 24
+   },
+   {
+    "k": 5,
+    "l": 6,
+    "free": 8108,
+    "torsion": {},
+    "generators": 2804912,
+    "residual": 8124
+   },
+   {
+    "k": 6,
+    "l": 6,
+    "free": 8264,
+    "torsion": {},
+    "generators": 1317696,
+    "residual": 8264
+   },
+   {
+    "k": 2,
+    "l": 7,
+    "free": 0,
+    "torsion": {},
+    "generators": 8504,
+    "residual": 0
+   },
+   {
+    "k": 3,
+    "l": 7,
+    "free": 0,
+    "torsion": {},
+    "generators": 640240,
+    "residual": 0
+   },
+   {
+    "k": 4,
+    "l": 7,
+    "free": 0,
+    "torsion": {},
+    "generators": 5756504,
+    "residual": 0
+   },
+   {
+    "k": 5,
+    "l": 7,
+    "free": 280,
+    "torsion": {
+     "2": 48
+    },
+    "generators": 16638752,
+    "residual": 328
+   },
+   {
+    "k": 6,
+    "l": 7,
+    "free": 19440,
+    "torsion": {},
+    "generators": 18950016,
+    "residual": 19488
+   },
+   {
+    "k": 7,
+    "l": 7,
+    "free": 12248,
+    "torsion": {},
+    "generators": 7429120,
+    "residual": 12248
+   },
+   {
+    "k": 2,
+    "l": 8,
+    "free": 0,
+    "torsion": {},
+    "generators": 1844,
+    "residual": 0
+   },
+   {
+    "k": 3,
+    "l": 8,
+    "free": 0,
+    "torsion": {},
+    "generators": 691116,
+    "residual": 0
+   },
+   {
+    "k": 4,
+    "l": 8,
+    "free": 0,
+    "torsion": {},
+    "generators": 12472076,
+    "residual": 0
+   },
+   {
+    "k": 5,
+    "l": 8,
+    "free": 0,
+    "torsion": {},
+    "generators": 64183908,
+    "residual": 0
+   },
+   {
+    "k": 6,
+    "l": 8,
+    "free": 6186,
+    "torsion": {
+     "2": 91
+    },
+    "generators": 135023568,
+    "residual": 6281
+   },
+   {
+    "k": 7,
+    "l": 8,
+    "free": 37218,
+    "torsion": {},
+    "generators": 124528192,
+    "residual": 37313
+   },
+   {
+    "k": 8,
+    "l": 8,
+    "free": 17400,
+    "torsion": {},
+    "generators": 41892096,
+    "residual": 17400
+   }
+  ],
+  "mode": "all"
+ },
+ {
+  "case": "rp2_6",
+  "mode": "pair",
+  "lmax": 12,
+  "failed": 134,
+  "wall": 18,
+  "msg": "terminate called after throwing an instance of 'std::runtime_error' what(): std::bad_alloc"
+ },
+ {
+  "case": "rp2",
+  "mode": "pair",
+  "lmax": 12,
+  "failed": 134,
+  "wall": 37,
+  "msg": "terminate called after throwing an instance of 'std::runtime_error' what(): std::bad_alloc"
+ },
+ {
+  "case": "rp3",
+  "mode": "pair",
+  "lmax": 11,
+  "failed": 134,
+  "wall": 21,
+  "msg": "terminate called after throwing an instance of 'std::runtime_error' what(): std::bad_alloc"
+ },
+ {
+  "case": "rp4",
+  "mode": "pair",
+  "lmax": 10,
+  "failed": 137,
+  "wall": 53,
+  "msg": ""
+ },
+ {
+  "case": "rp5",
+  "mode": "pair",
+  "lmax": 9,
+  "failed": 137,
+  "wall": 113,
+  "msg": ""
+ },
+ {
+  "case": "lens3_2",
+  "mode": "pair",
+  "lmax": 11,
+  "failed": 134,
+  "wall": 37,
+  "msg": "terminate called after throwing an instance of 'std::runtime_error' what(): std::bad_alloc"
+ },
+ {
+  "case": "lens5_2",
+  "mode": "pair",
+  "lmax": 11,
+  "failed": 134,
+  "wall": 16,
+  "msg": "terminate called after throwing an instance of 'std::runtime_error' what(): std::bad_alloc"
+ },
+ {
+  "case": "lens7_2",
+  "mode": "pair",
+  "lmax": 9,
+  "failed": 134,
+  "wall": 30,
+  "msg": "terminate called after throwing an instance of 'std::runtime_error' what(): std::bad_alloc"
+ },
+ {
+  "case": "lens2_3",
+  "mode": "pair",
+  "lmax": 9,
+  "failed": 134,
+  "wall": 65,
+  "msg": "terminate called after throwing an instance of 'std::runtime_error' what(): std::bad_alloc"
+ },
+ {
+  "case": "lens3_3",
+  "mode": "pair",
+  "lmax": 9,
+  "failed": 134,
+  "wall": 261,
+  "msg": "terminate called after throwing an instance of 'std::runtime_error' what(): std::bad_alloc"
+ },
+ {
+  "case": "rp2",
+  "mode": "all",
+  "lmax": 8,
+  "failed": 124,
+  "wall": 1539,
+  "msg": ""
+ },
+ {
+  "case": "rp2_6",
+  "mode": "all",
+  "lmax": 10,
+  "failed": 143,
+  "wall": 290,
+  "msg": ""
+ },
+ {
+  "case": "rp3",
+  "mode": "all",
+  "lmax": 9,
+  "failed": 143,
+  "wall": 196,
+  "msg": ""
+ }
+]
