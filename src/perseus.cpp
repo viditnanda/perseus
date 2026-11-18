@@ -48,6 +48,8 @@ static const char* USAGE =
 "  --engine e       Rips/flag: auto | implicit | sparse (explicit flag complex from the radius graph;\n"
 "                   auto picks sparse when the flag complex is small next to n^2: n >= 2048,\n"
 "                   average degree <= 64, at most n^2/50 simplices)\n"
+"                   cubical/npy: auto | morse (discrete gradient; dimensions 2-4, no periodic axes)\n"
+"                   | classic | explicit (build the complex); auto = morse where it applies\n"
 "  --direction d    explicit complexes: auto | cohomology | homology | forward\n"
 "  --print fmt      ripser | perseus | json | none   (stdout; default ripser unless a prefix is given)\n"
 "  --stats          timing and engine statistics on stderr\n"
@@ -307,9 +309,18 @@ int main(int argc, char** argv) {
             return solve(be, o);
         }
         if (in.is_grid) {
-            CubicalBackend be(in.grid, o.maxdim); be.keep_zero_length = o.zero;
+            CubicalBackend be(in.grid, o.maxdim, o.engine); be.keep_zero_length = o.zero;
             CubicalGrid().top.swap(in.grid.top);
             lap("cubical setup");
+            if (o.stats) {
+                fprintf(stderr, "  [cubical engine: %s", be.name());
+                if (const CubicalMorse* m = be.morse()) {
+                    fprintf(stderr, "; critical cells");
+                    for (int k = 0; k <= (int)in.grid.ext.size(); ++k) fprintf(stderr, " %zu/%zu", m->critical(k), m->count(k));
+                    fprintf(stderr, "; %zu block patterns, %lld blocks above the minimum", m->patterns(), m->imperfect_blocks());
+                }
+                fprintf(stderr, "]\n");
+            }
             return solve(be, o);
         }
         std::string err = in.complex.validate(false);

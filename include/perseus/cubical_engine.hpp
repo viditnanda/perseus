@@ -12,6 +12,7 @@
 #include "io.hpp"
 #include "ring.hpp"
 #include "types.hpp"
+#include "cubical_morse.hpp"
 #include <vector>
 #include <unordered_map>
 #include <algorithm>
@@ -25,13 +26,13 @@
 
 namespace perseus {
 
-class CubicalBackend {
+class CubicalClassic {
 public:
     typedef std::vector<uint32_t> Clear;     // positions of cleared cells in the next dimension
     bool keep_zero_length = false;
     static constexpr uint32_t ABSENT = 0xFFFFFFFFu;
 
-    CubicalBackend(const CubicalGrid& g, int maxdim) {
+    CubicalClassic(const CubicalGrid& g, int maxdim) {
         d = (int)g.ext.size();
         if (d == 0 || d > 16) throw std::runtime_error("cubical: dimension must be 1..16");
         dmax = std::min(maxdim < 0 ? d : maxdim, d);
@@ -146,7 +147,9 @@ public:
     size_t count(int k) const { return k >= 0 && k <= d ? cnt_[k] : 0; }
 
     template <class R>
-    BRun<Clear> run(const R& ring, int kmin, int kmax, const Clear* cleared_in) const {
+    BRun<Clear> run(const R& ring, int kmin, int kmax, const Clear* cleared_in) const { return run(ring, kmin, kmax, cleared_in, keep_zero_length); }
+    template <class R>
+    BRun<Clear> run(const R& ring, int kmin, int kmax, const Clear* cleared_in, bool keep) const {
         typedef typename R::T T;
         struct Ent { int32_t row; T c; };
         BRun<Clear> out; out.kmin = kmin;
@@ -183,7 +186,7 @@ public:
                 int32_t young = ka > kb ? a : bb, old = ka > kb ? bb : a;
                 par[young] = old;
                 double bv = vals[(uint32_t)(std::max(ka, kb) >> 32)], dv = val(pos);
-                if (dv > bv || keep_zero_length) out.bars[0].push_back({bv, dv});
+                if (dv > bv || keep) out.bars[0].push_back({bv, dv});
                 if (dmax > 0) out.clear_out[0].push_back((uint32_t)pos);
                 ++out.columns;
             }
@@ -258,7 +261,7 @@ public:
                     par[lo2] = hi2;
                     int64_t lp = (int64_t)(uint32_t)TK[lo2];
                     double dv = val(lp);
-                    if (dv > bj || keep_zero_length) out.bars[k].push_back({bj, dv});
+                    if (dv > bj || keep) out.bars[k].push_back({bj, dv});
                     if (!top) next_cleared.push_back((uint32_t)lp);
                 }
                 std::sort(out.bars[k].begin(), out.bars[k].end());
@@ -340,7 +343,7 @@ public:
                         int32_t r = rk[tau];
                         piv_col[r] = j; piv_inv[r] = coef;     // +-1 is its own inverse
                         double dv = val(tau);
-                        if (dv > bj || keep_zero_length) out.bars[k].push_back({bj, dv});
+                        if (dv > bj || keep) out.bars[k].push_back({bj, dv});
                         if (!top) next_cleared.push_back((uint32_t)tau);
                         continue;
                     }
@@ -392,7 +395,7 @@ public:
                 if (ring.partly_zero(pc)) out.unlucky = true;
                 piv_col[r] = j; piv_inv[r] = ring.inv(pc);
                 double dv = val(cells[k + 1][r]);
-                if (dv > bj || keep_zero_length) out.bars[k].push_back({bj, dv});
+                if (dv > bj || keep) out.bars[k].push_back({bj, dv});
                 if (!top) next_cleared.push_back(cells[k + 1][r]);
                 if (!ring.is_pm1(pc)) { Pivot pv; pv.k = k; pv.key = (uint64_t)j; pv.birth = bj; pv.death = dv; ring.store(pc, pv); out.nonunit.push_back(std::move(pv)); }
                 if (ch && !heapmode) stored[j] = w;
@@ -453,6 +456,35 @@ private:
             key.swap(k2); val.swap(v2);
         }
     }
+};
+
+// The cubical backend: the discrete-gradient engine (cubical_morse.hpp) where it applies (dimensions 2..4,
+// no periodic axes), the classic engine otherwise. engine = "auto", "morse" or "classic"; the environment
+// variable PERSEUS_CUBICAL overrides "auto".
+class CubicalBackend {
+public:
+    typedef std::vector<uint32_t> Clear;
+    bool keep_zero_length = false;
+    CubicalBackend(const CubicalGrid& g, int maxdim, std::string engine = "auto") {
+        if (engine == "auto" || engine == "implicit") { const char* e = getenv("PERSEUS_CUBICAL"); engine = e && *e ? e : "auto"; }
+        if (engine != "auto" && engine != "morse" && engine != "classic") throw std::runtime_error("cubical engine must be auto, morse or classic");
+        if (engine == "morse" && !CubicalMorse::supports(g)) throw std::runtime_error("cubical: the morse engine needs dimension 2..4 and no periodic axes");
+        if (engine != "classic" && CubicalMorse::supports(g)) {
+            try { m.reset(new CubicalMorse(g, maxdim)); return; }
+            catch (std::overflow_error&) { if (engine == "morse") throw; }    // a path sum beyond int64: classic engine
+        }
+        c.reset(new CubicalClassic(g, maxdim));
+    }
+    int maxdim() const { return m ? m->maxdim() : c->maxdim(); }
+    const char* name() const { return m ? "morse" : "classic"; }
+    const CubicalMorse* morse() const { return m.get(); }
+    template <class R>
+    BRun<Clear> run(const R& ring, int kmin, int kmax, const Clear* in) const {
+        return m ? m->run(ring, kmin, kmax, in, keep_zero_length) : c->run(ring, kmin, kmax, in, keep_zero_length);
+    }
+private:
+    std::unique_ptr<CubicalClassic> c;
+    std::unique_ptr<CubicalMorse> m;
 };
 
 } // namespace perseus

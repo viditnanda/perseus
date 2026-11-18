@@ -237,8 +237,9 @@ PYBIND11_MODULE(_perseus, m) {
             Prepared P(C); int md_ = maxdim < 0 ? P.D : maxdim; ExplicitBackend be(P, md_, auto_direction(P, md_));
             return solve(be, o);
         }
-        if (engine != "auto" && engine != "implicit") throw std::invalid_argument("engine must be 'auto', 'implicit' or 'explicit'");
-        CubicalBackend be(g, maxdim);
+        if (engine != "auto" && engine != "implicit" && engine != "morse" && engine != "classic")
+            throw std::invalid_argument("engine must be 'auto', 'morse', 'classic' or 'explicit'");
+        CubicalBackend be(g, maxdim, engine);
         return solve(be, o);
     }, py::arg("top"), py::arg("periodic") = std::vector<bool>(), py::arg("maxdim") = -1, py::arg("engine") = "auto", COMMON_ARGS,
        "Cubical complex from an n-d array of top-cell values (NaN or inf = absent); optional periodic axes.");
