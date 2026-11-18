@@ -1,37 +1,5 @@
 [
  {
-  "case": "smooth_1024x2",
-  "morse_s": 0.23871946334838867,
-  "morse_MB": 76.5234375,
-  "classic_s": 0.49613404273986816,
-  "classic_MB": 84.5078125,
-  "morse_Q_s": 0.23181891441345215,
-  "morse_Q_MB": 76.89453125,
-  "cripser_s": 0.4390077590942383,
-  "cripser_MB": 266.3828125,
-  "gudhi_s": 0.8877615928649902,
-  "gudhi_MB": 166.31640625,
-  "morse_eq_classic": true,
-  "intervals": 7022,
-  "morse_eq_cripser": true
- },
- {
-  "case": "noise_1024x2",
-  "morse_s": 0.2876608371734619,
-  "morse_MB": 79.66796875,
-  "classic_s": 0.6413042545318604,
-  "classic_MB": 84.49609375,
-  "morse_Q_s": 0.39147520065307617,
-  "morse_Q_MB": 80.0234375,
-  "cripser_s": 0.5826144218444824,
-  "cripser_MB": 371.69140625,
-  "gudhi_s": 0.9484074115753174,
-  "gudhi_MB": 216.2734375,
-  "morse_eq_classic": true,
-  "intervals": 325501,
-  "morse_eq_cripser": true
- },
- {
   "case": "smooth_96x3",
   "morse_s": 0.3649165630340576,
   "morse_MB": 96.1796875,
@@ -39,13 +7,14 @@
   "classic_MB": 142.6796875,
   "morse_Q_s": 0.4631929397583008,
   "morse_Q_MB": 96.5078125,
-  "cripser_s": 1.1600847244262695,
-  "cripser_MB": 133.765625,
-  "gudhi_s": 7.1826934814453125,
-  "gudhi_MB": 469.66796875,
+  "cripser_s": 0.8758840560003591,
+  "cripser_MB": 132.02734375,
+  "gudhi_s": 4.695927559000211,
+  "gudhi_MB": 469.10546875,
   "morse_eq_classic": true,
   "intervals": 7994,
-  "morse_eq_cripser": true
+  "morse_eq_cripser": true,
+  "others_remeasured": "2026-11-18, imports outside the timed call, peak RSS right after the call"
  },
  {
   "case": "noise_96x3",
@@ -55,13 +24,14 @@
   "classic_MB": 179.96875,
   "morse_Q_s": 1.3370857238769531,
   "morse_Q_MB": 146.8515625,
-  "cripser_s": 2.8741583824157715,
-  "cripser_MB": 338.6171875,
-  "gudhi_s": 10.086791515350342,
-  "gudhi_MB": 566.4140625,
+  "cripser_s": 2.4975097520000418,
+  "cripser_MB": 276.12109375,
+  "gudhi_s": 8.162926591000087,
+  "gudhi_MB": 552.6171875,
   "morse_eq_classic": true,
   "intervals": 313670,
-  "morse_eq_cripser": true
+  "morse_eq_cripser": true,
+  "others_remeasured": "2026-11-18, imports outside the timed call, peak RSS right after the call"
  },
  {
   "case": "smooth_24x4",
@@ -71,13 +41,14 @@
   "classic_MB": 126.09375,
   "morse_Q_s": 0.40164613723754883,
   "morse_Q_MB": 63.51953125,
-  "cripser_s": 0.8739233016967773,
-  "cripser_MB": 122.4921875,
-  "gudhi_s": 5.579801559448242,
-  "gudhi_MB": 398.765625,
+  "cripser_s": 0.6783733530000973,
+  "cripser_MB": 121.05859375,
+  "gudhi_s": 4.273213533999751,
+  "gudhi_MB": 395.55078125,
   "morse_eq_classic": true,
   "intervals": 3623,
-  "morse_eq_cripser": true
+  "morse_eq_cripser": true,
+  "others_remeasured": "2026-11-18, imports outside the timed call, peak RSS right after the call"
  },
  {
   "case": "noise_24x4",
@@ -87,45 +58,14 @@
   "classic_MB": 181.91015625,
   "morse_Q_s": 1.993804931640625,
   "morse_Q_MB": 123.45703125,
-  "cripser_s": 3.388542413711548,
-  "cripser_MB": 301.91796875,
-  "gudhi_s": 8.415287733078003,
-  "gudhi_MB": 451.3984375,
+  "cripser_s": 3.020401598999797,
+  "cripser_MB": 273.52734375,
+  "gudhi_s": 7.584148661999734,
+  "gudhi_MB": 444.7265625,
   "morse_eq_classic": true,
   "intervals": 134032,
-  "morse_eq_cripser": true
- },
- {
-  "case": "smooth_4096x2",
-  "morse_s": 4.275678396224976,
-  "morse_MB": 900.44140625,
-  "classic_s": 13.122400522232056,
-  "classic_MB": 1092.5859375,
-  "morse_Q_s": 3.9896998405456543,
-  "morse_Q_MB": 900.515625,
-  "cripser_s": 9.361209630966187,
-  "cripser_MB": 3108.07421875,
-  "gudhi_s": 1.2425205707550049,
-  "gudhi_MB": 498.60546875,
-  "morse_eq_classic": true,
-  "intervals": 110329,
-  "morse_eq_cripser": true
- },
- {
-  "case": "noise_4096x2",
-  "morse_s": 7.485250234603882,
-  "morse_MB": 1198.89453125,
-  "classic_s": 16.197959899902344,
-  "classic_MB": 1103.71875,
-  "morse_Q_s": 8.624645709991455,
-  "morse_Q_MB": 1198.78515625,
-  "cripser_s": 11.399808168411255,
-  "cripser_MB": 3108.03515625,
-  "gudhi_s": 3.3578848838806152,
-  "gudhi_MB": 1226.2734375,
-  "morse_eq_classic": true,
-  "intervals": 5216867,
-  "morse_eq_cripser": true
+  "morse_eq_cripser": true,
+  "others_remeasured": "2026-11-18, imports outside the timed call, peak RSS right after the call"
  },
  {
   "case": "smooth_192x3",
@@ -135,13 +75,14 @@
   "classic_MB": 1155.7265625,
   "morse_Q_s": 3.451239585876465,
   "morse_Q_MB": 764.2890625,
-  "cripser_s": 12.277193069458008,
-  "cripser_MB": 799.8203125,
-  "gudhi_s": 53.238720178604126,
-  "gudhi_MB": 2787.2578125,
+  "cripser_s": 11.511083764999967,
+  "cripser_MB": 799.70703125,
+  "gudhi_s": 56.98650546099998,
+  "gudhi_MB": 2785.96484375,
   "morse_eq_classic": true,
   "intervals": 64760,
-  "morse_eq_cripser": true
+  "morse_eq_cripser": true,
+  "others_remeasured": "2026-11-18, imports outside the timed call, peak RSS right after the call"
  },
  {
   "case": "noise_192x3",
@@ -151,13 +92,14 @@
   "classic_MB": 1435.52734375,
   "morse_Q_s": 17.59560513496399,
   "morse_Q_MB": 1350.37890625,
-  "cripser_s": 26.60864543914795,
-  "cripser_MB": 1840.75390625,
-  "gudhi_s": 103.13086199760437,
-  "gudhi_MB": 3465.265625,
+  "cripser_s": 25.30256637100001,
+  "cripser_MB": 1763.15234375,
+  "gudhi_s": 92.47013022100009,
+  "gudhi_MB": 3464.953125,
   "morse_eq_classic": true,
   "intervals": 2557363,
-  "morse_eq_cripser": true
+  "morse_eq_cripser": true,
+  "others_remeasured": "2026-11-18, imports outside the timed call, peak RSS right after the call"
  },
  {
   "case": "smooth_32x4",
@@ -167,13 +109,14 @@
   "classic_MB": 385.87109375,
   "morse_Q_s": 1.6932408809661865,
   "morse_Q_MB": 183.04296875,
-  "cripser_s": 3.0137689113616943,
-  "cripser_MB": 276.01953125,
-  "gudhi_s": 16.094281911849976,
-  "gudhi_MB": 922.9375,
+  "cripser_s": 3.2448236010000073,
+  "cripser_MB": 275.95703125,
+  "gudhi_s": 15.673463532999904,
+  "gudhi_MB": 922.5390625,
   "morse_eq_classic": true,
   "intervals": 11450,
-  "morse_eq_cripser": true
+  "morse_eq_cripser": true,
+  "others_remeasured": "2026-11-18, imports outside the timed call, peak RSS right after the call"
  },
  {
   "case": "noise_32x4",
@@ -183,13 +126,14 @@
   "classic_MB": 625.59375,
   "morse_Q_s": 9.555572748184204,
   "morse_Q_MB": 426.68359375,
-  "cripser_s": 15.501644611358643,
-  "cripser_MB": 927.52734375,
-  "gudhi_s": 38.40487480163574,
-  "gudhi_MB": 1109.890625,
+  "cripser_s": 14.395721058000163,
+  "cripser_MB": 903.26953125,
+  "gudhi_s": 37.9881259660001,
+  "gudhi_MB": 1109.453125,
   "morse_eq_classic": true,
   "intervals": 446270,
-  "morse_eq_cripser": true
+  "morse_eq_cripser": true,
+  "others_remeasured": "2026-11-18, imports outside the timed call, peak RSS right after the call"
  },
  {
   "case": "smooth_48x4",
@@ -199,13 +143,14 @@
   "classic_MB": 1709.1640625,
   "morse_Q_s": 7.667821884155273,
   "morse_Q_MB": 923.45703125,
-  "cripser_s": 21.856634855270386,
-  "cripser_MB": 1219.72265625,
-  "gudhi_s": 101.01606273651123,
-  "gudhi_MB": 4068.125,
+  "cripser_s": 21.332699050999963,
+  "cripser_MB": 1219.6328125,
+  "gudhi_s": 90.12617053700023,
+  "gudhi_MB": 4067.80078125,
   "morse_eq_classic": true,
   "intervals": 60941,
-  "morse_eq_cripser": true
+  "morse_eq_cripser": true,
+  "others_remeasured": "2026-11-18, imports outside the timed call, peak RSS right after the call"
  },
  {
   "case": "noise_48x4",
@@ -217,9 +162,10 @@
   "morse_Q_MB": 3152.97265625,
   "cripser_s": null,
   "cripser_MB": null,
-  "gudhi_s": 455.8027443885803,
-  "gudhi_MB": 5285.0859375,
+  "gudhi_s": 440.83996079200006,
+  "gudhi_MB": 5285.390625,
   "morse_eq_classic": true,
-  "intervals": 2386847
+  "intervals": 2386847,
+  "others_remeasured": "2026-11-18, imports outside the timed call, peak RSS right after the call"
  }
 ]

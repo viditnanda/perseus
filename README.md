@@ -107,7 +107,7 @@ perseus.rips(points=X, coeff=3)                 # plain F_3
 perseus.rips(points=X, mode="proved")           # exact arithmetic throughout (also "fast", seed=..., target=...)
 ```
 
-Every function takes `coeff`, `mode`, `seed`, `target`, `classify`, `threads` and `fp`, as on the command line; `rips` and `flag` also take `engine` (`auto`, `implicit`, `sparse`) and `collapse`, and `cubical` takes `engine` (`auto`, `morse`, `classic`, `explicit`). A key of `certificate["bad_primes"]` whose entry has `every_prime_factor_of` set is a number all of whose prime factors are bad; `probable_prime` marks a prime above 2^64 known only by Miller–Rabin. `tests/test_python.py` checks the module against the command line.
+Every function takes `coeff`, `mode`, `seed`, `target`, `classify`, `threads` and `fp`, as on the command line; `rips` and `flag` also take `engine` (`auto`, `implicit`, `sparse`) and `collapse`, and `cubical` takes `engine` (`auto`, `planar`, `morse`, `classic`, `explicit`). For the planar engine (the 2D default) the array is read in place, without a copy. A key of `certificate["bad_primes"]` whose entry has `every_prime_factor_of` set is a number all of whose prime factors are bad; `probable_prime` marks a prime above 2^64 known only by Miller–Rabin. `tests/test_python.py` checks the module against the command line.
 
 ## Engines
 
@@ -119,9 +119,10 @@ Every function takes `coeff`, `mode`, `seed`, `target`, `classify`, `threads` an
 
 H0 uses union-find whenever every 1-cell has boundary ±(v − w).
 
-**Cubical grids** (`cubical`, `npy`): two implicit engines; neither builds the complex.
+**Cubical grids** (`cubical`, `npy`): three implicit engines; none builds the complex.
 
-* **Discrete gradient** (the default in dimensions 2–4 without periodic axes; `--engine morse`). A cell enters with its first top coface τ. The cells entering with τ are matched among themselves by a per-pattern discrete gradient, which depends only on which of τ's 3^d − 1 neighbours came earlier. This is the filtered Morse reduction of Mischaikow–Nanda. Every pattern in 2D and 3D, and every pattern we have met in 4D, is matched perfectly: it leaves exactly as many critical cells as bars start or end at τ. H0 and degree d−1 are union-finds on critical cells along gradient paths. The degrees in between are cohomology with clearing on the integer Morse complex, which is filtered chain-homotopy equivalent to the cubical complex. So barcodes, Q certificates and bad primes are the same as with the classic engine. See `docs/TECHNIQUES.md` §4.6.
+* **Planar** (the default for 2D grids without periodic axes; `--engine planar`). H0 is a union-find on pixels: two closed squares meet exactly when their pixels are 8-adjacent. H1 is, by Alexander duality in the sphere, a union-find on the complement swept downwards, with 4-adjacency and one node for the outside; absent pixels give essential classes. One byte per pixel, its earlier neighbours, and two 256-entry tables tell which pixels can change anything. Only those are sorted. Degree 1 runs first, and the Euler characteristic of each pixel's neighbourhood lets the degree-0 pass skip most of them. Both union-finds reduce graph incidence matrices, which are totally unimodular. So the barcode is the same over Q and every F_p, and the certificate needs no arithmetic (mode `unimodular`). This follows the dual-then-primal structure of GUDHI's image algorithm (Glisse). See `docs/TECHNIQUES.md` §4.7 and `docs/CERTIFICATE.md` §5.
+* **Discrete gradient** (the default in dimensions 3 and 4 without periodic axes; `--engine morse`, also in 2D). A cell enters with its first top coface τ. The cells entering with τ are matched among themselves by a per-pattern discrete gradient, which depends only on which of τ's 3^d − 1 neighbours came earlier. This is the filtered Morse reduction of Mischaikow–Nanda. Every pattern in 2D and 3D, and every pattern we have met in 4D, is matched perfectly: it leaves exactly as many critical cells as bars start or end at τ. H0 and degree d−1 are union-finds on critical cells along gradient paths. The degrees in between are cohomology with clearing on the integer Morse complex, which is filtered chain-homotopy equivalent to the cubical complex. So barcodes, Q certificates and bad primes are the same as with the classic engine. See `docs/TECHNIQUES.md` §4.6.
 * **Classic** (periodic axes, dimension 1 or above 4; `--engine classic`). It stores one birth and one rank per cell of the doubled grid and generates coboundaries on the fly. H0 is union-find. Degree d−1 is union-find on the dual graph: every (d−1)-cell has at most two cofaces, so δ^(d−1) is an incidence matrix and all its pivots are ±1. The degrees in between are cohomology with clearing.
 
 `--engine explicit` builds the complex instead.
@@ -154,31 +155,44 @@ H0 uses union-find whenever every 1-cell has boundary ±(v − w).
 
 On geometric data a proof costs nothing extra; time beyond F_2 is classification of candidate primes. Exact arithmetic gets expensive only when the integers involved grow, which happens on torsion-heavy inputs, and then the default switches to random primes. On Linial–Meshulam complexes the Q reduction itself is fast (1.3 s at n = 90, with 261 non-unit pivots of up to 170 bits); classifying the 463 candidate primes, of which exactly two are bad, takes the rest.
 
-### Cubical (F_2, measured 18 Nov 2026, 2-core Xeon, 7.8 GB)
+### Cubical, 2D images (F_2, measured 18 Nov 2026, 2-core Xeon, 7.8 GB)
 
-`bench/cubical.py` regenerates the inputs (uniform noise, and noise smoothed by a Gaussian of width 4, 2, 1.5 in 2D, 3D, 4D; float64 values) and runs every program in a fresh process. Time is wall clock and memory is peak RSS. Perseus is timed from the command line, including process start and reading the `.npy` file. CubicalRipser and GUDHI are timed around the in-process call, and their memory includes Python and the input array. In every case Perseus (both engines) and CubicalRipser give identical barcodes; on white noise 48⁴, where CubicalRipser did not finish, the two Perseus engines agree. All three compute the T-construction.
+`bench/cubical2d.py` regenerates the inputs: the 512² camera photograph from scikit-image (8-bit grey levels, so heavy ties), uniform noise, and uniform noise smoothed by a Gaussian of width 4, all as float64. Every program runs in a fresh process and is timed around its in-process Python call, after its imports, with the input array already in memory. Memory is the process's peak RSS right after the call, so it includes the interpreter, the modules and the input array. Each time is the best of three runs (two for white noise 8192²). GUDHI's `CubicalPersistence` is asked for degrees 0 and 1, which selects its dedicated image algorithm. The Perseus command line is timed separately, including process start and reading the `.npy` file, with output suppressed. In every case the positive-length intervals are identical to GUDHI's, and, up to 4096², to CubicalRipser's and the gradient engine's. At 8192² those two need more memory than this machine has.
+
+| image | Perseus 6, planar engine | planar, Q certified | Perseus command line | GUDHI 3.13 | CubicalRipser | Perseus 6, gradient engine | intervals |
+|---|---|---|---|---|---|---|---|
+| photograph 512² | **9.5 ms / 39 MB** | 11.7 ms / 39 MB | 0.02 s / 14 MB | 13.0 ms / 147 MB | 66.1 ms / 101 MB | 38.6 ms / 47 MB | 36,849 |
+| smoothed noise 1024² | **12.3 ms / 52 MB** | 13.9 ms / 52 MB | 0.03 s / 33 MB | 21.2 ms / 162 MB | 0.40 s / 265 MB | 0.17 s / 111 MB | 7,022 |
+| white noise 1024² | **65.4 ms / 66 MB** | 65.8 ms / 66 MB | 0.08 s / 40 MB | 87.6 ms / 175 MB | 0.54 s / 302 MB | 0.29 s / 121 MB | 325,501 |
+| smoothed noise 4096² | **0.24 s / 252 MB** | 0.24 s / 251 MB | 0.43 s / 260 MB | 0.53 s / 499 MB | 9.91 s / 3.0 GB | 3.42 s / 1.0 GB | 110,329 |
+| white noise 4096² | **1.40 s / 450 MB** | 1.48 s / 450 MB | 1.71 s / 424 MB | 1.82 s / 682 MB | 10.13 s / 3.0 GB | 7.25 s / 1.4 GB | 5,216,867 |
+| smoothed noise 8192² | **0.99 s / 892 MB** | 0.96 s / 893 MB | 1.80 s / 1.0 GB | 2.48 s / 1.5 GB | out of memory | out of memory | 441,508 |
+| white noise 8192² | **7.22 s / 1.6 GB** | 7.25 s / 1.6 GB | 7.57 s / 1.6 GB | 9.33 s / 2.3 GB | out of memory | out of memory | 20,876,216 |
+
+* The planar engine is 1.3–2.5× faster than GUDHI's image algorithm and uses 27–73% less memory: 1.3× on white noise, 1.7–2.5× on smoothed noise, 1.4× on the photograph. It is 7–41× faster than CubicalRipser.
+* The certificate costs nothing: the boundary matrices it reduces are totally unimodular, so the Q barcode is proved equal to every F_p barcode without arithmetic (`docs/CERTIFICATE.md` §5).
+* Where the time goes (white noise 4096², 1.25 s in C++): classification 0.13 s, sorting 6.4 million births and candidates 0.22 s, degree 1 0.59 s, degree 0 0.28 s. Only 38% of the pixels are sorted; on smoothed noise, under 1%.
+
+### Cubical, 3D and 4D (F_2, measured 18 Nov 2026, 2-core Xeon, 7.8 GB)
+
+`bench/cubical.py` regenerates the inputs (uniform noise, and noise smoothed by a Gaussian of width 2 in 3D and 1.5 in 4D; float64 values) and runs every program in a fresh process. Time is wall clock. Perseus is timed from the command line, including process start and reading the `.npy` file, and its memory is the peak RSS. CubicalRipser and GUDHI are timed around the in-process call, after their imports, and their memory is the peak RSS right after the call, including Python and the input array. Their columns were re-measured on 18 Nov 2026, after an earlier version of the script was found to time GUDHI's import (about a second) and to count the barcode comparison in their memory. In every case Perseus (both engines) and CubicalRipser give identical barcodes; on white noise 48⁴, where CubicalRipser did not finish, the two Perseus engines agree. All three compute the T-construction.
 
 | case | Perseus 6, gradient engine | Perseus 6, classic engine | CubicalRipser (`tcripser`) | GUDHI 3.13 (`CubicalPersistence`) | critical cells | gradient engine, Q certified |
 |---|---|---|---|---|---|---|
-| smoothed noise 1024² | **0.24 s / 77 MB** | 0.50 s / 85 MB | 0.44 s / 266 MB | 0.89 s / 166 MB | 0.33% | 0.23 s / 77 MB |
-| white noise 1024² | **0.29 s / 80 MB** | 0.64 s / 84 MB | 0.58 s / 372 MB | 0.95 s / 216 MB | 15.5% | 0.39 s / 80 MB |
-| smoothed noise 96³ | **0.36 s / 96 MB** | 1.04 s / 143 MB | 1.16 s / 134 MB | 7.18 s / 470 MB | 0.22% | 0.46 s / 97 MB |
-| white noise 96³ | **1.14 s / 134 MB** | 2.95 s / 180 MB | 2.87 s / 339 MB | 10.09 s / 566 MB | 8.7% | 1.34 s / 147 MB |
-| smoothed noise 24⁴ | **0.36 s / 63 MB** | 0.89 s / 126 MB | 0.87 s / 122 MB | 5.58 s / 399 MB | 0.13% | 0.40 s / 64 MB |
-| white noise 24⁴ | **1.63 s / 108 MB** | 3.66 s / 182 MB | 3.39 s / 302 MB | 8.42 s / 451 MB | 4.7% | 1.99 s / 123 MB |
-| smoothed noise 4096² | 4.28 s / 900 MB | 13.12 s / 1.1 GB | 9.36 s / 3.0 GB | **1.24 s / 499 MB** | 0.33% | 3.99 s / 901 MB |
-| white noise 4096² | 7.49 s / 1.2 GB | 16.20 s / 1.1 GB | 11.40 s / 3.0 GB | **3.36 s / 1.2 GB** | 15.5% | 8.62 s / 1.2 GB |
-| smoothed noise 192³ | **3.88 s / 764 MB** | 13.34 s / 1.1 GB | 12.28 s / 800 MB | 53.24 s / 2.7 GB | 0.23% | 3.45 s / 764 MB |
-| white noise 192³ | **11.25 s / 1.0 GB** | 27.19 s / 1.4 GB | 26.61 s / 1.8 GB | 103.13 s / 3.4 GB | 9.0% | 17.60 s / 1.3 GB |
-| smoothed noise 32⁴ | **1.63 s / 183 MB** | 4.35 s / 386 MB | 3.01 s / 276 MB | 16.09 s / 923 MB | 0.13% | 1.69 s / 183 MB |
-| white noise 32⁴ | **6.19 s / 342 MB** | 19.94 s / 626 MB | 15.50 s / 928 MB | 38.40 s / 1.1 GB | 5.0% | 9.56 s / 427 MB |
-| smoothed noise 48⁴ | **7.87 s / 923 MB** | 24.70 s / 1.7 GB | 21.86 s / 1.2 GB | 101.02 s / 4.0 GB | 0.14% | 7.67 s / 923 MB |
-| white noise 48⁴ | **64.76 s / 1.7 GB** | 253.92 s / 3.8 GB | killed (out of memory above 6 GB) | 455.80 s / 5.2 GB | 5.4% | 130.04 s / 3.1 GB |
+| smoothed noise 96³ | **0.36 s / 96 MB** | 1.04 s / 143 MB | 0.88 s / 132 MB | 4.70 s / 469 MB | 0.22% | 0.46 s / 97 MB |
+| white noise 96³ | **1.14 s / 134 MB** | 2.95 s / 180 MB | 2.50 s / 276 MB | 8.16 s / 553 MB | 8.7% | 1.34 s / 147 MB |
+| smoothed noise 24⁴ | **0.36 s / 63 MB** | 0.89 s / 126 MB | 0.68 s / 121 MB | 4.27 s / 396 MB | 0.13% | 0.40 s / 64 MB |
+| white noise 24⁴ | **1.63 s / 108 MB** | 3.66 s / 182 MB | 3.02 s / 274 MB | 7.58 s / 445 MB | 4.7% | 1.99 s / 123 MB |
+| smoothed noise 192³ | **3.88 s / 764 MB** | 13.34 s / 1.1 GB | 11.51 s / 800 MB | 56.99 s / 2.7 GB | 0.23% | 3.45 s / 764 MB |
+| white noise 192³ | **11.25 s / 1.0 GB** | 27.19 s / 1.4 GB | 25.30 s / 1.7 GB | 92.47 s / 3.4 GB | 9.0% | 17.60 s / 1.3 GB |
+| smoothed noise 32⁴ | **1.63 s / 183 MB** | 4.35 s / 386 MB | 3.24 s / 276 MB | 15.67 s / 923 MB | 0.13% | 1.69 s / 183 MB |
+| white noise 32⁴ | **6.19 s / 342 MB** | 19.94 s / 626 MB | 14.40 s / 903 MB | 37.99 s / 1.1 GB | 5.0% | 9.56 s / 427 MB |
+| smoothed noise 48⁴ | **7.87 s / 923 MB** | 24.70 s / 1.7 GB | 21.33 s / 1.2 GB | 90.13 s / 4.0 GB | 0.14% | 7.67 s / 923 MB |
+| white noise 48⁴ | **64.76 s / 1.7 GB** | 253.92 s / 3.8 GB | killed (out of memory above 6 GB) | 440.84 s / 5.2 GB | 5.4% | 130.04 s / 3.1 GB |
 
-"Critical cells" is the share of cells the gradient leaves unmatched. In every case above it equals the minimum any filtered gradient can reach, 2·(finite bars) + (essential bars). The engine therefore reduces 0.1–0.3% of the cells on smooth data and 5–16% on white noise. Apparent pairs alone leave 1.7–50 times more (`docs/TECHNIQUES.md` §4.6).
+"Critical cells" is the share of cells the gradient leaves unmatched. In every case above it equals the minimum any filtered gradient can reach, 2·(finite bars) + (essential bars). The engine therefore reduces 0.1–0.2% of the cells on smooth data and 5–9% on white noise. In 2D the same holds: 0.33% on smoothed noise and 15.5% on white noise. Apparent pairs alone leave 1.7–50 times more (`docs/TECHNIQUES.md` §4.6).
 
-* In 3D and 4D the gradient engine is 1.8–3.2× faster than CubicalRipser and 2.2–3.9× faster than the classic engine, and it uses less memory than either. On white noise 48⁴ it is the only one of the three implicit engines to finish within this machine's memory.
-* **In 2D, GUDHI's dedicated image algorithm is still the fastest** at 4096² (3.4 s against 7.5 s on white noise). The gradient engine is 1.5–2.2× faster than CubicalRipser in 2D.
+* In 3D and 4D the gradient engine is 1.8–3.0× faster than CubicalRipser, 2.2–3.9× faster than the classic engine and 4.7–15× faster than GUDHI. It uses less memory than any of them, even though its time includes process start and reading the file. On white noise 48⁴ it is the only one of the three implicit engines to finish within this machine's memory.
 * Q certified (default `--mode auto`: exact int64 arithmetic, a proof) costs 1.0–1.6× F_2 on these inputs, and 2× on white noise 48⁴.
 * Where the time goes (white noise 48⁴, F_2, 60 s): gradient 6.4 s (1.2 million distinct block patterns, 259 exact searches), Morse complex 15.5 s (101 million path cells visited), reduction 35 s. Degree 1 alone took 29 s: its long working columns were binary heaps, which keep duplicate rows until they surface (the longest held 2.4 million entries). Two remedies for degree 1 were tried, and both are slower. Storing the reductions (V) instead of the reduced columns, as Ripser does, merged 5–9× more entries and took 10× longer. Reducing degree 1 by homology took 83 s. On smooth inputs the reduction is negligible (under 0.1 s), and the gradient and the path sums dominate.
 * **Bit-tree working columns (19 Nov 2026).** Long working columns now live in a 64-ary bit tree with a coefficient array (`bitcol.hpp`, after PHAT), where duplicates cancel on arrival. This applies to the gradient and classic engines and to every coefficient ring. Measured on 19 Nov with identical output:
@@ -227,7 +241,7 @@ Against GUDHI on simplicial complexes (`bench/vs_gudhi.py`, F_2, identical inter
 | Linial–Meshulam, n=70 | 0.35 s | 0.27 s |
 | Linial–Meshulam, n=100 | 4.7 s | 2.9 s |
 
-On a 1000×1000 image (cubical), Perseus 6 takes 2.2 s over F_2 (2.8 s certified over Q) and 470 MB, against 21.9 s and 1.8 GB for Perseus 5, with identical intervals.
+On a 1000×1000 image in the legacy `cubtop` text format, Perseus 6 took 2.2 s over F_2 (2.8 s certified over Q) and 470 MB, against 21.9 s and 1.8 GB for Perseus 5, with identical intervals. That was measured with the classic engine, before the planar engine existed, and most of it is reading text. For the planar engine, see the 2D table above.
 
 Random metrics have many bad primes. For 450 uniformly random distances (H≤1):
 

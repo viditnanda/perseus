@@ -119,7 +119,7 @@ Miller–Rabin only identifies as probable primes (`"probable_prime": true`), ne
 
 ## 4. What the output says
 
-* `mode`: `proved` or `fast`.
+* `mode`: `proved`, `fast`, or `unimodular` (the planar engine, §5: no arithmetic needed).
 * `guarantee.barcode_certified`: false only if every set of trial primes was unlucky, or two independent
   runs disagreed. Then nothing is claimed.
 * `guarantee.log2_error_bound` (fast mode): the bound of §2.
@@ -127,11 +127,37 @@ Miller–Rabin only identifies as probable primes (`"probable_prime": true`), ne
   `incomplete`.
 * `complete`: true when the barcode is certified and the bad primes are completely described.
 
-## 5. A remark on planar inputs
+## 5. Planar inputs: a proof by total unimodularity
 
-For a filtration of subcomplexes of the plane, every relative group H_q(X, A; Z) is torsion-free. By
-Alexander duality, H_1(A) → H_1(X) is dual to restriction H̃^0(S²∖A) → H̃^0(S²∖X). That restriction is
-the pullback of locally constant functions along the map of component sets, and its cokernel is free.
-H_2(X, A) ≅ ker(H_1(A) → H_1(X)) is free, and so is H_0(X, A). So 2D cubical inputs (non-periodic) have no
-bad primes: their Q and F_p barcodes coincide for every p. Three-dimensional inputs can have torsion: a
-(2,1) curve on the core of a solid torus gives Z/2.
+The planar engine (`cubical_2d.hpp`, `docs/TECHNIQUES.md` §4.7) handles top-cell filtrations of 2D grids
+without periodic axes. Its certificate needs no arithmetic. The output says mode `unimodular`, with arithmetic
+"none needed: totally unimodular boundary matrices". The argument has two steps.
+
+**The engine reduces graph incidence matrices.**
+* Degree 0 is the persistence of the filtered graph G0: its vertices are the present pixels and its edges join
+  8-adjacent pixels. An edge enters with its later end. The closed squares of a set of pixels are connected
+  exactly when the pixels are 8-connected, so H0 of the filtered complex X_s equals H0 of G0 at every s, over
+  every coefficient ring, compatibly with inclusions.
+* Degree 1 is, by Alexander duality in S², the degree-0 persistence of the complement, swept downwards. That is
+  the filtered graph G1: its vertices are the pixels, the absent pixels and one node for the outside; its edges
+  join 4-adjacent cells and border cells to the outside. Over any coefficient ring,
+  H̃_1(X_s) ≅ H̃^0(S² − X_s), naturally in s.
+* The union-finds are the standard reductions of the boundary matrices ∂_1 of G0 and G1. Each column has
+  entries +1 and −1 in the rows of its two ends.
+
+**Incidence matrices are totally unimodular.** The incidence matrix of a directed graph is totally unimodular:
+every square minor is 0 or ±1 (Poincaré; Schrijver, *Theory of linear and integer programming*, §19.3). Every
+pivot value of a reduction is a ratio of minors of the blocks of nested pairs (§1, "Pivot values are
+invariants"). Here those are
+±1, so no prime divides a pivot value. The rank of every block is the same over Q and over every F_p. The
+barcode is therefore the same over Q and every F_p, and the set of bad primes is empty. The Q barcode itself is
+exact: the union-find never forms a non-unit coefficient.
+
+The same conclusion has a homological proof. For a filtration of subcomplexes of the plane, every relative
+group H_q(X, A; Z) is torsion-free. By Alexander duality, H_1(A) → H_1(X) is dual to restriction
+H̃^0(S² − A) → H̃^0(S² − X). That restriction is the pullback of locally constant functions along the map of
+component sets, and its cokernel is free. H_2(X, A) ≅ ker(H_1(A) → H_1(X)) is free, and so is H_0(X, A).
+
+Periodic 2D grids (a torus, cylinder or annulus) are not planar. They go to the classic engine, whose
+certificate does the arithmetic of §2. A torus has no torsion, but its essential classes are not given by
+duality in S². Three-dimensional inputs can have torsion: a (2,1) curve on the core of a solid torus gives Z/2.

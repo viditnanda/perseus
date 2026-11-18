@@ -1,5 +1,5 @@
 // cubical_2d.hpp -- persistent homology of a 2D top-cell (T-construction) filtration by two union-finds on
-// pixels, without building the cubical complex and without sorting all pixels.
+// pixels, without building the cubical complex and without sorting all pixels (docs/TECHNIQUES.md 4.7).
 //
 // Order. Pixels are totally ordered by (value, index), index = x + n0*y (axis 0 fastest): the order of the
 // other cubical engines. Non-finite values are absent. X_s is the union of the closed squares of the pixels
@@ -8,27 +8,29 @@
 // H0. Closed squares meet iff their pixels are 8-adjacent, so H0(X) is the 8-connected components of the
 // pixels present. A pixel p touches the earlier pixels among its 8 neighbours; those form c0(p) local groups
 // (connected among themselves inside the 3x3 window, in which two edge neighbours at a right angle share a
-// corner). c0 = 0: p starts a component. c0 = 1: p joins the component of its earlier neighbours and changes
-// nothing; it gets a union-find parent pointer at once. c0 >= 2: p may merge components; it is "critical".
-// Only critical pixels are sorted and processed, by the elder rule, in the filtration order.
+// corner). c0 = 0: p starts a component. c0 = 1: p joins it and changes nothing; it gets a union-find
+// pointer at once. c0 >= 2: p is a candidate.
 //
 // H1. By Alexander duality in S^2, H1(X_s) = H~0(S^2 - X_s), naturally in s, so the H1 barcode of X is the
 // H0 barcode of the complement swept downwards. The complement of X_s is the open squares of the pixels not
-// yet present, the absent pixels and the outside, glued along edges: 4-connectivity (two diagonal complement
-// pixels whose other two neighbours are present are separated by the shared corner, which lies in X_s; if
-// either of the others is in the complement, it connects them). Going down, p joins the complement and
-// touches c1(p) local groups of its later / absent / outside neighbours (groups of the 8-ring connected
-// through ring cells, containing an edge neighbour). c1 = 0: p starts a complement component (forward: p
-// fills a hole, an H1 death). c1 = 1: nothing changes. c1 >= 2: components may merge (forward: p may split
-// the complement, an H1 birth). The components present before any pixel enters (absent clusters and the
-// outside) are born at +infinity; when two of them meet at p, the forward bar is [v(p), inf).
+// yet present, the absent pixels and the outside, glued along edges: 4-connectivity. Going down, p touches
+// c1(p) local groups of its later / absent / outside neighbours (runs of the 8-ring containing an edge
+// neighbour). c1 = 0: p fills a hole (an H1 death) and is a root. c1 = 1: a pointer. Otherwise c1 = c0 >= 2.
+// The components present before any pixel enters (absent clusters and the outside) are born at +infinity.
+//
+// Processing. Only births and candidates are sorted. H1 runs first, over the candidates in decreasing order;
+// adding p changes the Euler characteristic by 1 - c, so (H0 merges) + (H1 births) = c - 1 at p, and a
+// candidate whose c complement groups met c distinct components is skipped by the H0 pass.
 //
 // The early/late mask of p is one byte E (bit j: ring neighbour j is earlier); the complement mask is ~E,
 // because absent and outside cells are never earlier. Both local counts come from 256-entry tables.
 //
 // Certificate. The barcodes are those of reductions of graph incidence matrices: the 1-skeleton (degree 0)
 // and the dual graph with the outside node (degree 1). Incidence matrices of graphs are totally unimodular,
-// so every pivot is +-1, and the barcode is the same over Q and every F_p (docs/CERTIFICATE.md).
+// so every pivot is +-1, and the barcode is the same over Q and every F_p (docs/CERTIFICATE.md 5).
+//
+// The idea of computing a 2D image by a dual union-find followed by a primal one on what is left is in
+// GUDHI's Persistence_on_rectangle_from_top_cells.h (M. Glisse, 2023, MIT); this code is independent.
 #pragma once
 #include "io.hpp"
 #include "ring.hpp"
