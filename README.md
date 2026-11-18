@@ -154,26 +154,35 @@ H0 uses union-find whenever every 1-cell has boundary ±(v − w).
 
 On geometric data a proof costs nothing extra; time beyond F_2 is classification of candidate primes. Exact arithmetic gets expensive only when the integers involved grow, which happens on torsion-heavy inputs, and then the default switches to random primes. On Linial–Meshulam complexes the Q reduction itself is fast (1.3 s at n = 90, with 261 non-unit pivots of up to 170 bits); classifying the 463 candidate primes, of which exactly two are bad, takes the rest.
 
-### Cubical (implicit engine, F_2, same machine)
+### Cubical (F_2, measured 18 Nov 2026, 2-core Xeon, 7.8 GB)
 
-| case | Perseus 6 | original 6.0 | CubicalRipser (`computePH_T`) | GUDHI 3.13 (`CubicalPersistence`) |
-|---|---|---|---|---|
-| smoothed noise 512² | 0.06 s / 22 MB | 0.46 s / 150 MB | 0.06 s | **0.002 s** |
-| smoothed noise 1024² | 0.37 s / 70 MB | 2.18 s / 572 MB | 0.29 s | **0.010 s** |
-| white noise 1024² | 0.42 s / 70 MB | 2.38 s / 572 MB | 0.29 s | **0.060 s** |
-| smoothed noise 96³ | 0.87 s / 136 MB | 4.42 s / 982 MB | 0.78 s | 3.5 s |
-| white noise 96³ | 2.40 s / 173 MB | 5.48 s / 988 MB | 2.41 s | 7.8 s |
-| smoothed noise 4096² | 8.0 s / 0.9 GB | — | 7.4 s / 3.1 GB | **0.43 s** |
-| white noise 4096² | 11.6 s / 0.9 GB | — | 8.5 s / 3.1 GB | **1.66 s** |
-| smoothed noise 192³ | 10.4 s / 1.0 GB | — | 9.3 s / 0.8 GB | 54.7 s |
-| white noise 192³ | 26.0 s / 1.4 GB | — | 24.9 s / 1.8 GB | 89.8 s |
-| smoothed noise 32⁴ | 3.0 s / 0.4 GB | — | 2.7 s / 0.3 GB | 15.3 s |
-| white noise 32⁴ | 19.3 s / 0.6 GB | — | 15.2 s / 1.0 GB | 37.1 s |
-| smoothed noise 48⁴ | 20.3 s / 1.6 GB | — | 16.0 s / 1.1 GB | 97.6 s |
+`bench/cubical.py` regenerates the inputs (uniform noise, and noise smoothed by a Gaussian of width 4, 2, 1.5 in 2D, 3D, 4D; float64 values) and runs every program in a fresh process. Time is wall clock and memory is peak RSS. Perseus is timed from the command line, including process start and reading the `.npy` file. CubicalRipser and GUDHI are timed around the in-process call, and their memory includes Python and the input array. In every case Perseus (both engines) and CubicalRipser give identical barcodes; on white noise 48⁴, where CubicalRipser did not finish, the two Perseus engines agree. All three compute the T-construction.
 
-All three compute the T-construction (top-cell values) and give identical barcodes. **In 2D, GUDHI is far faster than both** (20–35× on these images): its `CubicalPersistence` uses a dedicated algorithm for images. GUDHI's older `CubicalComplex` interface, which earlier versions of this table used, is 30–100× slower in 2D. In 3D and 4D `CubicalPersistence` uses the general algorithm, and Perseus and CubicalRipser are 3–5× faster. Perseus times include process start and reading the file; the others are in-process calls, and memory for them includes the Python process and the input array. CubicalRipser's `computePH` with `top_dim=True` is not the T-construction: it returns only the top degree.
+| case | Perseus 6, gradient engine | Perseus 6, classic engine | CubicalRipser (`tcripser`) | GUDHI 3.13 (`CubicalPersistence`) | critical cells | gradient engine, Q certified |
+|---|---|---|---|---|---|---|
+| smoothed noise 1024² | **0.24 s / 77 MB** | 0.50 s / 85 MB | 0.44 s / 266 MB | 0.89 s / 166 MB | 0.33% | 0.23 s / 77 MB |
+| white noise 1024² | **0.29 s / 80 MB** | 0.64 s / 84 MB | 0.58 s / 372 MB | 0.95 s / 216 MB | 15.5% | 0.39 s / 80 MB |
+| smoothed noise 96³ | **0.36 s / 96 MB** | 1.04 s / 143 MB | 1.16 s / 134 MB | 7.18 s / 470 MB | 0.22% | 0.46 s / 97 MB |
+| white noise 96³ | **1.14 s / 134 MB** | 2.95 s / 180 MB | 2.87 s / 339 MB | 10.09 s / 566 MB | 8.7% | 1.34 s / 147 MB |
+| smoothed noise 24⁴ | **0.36 s / 63 MB** | 0.89 s / 126 MB | 0.87 s / 122 MB | 5.58 s / 399 MB | 0.13% | 0.40 s / 64 MB |
+| white noise 24⁴ | **1.63 s / 108 MB** | 3.66 s / 182 MB | 3.39 s / 302 MB | 8.42 s / 451 MB | 4.7% | 1.99 s / 123 MB |
+| smoothed noise 4096² | 4.28 s / 900 MB | 13.12 s / 1.1 GB | 9.36 s / 3.0 GB | **1.24 s / 499 MB** | 0.33% | 3.99 s / 901 MB |
+| white noise 4096² | 7.49 s / 1.2 GB | 16.20 s / 1.1 GB | 11.40 s / 3.0 GB | **3.36 s / 1.2 GB** | 15.5% | 8.62 s / 1.2 GB |
+| smoothed noise 192³ | **3.88 s / 764 MB** | 13.34 s / 1.1 GB | 12.28 s / 800 MB | 53.24 s / 2.7 GB | 0.23% | 3.45 s / 764 MB |
+| white noise 192³ | **11.25 s / 1.0 GB** | 27.19 s / 1.4 GB | 26.61 s / 1.8 GB | 103.13 s / 3.4 GB | 9.0% | 17.60 s / 1.3 GB |
+| smoothed noise 32⁴ | **1.63 s / 183 MB** | 4.35 s / 386 MB | 3.01 s / 276 MB | 16.09 s / 923 MB | 0.13% | 1.69 s / 183 MB |
+| white noise 32⁴ | **6.19 s / 342 MB** | 19.94 s / 626 MB | 15.50 s / 928 MB | 38.40 s / 1.1 GB | 5.0% | 9.56 s / 427 MB |
+| smoothed noise 48⁴ | **7.87 s / 923 MB** | 24.70 s / 1.7 GB | 21.86 s / 1.2 GB | 101.02 s / 4.0 GB | 0.14% | 7.67 s / 923 MB |
+| white noise 48⁴ | **64.76 s / 1.7 GB** | 253.92 s / 3.8 GB | killed (out of memory above 6 GB) | 455.80 s / 5.2 GB | 5.4% | 130.04 s / 3.1 GB |
 
-How the engine works: births are stored as indices into the sorted distinct values; only cells of dimensions 1..d−1 are sorted (stable 8-bit radix); H0 and degree d−1 are union-finds indexed by grid position; the degrees between are cohomology with clearing, apparent pairs recognised without building columns, and a working column that switches from a sorted vector to a heap when it grows long. The remaining gap to CubicalRipser on 2D noise is in the two union-find passes (about 4 s each at 4096²).
+"Critical cells" is the share of cells the gradient leaves unmatched. In every case above it equals the minimum any filtered gradient can reach, 2·(finite bars) + (essential bars). The engine therefore reduces 0.1–0.3% of the cells on smooth data and 5–16% on white noise. Apparent pairs alone leave 1.7–50 times more (`docs/TECHNIQUES.md` §4.6).
+
+* In 3D and 4D the gradient engine is 1.8–3.2× faster than CubicalRipser and 2.2–3.9× faster than the classic engine, and it uses less memory than either. On white noise 48⁴ it is the only one of the three implicit engines to finish within this machine's memory.
+* **In 2D, GUDHI's dedicated image algorithm is still the fastest** at 4096² (3.4 s against 7.5 s on white noise). The gradient engine is 1.5–2.2× faster than CubicalRipser in 2D.
+* Q certified (default `--mode auto`: exact int64 arithmetic, a proof) costs 1.0–1.6× F_2 on these inputs, and 2× on white noise 48⁴.
+* Where the time goes (white noise 48⁴, F_2, 60 s): gradient 6.4 s (1.2 million distinct block patterns, 259 exact searches), Morse complex 15.5 s (101 million path cells visited), reduction 35 s. Degree 1 alone takes 29 s; its longest working column has 2.4 million entries. Two remedies for degree 1 were tried, and both are slower. Storing the reductions (V) instead of the reduced columns, as Ripser does, merged 5–9× more entries and took 10× longer. Reducing degree 1 by homology took 83 s. On smooth inputs the reduction is negligible (under 0.1 s), and the gradient and the path sums dominate.
+
+The table this replaces measured the classic engine on other inputs: smoothed noise 4096² 8.0 s, white noise 4096² 11.6 s, smoothed noise 192³ 10.4 s, white noise 192³ 26.0 s, white noise 32⁴ 19.3 s, smoothed noise 48⁴ 20.3 s, against CubicalRipser's 7.4, 8.5, 9.3, 24.9, 15.2 and 16.0 s.
 
 The tables below were measured on an earlier machine with the original 6.0 engines and are kept for reference.
 

@@ -365,7 +365,6 @@ public:
     size_t count(int k) const { return k >= 0 && k <= d ? cnt_[k] : 0; }
     size_t patterns() const { return pats.size(); }
     long long imperfect_blocks() const { return imperfect_blocks_; }
-
     // --- test hooks -------------------------------------------------------------------------------------
     // nonzero entries of delta_M^(k+1) delta_M^(k) over Z, over all pairs of stored degrees
     long long check_dd() const {
