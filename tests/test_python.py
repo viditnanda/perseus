@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """The Python module against the command line on the same inputs: barcodes, bad primes and certificate
 fields, in every certificate mode. Needs the module installed (cd python && pip install .) and ./perseus."""
-import json, os, subprocess, sys, tempfile, random
+import itertools, json, os, subprocess, sys, tempfile, random
 from collections import Counter
 import numpy as np
 import perseus
@@ -138,6 +138,113 @@ for t in range(10):
 # extra fields
 r = perseus.rips(points=rng.random((40, 2)), maxdim=1, coeff=2, fp=[3, 5])
 check("fp fields", sorted(r["fields"]) == [3, 5])
+
+# ---- integral outputs, simplicial sets, nerves, magnitude homology ------------------------------------
+def groups(h): return [(g["free"], [int(t) for t in g["torsion"]]) for g in h]
+rp2 = [(0, 0, []), (1, 0, []), (2, 1, [(1, 2)])]            # a circle at 0, a degree-2 disc at 1
+r = perseus.cells(rp2, integral=True, image=(0, 1))
+check("cells RP2: integral homology Z, Z/2, 0", groups(r["integral"]["homology"]) == [(1, []), (0, [2]), (0, [])], r["integral"])
+check("cells RP2: image of H_1(K_0) -> H_1(K_1) is Z/2", groups(r["integral"]["image"]["groups"])[1] == (0, [2]))
+check("cells RP2: F_2 barcode of the bad prime", sorted(r["integral"]["bad_prime_barcodes"]) == [2] and len(r["integral"]["bad_prime_barcodes"][2][2]) == 1)
+try: perseus.cells([(0, 0, []), (1, 0, [(0, 1)]), (2, 0, [(1, 1)])]); check("cells: d o d != 0 rejected", False)
+except ValueError: check("cells: d o d != 0 rejected", True)
+# the RP2 of 6 vertices with a projective line born first: the image of H_1 is Z/2
+T = [(0,1,2),(0,2,3),(0,3,4),(0,4,5),(0,5,1),(1,2,4),(2,3,5),(3,4,1),(4,5,2),(5,1,3)]
+sx = {}
+for t in T:
+    for k in range(1, 4):
+        for f in itertools.combinations(sorted(t), k): sx[f] = 1.0
+for e in [(0, 1), (1, 3), (0, 3)]: sx[e] = 0.0
+for v in range(6): sx[(v,)] = 0.0
+order = sorted(sx, key=lambda f: (sx[f], len(f), f)); ix = {f: i for i, f in enumerate(order)}
+cl = [(len(f) - 1, sx[f], [(ix[f[:i] + f[i + 1:]], (-1) ** i) for i in range(len(f))] if len(f) > 1 else []) for f in order]
+r = perseus.cells(cl, integral=True, image=(0, 1))
+check("RP2 (6 vertices): reduction 31 -> at most 9 cells", r["reduction"]["cells"] == 31 and r["reduction"]["after"] <= 9, r["reduction"])
+check("RP2 (6 vertices): image of H_1(projective line) is Z/2", groups(r["integral"]["image"]["groups"])[1] == (0, [2]), r["integral"]["image"])
+r0 = perseus.cells(cl, reduce=False, zero_length=True); r1 = perseus.cells(cl, zero_length=True)
+check("RP2 (6 vertices): reduction keeps the barcode with zero-length bars", py_bars(r0) == py_bars(r1))
+for f in ("crt_alias_0.cells", "crt_group.cells", "crt_unit_0.cells", "crt_unit_1.cells"):
+    cells = read_cells(os.path.join(FIX, f))
+    a, b = perseus.cells(cells, reduce=False, zero_length=True), perseus.cells(cells, zero_length=True)
+    check(f"cells {f}: reduction keeps the barcode and bad primes", py_bars(a) == py_bars(b) and perseus.bad_primes(a) == perseus.bad_primes(b))
+
+r = perseus.simplicial_set([(0, 0, []), (1, 0, [0, 0]), (2, 1, [1, (0, [0]), 1])], integral=True, image=(0, 1))
+check("simplicial set: minimal RP2", groups(r["integral"]["homology"]) == [(1, []), (0, [2]), (0, [])] and groups(r["integral"]["image"]["groups"])[1] == (0, [2]))
+r = perseus.simplicial_set([(0, 0, []), (1, 0, [0, 0]), (1, 0, [0, 0]), (1, 0, [0, 0]), (2, 0, [1, 3, 2]), (2, 0, [2, 3, 1])], integral=True)
+check("simplicial set: minimal torus", groups(r["integral"]["homology"]) == [(1, []), (2, []), (1, [])], r["integral"])
+try: perseus.simplicial_set([(0, 0, []), (0, 0, []), (1, 0, [0, 1]), (2, 0, [2, 2, 2])]); check("simplicial set: bad identities rejected", False)
+except ValueError: check("simplicial set: bad identities rejected", True)
+for n, expect in ((2, [(1, []), (0, [2]), (0, []), (0, [2]), (0, []), (0, [2])]), (3, [(1, []), (0, [3]), (0, []), (0, [3]), (0, []), (0, [3])])):
+    r = perseus.bar_construction([[(a + b) % n for b in range(n)] for a in range(n)], 0, maxdim=5)
+    check(f"B Z/{n}: H_k up to 5", groups(r["integral"]["homology"]) == expect, groups(r["integral"]["homology"]))
+perms = list(itertools.permutations(range(3))); pid = {q: i for i, q in enumerate(perms)}
+mult = [[pid[tuple(a[b[i]] for i in range(3))] for b in perms] for a in perms]
+r = perseus.bar_construction(mult, pid[(0, 1, 2)], maxdim=4)
+check("B S_3: Z, Z/2, 0, Z/6, 0", groups(r["integral"]["homology"]) == [(1, []), (0, [2]), (0, []), (0, [6]), (0, [])], groups(r["integral"]["homology"]))
+# the nerve of a weighted poset is its weighted order complex
+for t in range(6):
+    n = 6; rel = [(i, j) for i in range(n) for j in range(i + 1, n) if rng.random() < 0.45]
+    less = {(i, j) for i, j in rel}
+    for k in range(n):
+        for i in range(n):
+            for j in range(n):
+                if (i, k) in less and (k, j) in less: less.add((i, j))
+    wv = [float(rng.integers(0, 3)) for _ in range(n)]
+    mor = [(i, i) for i in range(n)] + sorted(less); mi = {m: q for q, m in enumerate(mor)}
+    w = [wv[i] for i in range(n)] + [float(max(wv[i], wv[j]) + rng.integers(0, 2)) for i, j in sorted(less)]
+    comp = {(mi[(b, c)], mi[(a, b)]): mi[(a, c)] for (a, b) in mor for (b2, c) in mor if b == b2}
+    r = perseus.nerve([m[0] for m in mor], [m[1] for m in mor], list(range(n)), comp, weights=w, maxdim=2)
+    # order complex: a chain is born at the largest weight of a relation between its elements (and its vertices)
+    simp = []
+    for k in range(1, 5):
+        for ch in itertools.combinations(range(n), k):
+            if all((ch[i], ch[i + 1]) in less for i in range(k - 1)):
+                simp.append((list(ch), max([wv[x] for x in ch] + [w[mi[(ch[i], ch[j])]] for i in range(k) for j in range(i + 1, k)])))
+    s2 = perseus.simplices(simp, maxdim=2)
+    check(f"nerve of a weighted poset == order complex ({t})", py_bars(r) == py_bars(s2), f"{py_bars(r)} vs {py_bars(s2)}")
+# a category with a non-identity endomorphism: the idempotent monoid {1, e} has a contractible nerve
+r = perseus.bar_construction([[0, 1], [1, 1]], 0, maxdim=4)
+check("B of the monoid {1, e = e^2} is contractible", groups(r["integral"]["homology"]) == [(1, [])] + [(0, [])] * 4)
+
+r = perseus.magnitude([(i, (i + 1) % 5) for i in range(5)], lmax=5)
+c5 = {k: v["free"] for k, v in r["table"].items() if v["free"]}
+check("magnitude C_5 (Hepworth-Willerton)", c5 == {(0, 0): 5, (1, 1): 10, (2, 2): 10, (2, 3): 10, (3, 3): 10, (3, 4): 30, (4, 4): 10, (4, 5): 50, (5, 5): 10}, c5)
+r = perseus.magnitude([(0, 1), (1, 2), (1, 3), (3, 4)], lmax=4)
+check("magnitude of a tree is diagonal and torsion-free", all(k == l and not v["torsion"] for (k, l), v in r["table"].items() if v["free"] or v["torsion"]))
+r = perseus.magnitude([(i, (i + 1) % 4) for i in range(4)], directed=True, lmax=4)
+check("magnitude: the directed 4-cycle", all(v["free"] in (0, 4) and not v["torsion"] for v in r["table"].values()))
+# command line: simplicial sets and magnitude agree with the module
+path = f"{TMP}/rp2.sset"; open(path, "w").write("0 0\n1 0 0 0\n2 1 1 0@0 1\n")
+_, j = cli(["sset", path, "--integral", "--image", "0,1"])
+check("command line sset: integral homology and image", [(g["free"], g["torsion"]) for g in j["integral_homology"]] == [(1, []), (0, [2]), (0, [])]
+      and j["integral_image"]["groups"][1]["torsion"] == [2])
+
+# ---- Laurent coefficients Z[t, t^-1] ----------------------------------------------------------------------
+def lbars(B): return [sorted((float(b), float(d)) for b, d in np.asarray(x).reshape(-1, 2)) for x in B]
+tref = [(0, 0, []), (1, 0, [(0, "t - 1")]), (1, 0, [(0, {1: 1, 0: -1})]), (2, 0, [(1, "t^2 - t + 1"), (2, "-t^2 + t - 1")])]
+r = perseus.laurent(tref)
+check("laurent trefoil: Alexander module", [(g["free"], g["torsion"]) for g in r["homology"]] == [(0, ["t - 1"]), (0, ["t^2 - t + 1"]), (0, [])], r["homology"])
+check("laurent trefoil: bad irreducibles t - 1, t^2 - t + 1", sorted(b["polynomial"] for b in r["bad_irreducibles"]) == ["t - 1", "t^2 - t + 1"] and all(b["irreducible"] for b in r["bad_irreducibles"]))
+check("laurent trefoil: empty Q(t) barcode, complete", all(len(np.asarray(x)) == 0 for x in r["barcode"]) and r["complete"] and not r["bad_primes"] and not r["homology_bad_primes"])
+r2 = perseus.laurent([(0, 0, []), (1, 0, [(0, "1 - t^-1")]), (1, 0, [(0, "t - 1")]), (2, 0, [(1, "t^3 - t^2 + t"), (2, "-t^2 + t - 1")])])
+check("laurent: units t^k do not change the answer", r2["homology"] == r["homology"], r2["homology"])
+r = perseus.laurent([(0, 0, []), (1, 0, [(0, 2)]), (1, 0, [(0, "t + 1")])])
+check("laurent: L/(2, t + 1) is zero over Q[t^+-1], F_2[t^+-1]/(t + 1) at p = 2",
+      [(g["free"], g["torsion"]) for g in r["homology"]] == [(0, []), (1, [])] and list(r["homology_bad_primes"]) == [2]
+      and r["homology_bad_primes"][2][0]["torsion"] == ["t + 1"], (r["homology"], r["homology_bad_primes"]))
+try: perseus.laurent([(0, 0, []), (1, 0, [(0, "t - 1")]), (2, 0, [(1, 1)])]); check("laurent: d o d != 0 rejected", False)
+except ValueError: check("laurent: d o d != 0 rejected", True)
+cells_f = [(1, 0, []), (2, 1, [(0, "2t^3 - 6t^2 + 6t - 4")])]
+r = perseus.laurent(cells_f)
+check("laurent: filtered, bars [0,1) over Q(t)", lbars(r["barcode"]) == [[], [(0.0, 1.0)], []])
+check("laurent: bad irreducibles t - 2, t^2 - t + 1 and bad prime 2", [b["polynomial"] for b in r["bad_irreducibles"]] == ["t - 2", "t^2 - t + 1"] and list(r["bad_primes"]) == [2])
+path = f"{TMP}/f.lau"; open(path, "w").write("1 0\n2 1 0:2t^3-6t^2+6t-4\n")
+p = subprocess.run([PERSEUS, "laurent", path, "--print", "json"], capture_output=True, text=True); j = json.loads(p.stdout)
+inf = lambda B: [[[a, float("inf") if b is None else b] for a, b in x] for x in B]
+check("laurent: command line agrees with the module",
+      inf(j["barcode"]) == [[list(map(float, b)) for b in np.asarray(x).reshape(-1, 2)] for x in r["barcode"]]
+      and [b["polynomial"] for b in j["bad_irreducibles"]] == [b["polynomial"] for b in r["bad_irreducibles"]]
+      and j["homology"] == r["homology"] and sorted(map(int, j["bad_primes"])) == sorted(r["bad_primes"]), j)
 
 print(f"\n{results['pass']} passed, {results['fail']} failed")
 for f in failures[:30]: print("  ", f)
