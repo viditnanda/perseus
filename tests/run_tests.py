@@ -391,6 +391,22 @@ def section_G(trials=60):
             check(f"G{t} cubical {shape} per={per} F_{p} implicit == explicit", a == b, f"{dict(a-b)} {dict(b-a)}")
         a, ja = perseus_json(["npy", path] + pa); b, jb = perseus_json(["npy", path, "--engine", "explicit"] + pa)
         check(f"G{t} cubical Q implicit == explicit", a == b and sorted(str(x["p"]) for x in ja["bad_primes"]) == sorted(str(x["p"]) for x in jb["bad_primes"]))
+        # the classic implicit engine and the discrete-gradient engine (default where it applies), with zero-length bars
+        c, jc = perseus_json(["npy", path, "--engine", "classic"] + pa)
+        check(f"G{t} cubical Q classic == default", c == a and sorted(str(x["p"]) for x in jc["bad_primes"]) == sorted(str(x["p"]) for x in ja["bad_primes"]))
+        z1 = perseus_field(["npy", path, "--zero-length"] + pa, 2); z2 = perseus_field(["npy", path, "--zero-length", "--engine", "explicit"] + pa, 2)
+        check(f"G{t} cubical F_2 zero-length implicit == explicit", z1 == z2, f"{dict(z1-z2)} {dict(z2-z1)}")
+    # the discrete-gradient engine on 4D white noise and quantised fields large enough for long V-paths and
+    # Morse path sums of +-2 (against the explicit complex, over F_2, F_3 and Q)
+    for t, (n, q) in enumerate([(9, None), (10, None), (10, 4), (8, 2)]):
+        A = rng.random((n,) * 4)
+        if q: A = np.floor(A * q)
+        path = f"{TMP}/g4_{t}.npy"; np.save(path, A)
+        for p in (2, 3):
+            a = perseus_field(["npy", path], p); b = perseus_field(["npy", path, "--engine", "explicit"], p)
+            check(f"G 4D {n}^4 levels={q} F_{p} morse == explicit", a == b, f"{dict(a-b)} {dict(b-a)}")
+        a, ja = perseus_json(["npy", path]); b, jb = perseus_json(["npy", path, "--engine", "explicit"])
+        check(f"G 4D {n}^4 levels={q} Q morse == explicit", a == b and sorted(str(x["p"]) for x in ja["bad_primes"]) == sorted(str(x["p"]) for x in jb["bad_primes"]))
     for t in range(12):
         n = rnd.randint(30, 300); dd = rnd.choice([2, 3, 4]); md = rnd.choice([1, 2])
         P = rng.random((n, dd)); path = f"{TMP}/sp{t}.txt"; np.savetxt(path, P)

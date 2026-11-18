@@ -6,3 +6,4 @@ python/*.egg-info/
 python/include/
 __pycache__/
 output_*.txt
+/t_cubical_morse
