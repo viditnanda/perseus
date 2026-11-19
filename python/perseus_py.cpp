@@ -66,7 +66,7 @@ static py::dict solve(const B& be, const SolveOpts& o) {
             cert["seed"] = c.seed; cert["seed_supplied"] = c.seed_user; cert["lanes"] = c.lanes; cert["retries"] = c.retries;
             py::list mods; for (auto m : c.moduli) mods.append(py::int_(m)); cert["moduli"] = mods;
         }
-        if (c.mode == "proved") cert["arithmetic"] = c.arithmetic;
+        if (c.mode == "proved" || c.mode == "unimodular") cert["arithmetic"] = c.arithmetic;
         cert["bad_primes_status"] = c.seed_user && c.barcode_ok ? "conditional on the supplied seed" : !c.candidates_complete() ? "incomplete" : (c.classified ? "complete" : "candidates only");
         cert["complete"] = c.complete();
         py::list vals;
@@ -222,23 +222,36 @@ PYBIND11_MODULE(_perseus, m) {
     }, py::arg("simplices"), py::arg("maxdim") = -1, COMMON_ARGS,
        "Simplicial complex from (vertices, birth) pairs; faces get the minimum birth of their cofaces.");
 
-    m.def("cubical", [](py::array_t<double, py::array::f_style | py::array::forcecast> top, std::vector<bool> periodic, int maxdim, std::string engine,
+    m.def("cubical", [](py::array_t<double, py::array::forcecast> top_in, std::vector<bool> periodic, int maxdim, std::string engine,
                         py::object coeff, bool classify, int threads, std::vector<uint64_t> fp, std::string mode, py::object seed, double target) {
         SolveOpts o = make_opts(coeff, classify, threads, fp, mode, seed, target);
         CubicalGrid g;
-        for (py::ssize_t i = 0; i < top.ndim(); ++i) g.ext.push_back(top.shape(i));
-        if (periodic.empty()) periodic.assign(g.ext.size(), false);
-        if (periodic.size() != g.ext.size()) throw std::invalid_argument("periodic must have one flag per axis");
-        g.periodic = periodic;
-        g.top.assign(top.data(), top.data() + top.size());       // Fortran order: axis 0 fastest
-        for (auto& x : g.top) if (std::isnan(x)) x = std::numeric_limits<double>::infinity();   // NaN = absent cube
+        const py::ssize_t nd = top_in.ndim();
+        if (periodic.empty()) periodic.assign(nd, false);
+        if ((py::ssize_t)periodic.size() != nd) throw std::invalid_argument("periodic must have one flag per axis");
+        // The engines read axis 0 fastest (Fortran order). A C-ordered array is read as is, with its axes
+        // reversed: that is the transposed grid, an isomorphic cubical complex, so the barcode is the same
+        // (only ties among equal values are broken in another order, which no positive-length bar sees and
+        // zero-length bars are counted per value). This avoids a transposing copy.
+        bool fortran = top_in.flags() & py::array::f_style;
+        py::array_t<double> top = fortran ? py::array_t<double>(top_in)
+                                          : py::array_t<double>(py::array_t<double, py::array::c_style | py::array::forcecast>::ensure(top_in));
+        for (py::ssize_t i = 0; i < nd; ++i) {
+            py::ssize_t a = fortran ? i : nd - 1 - i;
+            g.ext.push_back(top.shape(a)); g.periodic.push_back(periodic[a]);
+        }
+        bool planar = engine == "planar" || ((engine == "auto" || engine == "implicit") && CubicalPlanar::supports(g));
+        if (planar && CubicalPlanar::supports(g)) g.view = top.data();   // no copy: the planar engine reads the array in place
+        else g.top.assign(top.data(), top.data() + top.size());
+        if (engine == "explicit")                             // NaN = absent cube (the implicit engines test isfinite)
+            for (auto& x : g.top) if (std::isnan(x)) x = std::numeric_limits<double>::infinity();
         if (engine == "explicit") {
             FilteredComplex C = cubical_from_grid(g);
             Prepared P(C); int md_ = maxdim < 0 ? P.D : maxdim; ExplicitBackend be(P, md_, auto_direction(P, md_));
             return solve(be, o);
         }
-        if (engine != "auto" && engine != "implicit" && engine != "morse" && engine != "classic")
-            throw std::invalid_argument("engine must be 'auto', 'morse', 'classic' or 'explicit'");
+        if (engine != "auto" && engine != "implicit" && engine != "planar" && engine != "morse" && engine != "classic")
+            throw std::invalid_argument("engine must be 'auto', 'planar', 'morse', 'classic' or 'explicit'");
         CubicalBackend be(g, maxdim, engine);
         return solve(be, o);
     }, py::arg("top"), py::arg("periodic") = std::vector<bool>(), py::arg("maxdim") = -1, py::arg("engine") = "auto", COMMON_ARGS,

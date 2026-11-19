@@ -2,7 +2,7 @@
 
 This file is for anyone picking up Perseus 6 performance work, whether a person or a Claude instance. It records what is in flight, what was agreed with Vidit Nanda (the maintainer), how to measure, and what has already been tried. Update it in the same pull request as the work it describes.
 
-Last updated: 19 Nov 2026.
+Last updated: 19 Nov 2026 (merge order and plan agreed with Vidit).
 
 ## Ground rules (from Vidit)
 
@@ -22,47 +22,57 @@ Last updated: 19 Nov 2026.
 * Scripts: `bench/cubical2d.py` (2D images), `bench/cubical.py` (3D/4D grids; `--others-only` re-measures only GUDHI and CubicalRipser), and `bench/vs_*.py` for the rest. Inputs are regenerated deterministically into `/tmp/cubical_bench`.
 * For phase timings, set `PERSEUS_DEBUG=1`. The engines then print per-degree reduction times, additions, merged entries and the longest working column to stderr.
 
-## Open pull requests
+## Open pull requests and merge order
+
+Vidit's merge order (19 Nov 2026): **#4, then #2, then #3**. He verifies each one himself before merging, and #3, the largest, gets the most scrutiny.
 
 | PR | branch | content | state |
 |---|---|---|---|
-| #2 | `cubical-2d` | planar engine for 2D images (union-finds, Alexander duality, unimodular certificate); new 2D table; re-measured GUDHI and CubicalRipser columns of the 3D/4D table | awaiting review |
-| #3 | `simplicial-sets` | simplicial sets, chain complexes over Z, integral outputs, magnitude homology, Laurent coefficients | awaiting review |
-| #4 | `cubical-bittree` | bit-tree working columns, item 1 below; this file | awaiting review |
+| #4 | `cubical-bittree` | bit-tree working columns (step 1 below); this file | merged 19 Nov 2026 (merge commit b706d25) |
+| #2 | `cubical-2d` | planar engine for 2D images (union-finds, Alexander duality, unimodular certificate); the README cubical tables, re-measured in one sitting on top of #4 | rebased onto `main` after #4; awaiting Vidit's check |
+| #3 | `simplicial-sets` | simplicial sets, chain complexes over Z, integral outputs, magnitude homology, Laurent coefficients | to be rebased onto `main` after #2, then the same independent check |
 
-`cubical-bittree` branches from `main` at `5716401` and does not depend on #2 or #3. It touches `cubical_morse.hpp` and `cubical_engine.hpp`, which #2 also edits. Expect a small merge conflict in `cubical_engine.hpp` (#2 adds the planar dispatch to the backend; this branch changes the classic engine's reduction loop) and in the README's 3D/4D section.
+The README's cubical tables (2D, 3D and 4D) are the single source of truth for cubical timings. They were re-measured on the code of #4 and #2 together, all programs in one sitting. Any later change that affects cubical speed re-measures the affected rows, or the whole table, and dates it.
 
-## Agreed plan, in order
+## The plan, in order
 
-This plan came from an external review of `main` at `5716401`. Vidit asked for an assessment, and the items below are the agreed version, with the review's prototype figures re-measured here.
+The first items came from an external review of `main` at `5716401`; Vidit asked for an assessment, and the steps below are the agreed version. Prototype figures from the review are re-measured here before they are quoted. Steps 1 onward are ordered by what serves the research uses (torsion in random complexes, Milnor fibres, Novikov homology), not by benchmark value.
 
-1. **Bit-tree working columns: done on `cubical-bittree`.**
-   * Long working columns in the cubical gradient and classic engines were binary heaps that keep duplicate rows until they surface, and then sorted the rest to store the column. They are now PHAT's bit tree with a coefficient array (`include/perseus/bitcol.hpp`). The same structure serves F_2, F_p, multi-modular Q and Q64.
-   * The review proposed an F_2-only bitset. We made it ring-generic because the default run is Q certified, which cost twice F_2 on white noise 48⁴.
-   * Results, with identical output:
+0. **Land #4, #2, #3 in that order** and re-measure every table once (above).
 
-     | case | before | after |
-     |---|---|---|
-     | white noise 48⁴, F_2 (total) | 66.1 s | 52.0 s |
-     | white noise 48⁴, F_2 (degree 1) | 26.3 s | 7.9 s |
-     | white noise 48⁴, Q certified | 134.5 s | 76.6 s |
-     | white noise 40⁴, degree 1 | 6.5 s | 2.4 s |
-     | classic engine, 32⁴ | 20.3 s | 12.4 s |
-   * Not yet done: the explicit and Rips engines do not have this heap pattern (checked with grep for `push_heap`), so nothing was changed there.
+1. **Bit-tree working columns: done (#4).**
+   * Long working columns in the cubical gradient and classic engines were binary heaps that keep duplicate rows until they surface, then sorted the rest to store the column. They are now PHAT's bit tree with a coefficient array (`include/perseus/bitcol.hpp`), serving F_2, F_p, multi-modular Q and Q64.
+   * It is ring-generic, unlike the review's F_2-only bitset, because the default run is Q certified, which cost twice F_2 on white noise 48⁴.
+   * With identical output: white noise 48⁴ F_2 went from 66.1 to 52.0 s (degree 1 from 26.3 to 7.9 s), and Q certified from 134.5 to 76.6 s. White noise 40⁴, degree 1, went from 6.5 to 2.4 s. The classic engine on white noise 32⁴ went from 20.3 to 12.4 s.
+   * The explicit and Rips engines have no such heap (checked with grep for `push_heap`).
+   * Afterwards, on white noise 48⁴ (F_2, 37.5 s), the largest phase is building the Morse complex: 14.8 s, 101 million path cells. The gradient takes 6.8 s and the reduction 12.8 s. This is the next lever for noisy 4D inputs; it is not scheduled.
 
-2. **Certificate classification: next.** On Linial–Meshulam n = 90 (README, explicit complexes), the Q reduction takes 1.3 s of about 113 s; the rest classifies 463 candidate primes by reruns (`certify.hpp`, classification loop).
-   * Large candidates are already batched: a run modulo their product splits it on a zero divisor.
-   * The review proposed batching small primes by a composite modulus. The catch is that every candidate divides some pivot value by construction, so every batch splits eventually, and the only saving is the shared prefix before the first split.
-   * The better lever is a warm start. For each prime, restart the reduction at the first column whose pivot it divides, using checkpoints of the Q reduction. The Q run already records the columns with non-unit pivots (`out.nonunit`), so factoring those pivot values gives each candidate its first such column.
-   * **Measure first:** the distribution of those first columns, and how many of the 463 candidates are actually bad. Random 2-complexes have large torsion, and each bad prime needs its full barcode modulo p.
+2. **Make the classification of candidate primes cheap.** The bad-prime certificate is the core of the enterprise. On Linial–Meshulam n = 90, the Q reduction takes 1.3 s of about 113 s; the rest reruns the reduction for each of 463 candidate primes (`certify.hpp`, classification loop).
+   * **Profile first:** for each candidate, the first column whose pivot it divides, and how many of the 463 are actually bad.
+   * **Then warm-start each prime** from that column, using checkpoints of the Q reduction. Up to that column, the reduction modulo p is identical to the one over Q. The Q run already records its non-unit pivots (`out.nonunit`).
+   * **Composite-modulus batching is the weaker idea.** Every candidate divides some pivot by construction, so every batch splits eventually, and only the prefix before the first split is shared. Large candidates are already batched this way.
+   * Random 2-complexes have large torsion. Each bad prime still needs its full barcode modulo p, and only the warm start helps there.
 
-3. **H0-only Rips by a minimum spanning forest.** The H0 barcode of a Rips filtration is the minimum spanning forest (Prim, O(n²) time, O(n) memory, distances computed on demand).
-   * It applies only to `--maxdim 0`; the default is 1.
-   * The certificate is the unimodular one, since this is a graph incidence matrix (see `docs/CERTIFICATE.md` §5 on PR #2).
-   * It must match the existing default threshold (the enclosing radius) and zero-length bars.
-   * The review measured 2.4–10× on 3,000 and 6,000 points; re-measure here.
+3. **Make the default certificate exact all the way.** Vidit decided that certified Q should end in exact arithmetic. Today, when int64 arithmetic overflows, `--mode auto` falls back to `fast`, which is probabilistic. Make the fallback `proved` (big-integer arithmetic), or at minimum make the fallback impossible to miss in the output and in `cert.json`.
 
-4. **Merging the cubical setup passes: low priority.** Births and gradient metadata could be written in one pass. The review's gain (smoothed noise 4096², 2.93 to 2.29 s) is in 2D, where the planar engine (PR #2) now takes 0.24 s, so it matters only for smooth 3D and 4D inputs. Test on smoothed noise 192³ and 48⁴ before investing; the review saw no change on white noise 24⁴.
+4. **Scale the integral machinery of #3.**
+   * The integral outputs use a dense Smith form, capped at about 40M entries, and run only on explicit complexes. Replace this with sparse elimination down to a small residual, followed by a Smith form; the fill-in-free first phase of #3 is the starting point.
+   * Then extend the integral outputs to cubical grids, which have torsion from dimension 3.
+   * Then test whether integral persistence can read off bad primes directly, without reruns. That would make step 2 partly redundant on explicit complexes.
+
+5. **Laurent (Novikov) coefficients, driven by applications.** Use SnapPy knot-complement triangulations and a Salvetti-complex model of a Milnor fibre as tests, and add the missing pieces in the order those tests need them:
+   * irreducibility proofs beyond degree 2 (Berlekamp–Zassenhaus factoring over Z);
+   * images over Q[t, t⁻¹];
+   * the Z[t, t⁻¹]-module structure (residue fields F_p[t]/(h)).
+
+6. **Parallel column reduction** (Morozov–Nigmetov lock-free reduction, as in giotto-ph) for Rips and cubical. It is the most invasive change, and it multiplies whatever the earlier steps gain, so it comes after them.
+
+7. **Small items, opportunistic or dropped:**
+   * *H0-only Rips by a minimum spanning forest.* Prim's algorithm takes O(n²) time and O(n) memory, and the certificate is unimodular (graph incidence). It only helps `--maxdim 0`, and must match the enclosing-radius threshold and zero-length bars. Re-measure the review's 2.4–10×.
+   * *Merging the cubical setup passes.* Births and gradient metadata could be written in one pass. The review's gain was in 2D, which the planar engine made moot. Drop it unless smoothed noise 192³ or 48⁴ shows a real gain; the review saw none on white noise 24⁴.
+   * *Two threads in the planar engine:* dropped (see below).
+
+8. **Release 6.1** when Vidit decides: PyPI, a new Zenodo version, the web page.
 
 ## Tried and measured, not adopted (do not repeat without a new idea)
 
@@ -71,7 +81,7 @@ This plan came from an external review of `main` at `5716401`. Vidit asked for a
   * a full-grid pointer-compression pass: slower on every input. Compression from the candidates' neighbours only is kept, and switched on automatically for large sparse inputs;
   * prefetch distance tuning and second-stage prefetch: no measurable change at 4096²;
   * pointing at the middle of the neighbour arc: no measurable change.
-  * Running H0 and H1 on two threads conflicts with the H1-first skip; it would save about 0.35 s at 4096². Not done.
+  * Running H0 and H1 on two threads conflicts with the H1-first skip; it would save about 0.35 s at 4096². Dropped: step 6 supersedes it.
 * **Degree-1 reduction of white noise 48⁴ (before the bit tree):**
   * storing the reductions V instead of the reduced columns, as Ripser does: 5–9× more merged entries, 10× slower;
   * reducing degree 1 by homology: 83 s against 29 s.

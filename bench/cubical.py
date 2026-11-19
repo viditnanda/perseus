@@ -6,11 +6,17 @@ Every program runs in a fresh process started by a small wrapper (Linux keeps a 
 exec, so a process forked from a large parent would report the parent's memory); time is wall clock,
 memory is the peak RSS of that process.
 Perseus is timed from the command line (start, reading the .npy file, output suppressed); CubicalRipser
-and GUDHI are timed around the in-process call, and their memory includes Python and the input array.
+and GUDHI are timed around the in-process call (after their imports), and their memory includes Python and
+the input array.
 Barcodes are compared as multisets of positive-length intervals (Perseus vs CubicalRipser on every case,
 Perseus engines against each other). The inputs are regenerated from a fixed seed.
 
-usage: bench/cubical.py [out.json] [--quick] [--no-gudhi] [--cases a,b,...]
+CubicalRipser and GUDHI memory is the process's peak RSS read right after the call.
+
+usage: bench/cubical.py [out.json] [--quick] [--no-gudhi] [--others-only | --perseus-only] [--repeat=n]
+                        [--cases=a,b,...]
+  --repeat=n: Perseus columns are the best of n command-line runs (the first run of a case reads the file
+  cold); the in-process GUDHI and CubicalRipser timings start after the file is loaded and run once
 """
 import json, os, resource, subprocess, sys, time
 import numpy as np
@@ -41,28 +47,28 @@ def perseus(path, engine, coeff="2"):
 
 def perseus_bars(path, engine):
     j = json.loads(subprocess.run([P6, "npy", path, "--coeff", "2", "--print", "json", "--engine", engine], capture_output=True, text=True).stdout)
-    from collections import Counter
-    return Counter((k, float(b), float("inf") if e is None else float(e)) for k, lst in enumerate(j["barcode"]) for b, e in lst if e is None or e > b)
+    B = np.array([(k, float(b), np.inf if e is None else float(e)) for k, lst in enumerate(j["barcode"]) for b, e in lst], dtype=float).reshape(-1, 3)
+    B = B[B[:, 2] > B[:, 1]]
+    return B[np.lexsort((B[:, 2], B[:, 1], B[:, 0]))]
 
 INPROC = r'''
 import sys, time, json, resource, numpy as np
-from collections import Counter
 which, path, res = sys.argv[1], sys.argv[2], sys.argv[3]
 A = np.load(path); d = A.ndim
-t = time.time()
-if which == "cripser":
-    import tcripser
-    r = tcripser.computePH(A, maxdim=d, location="none")
-    dt = time.time() - t
-    bars = Counter((int(x[0]), float(x[1]), float("inf") if x[2] >= 1.7e308 else float(x[2])) for x in r if x[2] > x[1])
-else:
-    from gudhi.sklearn.cubical_persistence import CubicalPersistence
-    dims = list(range(d))           # as in the README table: degrees 0..d-1 (H_d of a full grid is 0)
-    out = CubicalPersistence(homology_dimensions=dims, homology_coeff_field=2, n_jobs=1).fit_transform([A])[0]
-    dt = time.time() - t
-    bars = Counter((k, float(b), float(e)) for k, arr in zip(dims, out) for b, e in arr if e > b)
-if len(sys.argv) > 4: json.dump([[k, b, (None if e == float("inf") else e), c] for (k, b, e), c in bars.items()], open(sys.argv[4], "w"))
-open(res, "w").write(str(dt))
+# imports before the clock starts (GUDHI's sklearn wrapper alone takes most of a second to import)
+if which == "cripser": import tcripser
+else: from gudhi.sklearn.cubical_persistence import CubicalPersistence
+dims = list(range(d))               # GUDHI: degrees 0..d-1 (H_d of a full grid is 0)
+t = time.perf_counter()
+if which == "cripser": r = tcripser.computePH(A, maxdim=d, location="none")
+else: out = CubicalPersistence(homology_dimensions=dims, homology_coeff_field=2, n_jobs=1).fit_transform([A])[0]
+dt = time.perf_counter() - t; peak = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+open(res, "w").write(f"{dt} {peak}")
+if len(sys.argv) > 4:               # positive-length intervals as a sorted (degree, birth, death) array
+    if which == "cripser":
+        r = np.asarray(r); dth = np.where(r[:, 2] >= 1.7e308, np.inf, r[:, 2]); B = np.column_stack([r[:, 0], r[:, 1], dth])
+    else: B = np.concatenate([np.column_stack([np.full(len(a), k, dtype=float), np.asarray(a, dtype=float).reshape(-1, 2)]) for k, a in zip(dims, out)] or [np.zeros((0, 3))])
+    B = B[B[:, 2] > B[:, 1]]; np.save(sys.argv[4], B[np.lexsort((B[:, 2], B[:, 1], B[:, 0]))])
 '''
 
 def other(which, path, dump=None):
@@ -71,17 +77,17 @@ def other(which, path, dump=None):
     cmd = [sys.executable, "-c", WRAP, sys.executable, "-c", INPROC, which, path, res] + ([dump] if dump else [])
     w = subprocess.run(cmd, capture_output=True, text=True).stdout.split()
     if not os.path.exists(res) or int(w[2]) != 0: return None, None
-    return float(open(res).read().split()[0]), int(w[1]) / 1024
+    dt, peak = open(res).read().split()
+    return float(dt), int(peak) / 1024          # peak RSS right after the call, before the barcode dump
 
 def load_dump(fn):
-    from collections import Counter
-    return Counter({(k, b, float("inf") if e is None else e): c for k, b, e, c in json.load(open(fn))})
+    return np.load(fn)
 
 if __name__ == "__main__" and len(sys.argv) > 1 and sys.argv[1] == "--compare":
     path, dump = sys.argv[2], sys.argv[3]
     pm = perseus_bars(path, "morse"); pc = perseus_bars(path, "classic")
-    out = {"morse_eq_classic": pm == pc, "intervals": sum(pm.values())}
-    if os.path.exists(dump): out["morse_eq_cripser"] = pm == load_dump(dump)
+    out = {"morse_eq_classic": bool(np.array_equal(pm, pc)), "intervals": len(pm)}
+    if os.path.exists(dump): out["morse_eq_cripser"] = bool(np.array_equal(pm, load_dump(dump)))
     print(json.dumps(out)); sys.exit(0)
 
 if __name__ == "__main__":
@@ -90,14 +96,24 @@ if __name__ == "__main__":
     cases = CASES[:6] if "--quick" in sys.argv else CASES
     for a in sys.argv:
         if a.startswith("--cases="): cases = a.split("=", 1)[1].split(",")
+    rep = 1
+    for a in sys.argv:
+        if a.startswith("--repeat="): rep = int(a.split("=", 1)[1])
+    def best(f):          # best of rep runs (the first command-line run of a case reads the file cold)
+        runs = [f() for _ in range(rep)]
+        ok = [r for r in runs if r[0] is not None]
+        return min(ok, key=lambda r: r[0]) if ok else runs[0]
     rows = []
     for name in cases:
         path = make(name)
         row = {"case": name}
-        row["morse_s"], row["morse_MB"], _ = perseus(path, "morse")
-        row["classic_s"], row["classic_MB"], _ = perseus(path, "classic")
-        row["morse_Q_s"], row["morse_Q_MB"], _ = perseus(path, "morse", "Q")
-        dump = f"{DATA}/{name}.cr.json"
+        if "--others-only" not in sys.argv:
+            row["morse_s"], row["morse_MB"], _ = best(lambda: perseus(path, "morse"))
+            row["classic_s"], row["classic_MB"], _ = best(lambda: perseus(path, "classic"))
+            row["morse_Q_s"], row["morse_Q_MB"], _ = best(lambda: perseus(path, "morse", "Q"))
+        if "--perseus-only" in sys.argv:
+            rows.append(row); print(json.dumps(row), flush=True); json.dump(rows, open(out, "w"), indent=1); continue
+        dump = f"{DATA}/{name}.cr.npy"
         row["cripser_s"], row["cripser_MB"] = other("cripser", path, dump)
         if "--no-gudhi" not in sys.argv: row["gudhi_s"], row["gudhi_MB"] = other("gudhi", path)
         cmp = json.loads(subprocess.run([sys.executable, os.path.abspath(__file__), "--compare", path, dump], capture_output=True, text=True).stdout)
