@@ -279,9 +279,9 @@ i = −1. Then for i < j the identity gives t_q(i, j) = 0, which is the rest of 
 The identity is sharper than the theorem. Each rank β^{i,j}_q can only drop over F_p, and it drops by
 exactly the torsion count above.
 
-*Checks.* V checked the theorem independently: Smith forms of every K_t on Linial–Meshulam processes with
-n = 28 and 30 give exactly the bad primes Perseus reports. Those are {2}, with torsion at a single step;
-{2, 7}, with torsion on t ∈ [340, 360]; and none in the controls.
+*Checks.* Checked independently: Smith forms of every K_t (FLINT) on Linial–Meshulam processes with n = 28
+and 30 give exactly the bad primes Perseus reports: {2}, with torsion at a single step; {2, 7}, with torsion on
+t ∈ [340, 360]; and none in the controls.
 
 *Other engines.* The cubical Morse engine reduces the Morse complex M (§1). M is filtered chain-homotopy
 equivalent to the cubical complex over Z, so both have the same relative groups, and the theorem applies to M
