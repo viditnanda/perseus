@@ -13,7 +13,10 @@ Perseus engines against each other). The inputs are regenerated from a fixed see
 
 CubicalRipser and GUDHI memory is the process's peak RSS read right after the call.
 
-usage: bench/cubical.py [out.json] [--quick] [--no-gudhi] [--others-only] [--cases=a,b,...]
+usage: bench/cubical.py [out.json] [--quick] [--no-gudhi] [--others-only | --perseus-only] [--repeat=n]
+                        [--cases=a,b,...]
+  --repeat=n: Perseus columns are the best of n command-line runs (the first run of a case reads the file
+  cold); the in-process GUDHI and CubicalRipser timings start after the file is loaded and run once
 """
 import json, os, resource, subprocess, sys, time
 import numpy as np
@@ -93,14 +96,23 @@ if __name__ == "__main__":
     cases = CASES[:6] if "--quick" in sys.argv else CASES
     for a in sys.argv:
         if a.startswith("--cases="): cases = a.split("=", 1)[1].split(",")
+    rep = 1
+    for a in sys.argv:
+        if a.startswith("--repeat="): rep = int(a.split("=", 1)[1])
+    def best(f):          # best of rep runs (the first command-line run of a case reads the file cold)
+        runs = [f() for _ in range(rep)]
+        ok = [r for r in runs if r[0] is not None]
+        return min(ok, key=lambda r: r[0]) if ok else runs[0]
     rows = []
     for name in cases:
         path = make(name)
         row = {"case": name}
         if "--others-only" not in sys.argv:
-            row["morse_s"], row["morse_MB"], _ = perseus(path, "morse")
-            row["classic_s"], row["classic_MB"], _ = perseus(path, "classic")
-            row["morse_Q_s"], row["morse_Q_MB"], _ = perseus(path, "morse", "Q")
+            row["morse_s"], row["morse_MB"], _ = best(lambda: perseus(path, "morse"))
+            row["classic_s"], row["classic_MB"], _ = best(lambda: perseus(path, "classic"))
+            row["morse_Q_s"], row["morse_Q_MB"], _ = best(lambda: perseus(path, "morse", "Q"))
+        if "--perseus-only" in sys.argv:
+            rows.append(row); print(json.dumps(row), flush=True); json.dump(rows, open(out, "w"), indent=1); continue
         dump = f"{DATA}/{name}.cr.npy"
         row["cripser_s"], row["cripser_MB"] = other("cripser", path, dump)
         if "--no-gudhi" not in sys.argv: row["gudhi_s"], row["gudhi_MB"] = other("gudhi", path)
