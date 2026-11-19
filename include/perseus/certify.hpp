@@ -39,6 +39,7 @@
 #include <thread>
 #include <atomic>
 #include <mutex>
+#include <functional>
 #include <condition_variable>
 #include <limits>
 #include <algorithm>
@@ -128,6 +129,9 @@ struct CertifyOptions {
     std::string seed;                     // fast mode: hex seed to reproduce a run; empty = fresh from std::random_device
     double target_log2 = -64;             // fast mode: aim for an error bound below 2^target
     int max_lanes = 32;
+    // Optional: classify the small candidates by Howell sweeps (torsion.hpp) instead of reruns. Set by the
+    // caller for explicit complexes. Returns false when it cannot vouch for its answer; then reruns run.
+    std::function<bool(const Certificate&, const Barcode&, int, std::vector<BadPrime>&, std::string&)> sweep;
 };
 
 // log2 of sum_k c * P_k * (m_k / N)^K, with m_k = floor((h_k + extra) / 61)
@@ -437,6 +441,12 @@ std::pair<BRun<typename B::Clear>, Certificate> certify(const B& be, const Certi
         auto tb1 = now();
         if (dbg) fprintf(stderr, "  [debug: big candidates %.3f s, %d runs modulo multi-word N, %zu settled]\n", std::chrono::duration<double>(tb1 - tb0).count(), nbig_runs, done.size());
         std::vector<std::pair<uint64_t, int>> cand(cert.candidates.begin(), cert.candidates.end());
+        if (opt.sweep && !cand.empty()) {         // Howell sweeps of batches of candidates (torsion.hpp)
+            std::vector<BadPrime> sb; std::string diag;
+            bool ok = opt.sweep(cert, q.bars, kmax, sb, diag);
+            if (dbg) fprintf(stderr, "  [debug: sweep classification %s: %s]\n", ok ? "used" : "not used", diag.c_str());
+            if (ok) { for (auto& b : sb) cert.bad.push_back(std::move(b)); cand.clear(); }
+        }
         std::vector<double> tcand(cand.size(), 0);
         std::vector<BadPrime> found(cand.size()); std::vector<char> isbad(cand.size(), 0);
         std::atomic<size_t> next(0);
@@ -476,7 +486,8 @@ std::pair<BRun<typename B::Clear>, Certificate> certify(const B& be, const Certi
             }
         }
         std::stable_sort(cert.bad.begin(), cert.bad.end(), [](const BadPrime& a, const BadPrime& b) {
-            if (a.is_big != b.is_big) return !a.is_big; return a.is_big ? a.big < b.big : a.p < b.p; });
+            if (a.is_big != b.is_big) return !a.is_big;
+            return a.is_big ? a.big < b.big : a.p < b.p; });
         cert.classified = true;
     }
     auto t3 = now();

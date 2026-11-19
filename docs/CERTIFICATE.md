@@ -119,6 +119,40 @@ the factors (`"every_prime_factor_of": true` in the JSON). It is still complete.
 the parts are classified in turn. Lemma 3 applies whether or not N is prime, so primes above 2^64, which
 Miller–Rabin only identifies as probable primes (`"probable_prime": true`), need no primality proof.
 
+**Classification by Howell sweeps (explicit complexes; the default since 20 Nov 2026).** For simplicial, cell and
+simplicial-set inputs, the candidates below 2^63 are not rerun one by one. They are packed into squarefree moduli
+m < 2^63, and each m is handled by one sweep of a boundary matrix over Z/m (`howell.hpp`, `torsion.hpp`). The sweep
+takes the columns of d_j in filtration order and keeps a Howell basis of their span (Howell, *Spans in the module
+(Z_m)^s*, Linear and Multilinear Algebra 19 (1986); Storjohann's thesis, ETH 2000, ch. 4). There is one vector per
+row, the row of its lowest nonzero entry, whose entry there generates an ideal (d_r), d_r | m. A vector arriving on a
+taken row is reduced when d_r divides its entry, and otherwise combined with the row's vector by an extended gcd.
+Every basis vector u with d_r ≠ 1 also sends its annihilator multiple (m/d_r) u down to lower rows.
+
+**Lemma 5.** Let m be squarefree and p | m. After the first c columns, the rows r with p ∤ d_r are exactly the lows
+of a column reduction over F_p of those c columns. Hence the column at which p stops dividing d_r is the column paired
+with r over F_p.
+
+*Proof.* Z/m is the product of the fields F_q, q | m, and every step of the sweep acts componentwise. Under the
+projection to F_p, a basis vector with p ∤ d_r keeps a unit on row r and zeros below. A vector with p | d_r becomes a
+vector supported on lower rows, and it is a unit multiple of the projection of (m/d_r)u, because m/d_r is a unit mod p.
+That annihilator multiple was inserted. By induction on the insertions, the projections of the basis vectors with
+p ∤ d_r span the F_p-span of the columns so far, and they are in echelon form with distinct lowest rows. The lowest
+rows of an echelon basis of the span of the first c columns are the lows of every column reduction of them. ∎
+
+The F_p pairs of a prime are read off its sweep in the degrees where it divides a pivot value. In every other degree
+they are the pairs of a *reference* sweep, modulo a prime ℓ ∈ [2^62, 2^63) dividing no pivot value. By Lemma 2,
+F_ℓ, F_p in those degrees, and Q all have the same pairs at the level of values. The prime's F_p barcode is assembled
+from these pairs and compared with the Q barcode. Before any prime is judged, the reference's own barcode must equal
+the Q barcode in every degree it covers. If it does not, nothing is claimed and the candidates are rerun. Nothing in
+this is random: it is exact arithmetic modulo known integers. `tests/t_howell.cpp` checks Lemma 5, and the length
+formula of §7, against plain F_p reductions and brute-force enumeration of spans on random integer matrices. The test
+suite checks that sweeps and reruns give identical bad primes and intervals.
+
+*Cost.* One sweep per batch and degree, plus the reference: on `bench/certify_lm.py`, 124 sweeps instead of 386
+reruns at n = 90, and 114 instead of 326 on an instance with distinct interleaved values (`docs/ROADMAP.md`, step 4).
+Candidates of at least 2^63, and composites that could not be split, are still settled by runs modulo N (Lemma 3).
+`--classify-by rerun` restores the reruns everywhere.
+
 ## 4. What the output says
 
 * `mode`: `proved`, `fast`, or `unimodular` (the planar engine, §5: no arithmetic needed).
@@ -128,6 +162,9 @@ Miller–Rabin only identifies as probable primes (`"probable_prime": true`), ne
 * `bad_primes_status`: `complete` (every candidate classified), `candidates only` (`--no-classify`), or
   `incomplete`.
 * `complete`: true when the barcode is certified and the bad primes are completely described.
+* `torsion` (with `--torsion`; explicit complexes): the torsion of H_q(K_t; Z) at every value t where it changes
+  (§7). `proof` there is the certificate's: the sweeps are exact, but the primes they follow come from the
+  candidate list, which `--mode fast` only makes probable.
 
 ## 5. Planar inputs: a proof by total unimodularity
 
