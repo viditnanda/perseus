@@ -1,0 +1,53 @@
+[
+ {
+  "case": "Linial-Meshulam n=70, first 2400 triangles",
+  "threads": 2,
+  "F2_s": 0.033705450000070414,
+  "Q_s": 5.247205137000037,
+  "bad_primes": [
+   "2",
+   "3",
+   "43",
+   "1249",
+   "23561",
+   "80447",
+   "1585183289"
+  ],
+  "complete": true,
+  "q_run_s": 0.355,
+  "nonunit": 133,
+  "largest_bits": 85,
+  "factoring_s": 0.2,
+  "small_candidates": 202,
+  "big_candidates": 3,
+  "big_s": 0.203,
+  "big_runs": 3,
+  "small_wall_s": 4.478,
+  "small_cpu_s": 8.935
+ },
+ {
+  "case": "Linial-Meshulam n=90, first 4000 triangles",
+  "threads": 2,
+  "F2_s": 0.15231232600035582,
+  "Q_s": 105.26341870100032,
+  "bad_primes": [
+   "2",
+   "5",
+   "479",
+   "22303",
+   "1157339",
+   "88470064351375266636417736072324987"
+  ],
+  "complete": true,
+  "q_run_s": 1.934,
+  "nonunit": 274,
+  "largest_bits": 170,
+  "factoring_s": 8.711,
+  "small_candidates": 386,
+  "big_candidates": 110,
+  "big_s": 39.275,
+  "big_runs": 110,
+  "small_wall_s": 55.326,
+  "small_cpu_s": 110.487
+ }
+]

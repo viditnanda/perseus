@@ -47,11 +47,28 @@ The first items came from an external review of `main` at `5716401`; Vidit asked
    * The explicit and Rips engines have no such heap (checked with grep for `push_heap`).
    * Afterwards, on white noise 48⁴ (F_2, 37.5 s), the largest phase is building the Morse complex: 14.8 s, 101 million path cells. The gradient takes 6.8 s and the reduction 12.8 s. This is the next lever for noisy 4D inputs; it is not scheduled.
 
-2. **Make the classification of candidate primes cheap.** The bad-prime certificate is the core of the enterprise. On Linial–Meshulam n = 90, the Q reduction takes 1.3 s of about 113 s; the rest reruns the reduction for each of 463 candidate primes (`certify.hpp`, classification loop).
-   * **Profile first:** for each candidate, the first column whose pivot it divides, and how many of the 463 are actually bad.
-   * **Then warm-start each prime** from that column, using checkpoints of the Q reduction. Up to that column, the reduction modulo p is identical to the one over Q. The Q run already records its non-unit pivots (`out.nonunit`).
-   * **Composite-modulus batching is the weaker idea.** Every candidate divides some pivot by construction, so every batch splits eventually, and only the prefix before the first split is shared. Large candidates are already batched this way.
-   * Random 2-complexes have large torsion. Each bad prime still needs its full barcode modulo p, and only the warm start helps there.
+2. **Make the classification of candidate primes cheap: profiled (19 Nov 2026); big candidates now run in parallel.**
+   * **Instance.** `bench/certify_lm.py` regenerates it deterministically: all edges of K_90 at time 1, then the first 4,000 triangles of a random order. This is near the threshold where H_1 dies and torsion appears. Its F_2 time matches the README's n = 90 row, but it is not the same random complex: it has 496 candidates, not 463. There is also a smaller n = 70 instance.
+   * **Profile before the change** (2 cores, total 147 s):
+
+     | phase | time |
+     |---|---|
+     | Q run (8 lanes; 274 non-unit pivots, up to 170 bits) | 1.9 s |
+     | factoring the pivot values into 386 small and 110 big candidates | 8.5 s |
+     | 110 big candidates (≥ 2^63, runs modulo multi-word N), **one after another** | 80 s |
+     | 386 small candidates, 2 threads (115 s CPU, 0.30 s per rerun) | 57 s |
+
+     Six candidates are bad: 2, 5, 479, 22303, 1157339 and a 117-bit prime. Each of them changes exactly one H_1 interval and one H_2 interval near the end, where transient torsion in H_1 lives.
+   * **Done.** The big candidates now go through a thread pool sharing the work queue; a split puts its two parts back on the queue. Total 147 → 105 s on 2 cores (big candidates 80 → 39 s). This scales with cores, and the output is identical for 1 and 2 threads.
+   * **Warm starts, measured and not adopted.**
+     * `PERSEUS_CLASSIFY_DUMP=file` (with `PERSEUS_DEBUG`) records, per small candidate, the columns of the pivots it divides and the cost of its rerun.
+     * The explicit engine reduces in cohomology here, processing columns from high to low index, and its cost is back-loaded: 1% of the time has passed at column 803 of 4,005, 15% at 400, 56% at 200.
+     * Each candidate's first divisible pivot comes at columns 89–803 (median 251). Restarting every rerun at that column would save 49% of the small-candidate CPU: 54 of 112 s.
+     * But a restart needs the reduction's state modulo p at that column. In fast mode (int64 overflowed here) the Q run exists only modulo random 62-bit primes, so the state is not available. Exact checkpoints mean the proved run, which took 259 s on the README's instance.
+     * The alternative, a run modulo a product of candidates that forks its state at each split, shares only the prefix among the 2–3 primes fitting in one word, so about 30% at best. It also needs resumable state in every engine.
+     * So this is not worth building now.
+   * **The bigger lever (open).** Bad primes are the primes of p-torsion in relative groups H_k(K_t, K_s; Z). Here they all sit in one short window of H_1. Computing torsion where the Q barcode has events, with the sparse integral machinery of step 4, might replace hundreds of reruns with a few Smith forms. This needs a criterion that is provably complete before it can replace classification; it is not one yet.
+   * **Smaller remaining items:** factoring takes 8.5 s on one thread (parallelise across pivot values), and the small-candidate pool starts only after the big one finishes (one pool would avoid idle threads at the end).
 
 3. **Make the default certificate exact all the way.** Vidit decided that certified Q should end in exact arithmetic. Today, when int64 arithmetic overflows, `--mode auto` falls back to `fast`, which is probabilistic. Make the fallback `proved` (big-integer arithmetic), or at minimum make the fallback impossible to miss in the output and in `cert.json`.
 
