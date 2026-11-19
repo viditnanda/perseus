@@ -309,7 +309,7 @@ std::pair<BRun<typename B::Clear>, Certificate> certify(const B& be, const Certi
     bool dbg = getenv("PERSEUS_DEBUG") != nullptr;
     if (dbg) { size_t mx = 0; for (auto& v : cert.values) if (v.ok) mx = std::max(mx, std::max(v.num.bits(), v.den.bits()));
                fprintf(stderr, "  [debug: Q run %.3f s, %zu non-unit pivots, largest %zu bits]\n", std::chrono::duration<double>(t1 - t0).count(), cert.values.size(), mx); }
-    if (getenv("PERSEUS_DUMP")) { FILE* f = fopen(getenv("PERSEUS_DUMP"), "w"); for (auto& v : cert.values) if (v.ok) fprintf(f, "%d %s %s\n", v.k, v.num.str().c_str(), v.den.str().c_str()); fclose(f); }
+    if (getenv("PERSEUS_DUMP")) { FILE* f = fopen(getenv("PERSEUS_DUMP"), "w"); for (auto& v : cert.values) if (v.ok) fprintf(f, "%d %s %s %.17g %.17g\n", v.k, v.num.str().c_str(), v.den.str().c_str(), v.birth, v.death); fclose(f); }
     // 3. candidates: prime divisors of numerators and denominators. Pivot values share many factors, so
     //    each value is first divided by the primes already found (smallest values first), and composites
     //    that resist rho are split further by gcds with the other values' cofactors.
