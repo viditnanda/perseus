@@ -34,7 +34,7 @@ Vidit's merge order (19 Nov 2026): **#4, then #2, then #3**. He verifies each on
 | #5 | `certify-warmstart` | classification profiled on Linial–Meshulam; big candidates in parallel (step 2) | merged 19 Nov 2026 (merge commit 00a8ec0) |
 | #6 | `certify-proved-default` | the default certificate is a proof everywhere; fast mode only on request, labelled (step 3) | merged 19 Nov 2026 (merge commit d089aec) |
 | #7 | `certificate-per-prime-theorem` | docs only: Theorem 4 (bad primes = primes of torsion in relative homology) in `CERTIFICATE.md` §7; step 4 plan | open; Vidit asked for this as a separate docs PR before step 4 |
-| #8 | `step4-torsion-classify` | Howell sweeps: batched classification of small candidates (default on explicit complexes), `--torsion` trajectories; based on #7 | open |
+| #8 | `step4-howell` | Howell sweeps: batched classification of small candidates (default on explicit complexes), `--torsion` trajectories; based on #7 | open |
 
 The README's cubical tables (2D, 3D and 4D) are the single source of truth for cubical timings. They were re-measured on the code of #4 and #2 together, all programs in one sitting. Any later change that affects cubical speed re-measures the affected rows, or the whole table, and dates it.
 
@@ -85,7 +85,7 @@ The first items came from an external review of `main` at `5716401`; Vidit asked
    * Further: the exact run still spends most of its time in big-rational arithmetic. Fraction-free integer columns, which scale columns instead of keeping rationals, would remove most gcds; that is not done.
    * Tests: `t_exact` (BigInt identities, QHyb against plain big rationals) in `make test-chain`. The Python suite checks a torsion-heavy instance (Linial–Meshulam n = 60, int64 overflows): the default is proved with bad primes 2, 3, 922457715037; `auto` is the same; and fast agrees and is labelled in the module, the JSON and on stderr.
 
-4. **Scale the integral machinery of #3, and classify candidates through torsion where it pays (CERTIFICATE.md §7). Howell sweeps and torsion trajectories: done (19 Nov 2026, branch `step4-torsion-classify`, on top of #7).**
+4. **Scale the integral machinery of #3, and classify candidates through torsion where it pays (CERTIFICATE.md §7). Howell sweeps and torsion trajectories: done (19 Nov 2026, branch `step4-howell`, on top of #7).**
    * **Classification by torsion orders: measured first (19 Nov 2026).** By Theorem 4 the bad primes in degree q are the primes of torsion in H_q(K_j, K_i; Z) and H_{q−1}(K_i; Z). For a value quadrant (rows born after s, columns born by t) of ∂_r, the torsion order of H_{r−1}(K_t, K_s) divides Δ(s, t) = ∏ π over the non-unit pairs in it. `PERSEUS_DUMP` now writes each non-unit pivot's birth and death; the counts come from `bench/quadrants.py` on the step-4 branch.
 
      | instance | values | quadrants with Δ ≠ ±1 (share) | non-unit pairs | candidates | bad |
