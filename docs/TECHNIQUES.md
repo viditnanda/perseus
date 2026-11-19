@@ -64,7 +64,13 @@ Engineering choices of ours:
 * births are stored as 32-bit indices into the sorted distinct values;
 * only dimensions 1..d−1 are sorted, with a stable 8-bit radix sort;
 * the union-finds are indexed by grid position, for locality;
-* the working column switches from a sorted vector to a heap when it grows long, after the Ripser heap; without this, smooth 4D inputs were quadratic.
+* the working column switches from a sorted vector to a bit tree when it grows long (`bitcol.hpp`; below). Without a switch, smooth 4D inputs were quadratic. Until November 2026 the switch went to a binary heap, as in Ripser, which keeps duplicate rows until they surface.
+
+*Bit-tree working columns (`bitcol.hpp`).* PHAT's "bit tree" pivot column is a 64-ary tree of bit words over the rows: a leaf bit per row, and a bit per nonzero word one level up. Bauer, Kerber, Reininghaus, Wagner, *Phat — Persistent Homology Algorithms Toolbox*, J. Symbolic Comput. 78 (2017).
+* Over F_2, adding an entry flips a bit, so a duplicate cancels at once. The pivot (the smallest row) is found by descending log₆₄ n words.
+* We add a dense coefficient array, so the same structure serves F_p, multi-modular Q and exact int64 rationals: adding at a set bit adds coefficients and clears the bit on zero.
+* The tree is allocated once per degree, on the first long column. Storing a reduced column drains the tree in row order, touching only its own entries, so no sort is needed.
+* Columns move into the tree past 512 entries (`PERSEUS_LONG_COLUMN` overrides; 0 sends every column through it, which the tests use). Thresholds of 128–512 measured alike on white noise 40⁴; 2048 and 8192 were slower.
 
 **1.14 Sparse flag complexes (`rips_sparse.hpp`).** When the graph at the threshold is sparse, the radius graph is built directly (a uniform grid for low-dimensional point clouds), and the flag complex is enumerated from sorted adjacency lists. This is what GUDHI's simplex tree does; memory is linear in the number of simplices.
 
