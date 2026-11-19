@@ -17,6 +17,7 @@
 //   Q64            -- exact rationals with int64 numerator/denominator; on overflow it sets a flag and
 //                     degenerates to zero (the caller reruns with QBig).
 //   QBig           -- exact rationals with arbitrary precision.
+//   QHyb           -- exact rationals: int64 pairs while they fit, BigInts beyond (what proved mode uses).
 //   Mont<W,K>      -- K independent odd moduli (W = uint32_t for moduli < 2^31,
 //                     W = uint64_t for moduli < 2^63), Montgomery form.
 //                     K = 1 is the prime field F_p; K >= 2 carries Q through K large
@@ -25,6 +26,7 @@
 #include <cstdint>
 #include <cstddef>
 #include <vector>
+#include <memory>
 #include <stdexcept>
 #include <random>
 #include <set>
@@ -160,7 +162,8 @@ struct Q64 {
         int64_t r, d;
         if (a.d == 1 && b.d == 1) { if (__builtin_mul_overflow(a.n, b.n, &r)) return bad(); return chk(r, 1); }
         int64_t g1 = gcd_i64(a.n, b.d), g2 = gcd_i64(b.n, a.d);
-        if (g1 == 0) g1 = 1; if (g2 == 0) g2 = 1;
+        if (g1 == 0) g1 = 1;
+        if (g2 == 0) g2 = 1;
         if (__builtin_mul_overflow(a.n / g1, b.n / g2, &r) || __builtin_mul_overflow(a.d / g2, b.d / g1, &d)) return bad();
         if (r == 0) return {0, 1};
         return chk(r, d);
@@ -173,6 +176,96 @@ struct Q64 {
     void store(T a, Pivot& pv) const { pv.exact = true; pv.num = BigInt(a.n); pv.den = BigInt(a.d); }
     uint64_t modulus(int) const { return 0; }
 };
+// QHyb: exact rationals, small ones as two int64 (the arithmetic of Q64, checked), large ones as BigInts behind
+// a shared pointer. Only the operations whose inputs or result do not fit pay for big arithmetic, so a
+// reduction where a minority of entries grow costs little more than Q64.
+struct QHyb {
+    struct Big { BigInt n, d; };                  // d > 0, gcd 1, does not fit the small form
+    struct T { int64_t n = 0, d = 1; std::shared_ptr<const Big> b; };   // b == nullptr: n / d, d > 0, gcd 1
+    static constexpr int lanes = 1;
+    mutable bool overflow = false;                // never set
+    static constexpr int64_t LIM = (int64_t)1 << 62;
+    static bool fits(const BigInt& x) { return x.bits() <= 62; }
+    static int64_t to_i64(const BigInt& x) { int64_t v = (int64_t)x.to_u64(); return x.neg ? -v : v; }
+    static T make(BigInt n, BigInt d) {           // normalise; small when it fits
+        if (n.is_zero()) return T();
+        if (d.neg) { n = -n; d = -d; }
+        BigInt g = gcd(n, d);
+        if (!(g == BigInt(1))) { n = n / g; d = d / g; }
+        if (fits(n) && fits(d)) { T r; r.n = to_i64(n); r.d = to_i64(d); return r; }
+        T r; r.b = std::make_shared<const Big>(Big{std::move(n), std::move(d)}); return r;
+    }
+    static T make_reduced(BigInt n, BigInt d) {   // already in lowest terms
+        if (n.is_zero()) return T();
+        if (d.neg) { n = -n; d = -d; }
+        if (fits(n) && fits(d)) { T r; r.n = to_i64(n); r.d = to_i64(d); return r; }
+        T r; r.b = std::make_shared<const Big>(Big{std::move(n), std::move(d)}); return r;
+    }
+    static BigInt bn(const T& a) { return a.b ? a.b->n : BigInt(a.n); }
+    static BigInt bd(const T& a) { return a.b ? a.b->d : BigInt(a.d); }
+    static bool small_norm(int64_t n, int64_t d, T& r) {
+        if (n == 0) { r = T(); return true; }
+        int64_t g = gcd_i64(n, d); n /= g; d /= g;
+        if (n > LIM || n < -LIM || d > LIM) return false;
+        r.n = n; r.d = d; r.b.reset(); return true;
+    }
+    T zero() const { return T(); }
+    T one() const { T r; r.n = 1; return r; }
+    T from_int(int64_t x) const { if (x > LIM || x < -LIM) return make(BigInt(x), BigInt(1)); T r; r.n = x; return r; }
+    T add(const T& a, const T& b) const {
+        if (!a.b && !b.b) {
+            int64_t r, x, y, d; T out;
+            if (a.d == 1 && b.d == 1) { if (!__builtin_add_overflow(a.n, b.n, &r) && r <= LIM && r >= -LIM) { out.n = r; return out; } }
+            else {
+                int64_t g = gcd_i64(a.d, b.d), da = a.d / g, db = b.d / g;
+                if (!__builtin_mul_overflow(a.n, db, &x) && !__builtin_mul_overflow(b.n, da, &y) && !__builtin_add_overflow(x, y, &r) &&
+                    !__builtin_mul_overflow(a.d, db, &d) && small_norm(r, d, out)) return out;
+            }
+        }
+        const BigInt an = bn(a), ad = bd(a), bnn = bn(b), bdd = bd(b);
+        if (ad == BigInt(1) && bdd == BigInt(1)) return make_reduced(an + bnn, BigInt(1));
+        // Henrici: with g = gcd(ad, bd), s = ad / g, t = bd / g, the sum is (an t + bn s) / (s bd), and only g
+        // can share a factor with that numerator
+        BigInt g = gcd(ad, bdd);
+        if (g == BigInt(1)) return make_reduced(an * bdd + bnn * ad, ad * bdd);
+        BigInt s = ad / g, tq = bdd / g, num = an * tq + bnn * s;
+        if (num.is_zero()) return T();
+        BigInt g2 = gcd(num, g);
+        if (g2 == BigInt(1)) return make_reduced(num, s * bdd);
+        return make_reduced(num / g2, s * (bdd / g2));
+    }
+    T neg(const T& a) const { if (!a.b) { T r; r.n = -a.n; r.d = a.d; return r; } T r; r.b = std::make_shared<const Big>(Big{-a.b->n, a.b->d}); return r; }
+    T mul(const T& a, const T& b) const {
+        if (!a.b && !b.b) {
+            int64_t r, d; T out;
+            if (a.d == 1 && b.d == 1) { if (!__builtin_mul_overflow(a.n, b.n, &r) && r <= LIM && r >= -LIM) { out.n = r; return out; } }
+            else {
+                int64_t g1 = gcd_i64(a.n, b.d), g2 = gcd_i64(b.n, a.d);
+                if (g1 == 0) g1 = 1;
+                if (g2 == 0) g2 = 1;
+                if (!__builtin_mul_overflow(a.n / g1, b.n / g2, &r) && !__builtin_mul_overflow(a.d / g2, b.d / g1, &d) && small_norm(r, d, out)) return out;
+            }
+        }
+        if (is_zero(a) || is_zero(b)) return T();
+        const BigInt an = bn(a), ad = bd(a), bnn = bn(b), bdd = bd(b);       // Henrici: cross-cancel first
+        BigInt g1 = gcd(an, bdd), g2 = gcd(bnn, ad);
+        BigInt x = g1 == BigInt(1) ? an : an / g1, y = g2 == BigInt(1) ? bnn : bnn / g2;
+        BigInt u = g2 == BigInt(1) ? ad : ad / g2, v = g1 == BigInt(1) ? bdd : bdd / g1;
+        return make_reduced(x * y, u * v);
+    }
+    T inv(const T& a) const {
+        if (is_zero(a)) return T();
+        if (!a.b) { T r; if (a.n > 0) { r.n = a.d; r.d = a.n; } else { r.n = -a.d; r.d = -a.n; } return r; }
+        return make_reduced(a.b->d, a.b->n);
+    }
+    bool is_zero(const T& a) const { return !a.b && a.n == 0; }
+    bool partly_zero(const T&) const { return false; }
+    bool is_pm1(const T& a) const { return !a.b && a.d == 1 && (a.n == 1 || a.n == -1); }
+    void residues(const T&, uint64_t*) const {}
+    void store(const T& a, Pivot& pv) const { pv.exact = true; pv.num = bn(a); pv.den = bd(a); }
+    uint64_t modulus(int) const { return 0; }
+};
+
 struct QBig {
     struct T { BigInt n, d; };                    // d > 0, gcd(n, d) = 1
     static constexpr int lanes = 1;

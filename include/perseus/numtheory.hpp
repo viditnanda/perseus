@@ -12,7 +12,7 @@ inline BigInt isqrt(const BigInt& n) {        // floor(sqrt(n)), n >= 0
     if (n.is_zero()) return BigInt(0);
     BigInt x = BigInt(1);
     { BigInt t = BigInt(1); size_t sh = (n.bits() + 1) / 2; // x = 2^sh >= sqrt(n)
-      std::vector<uint32_t> a(sh / 32 + 1, 0); a[sh / 32] = 1u << (sh % 32); x.a = a; x.trim(); (void)t; }
+      Limbs a(sh / 32 + 1, 0u); a[sh / 32] = 1u << (sh % 32); x.a = a; x.trim(); (void)t; }
     while (true) { BigInt y = (x + n / x).div_small(2); if (!(y < x)) return x; x = y; }
 }
 
@@ -179,7 +179,7 @@ struct MontN {
         uint64_t x = 1; for (int i = 0; i < 7; ++i) x *= 2 - n[0] * x;
         ninv = 0 - x;
         // R^2 mod N with R = 2^(64L)
-        BigInt R2(1); { std::vector<uint32_t> a(4 * L + 1, 0); a[4 * L] = 1; R2.a = a; R2.trim(); }
+        BigInt R2(1); { Limbs a(4 * L + 1, 0u); a[4 * L] = 1; R2.a = a; R2.trim(); }
         R2 = R2 % NN; from_big(R2, r2.w);
         T o; for (int i = 0; i < L; ++i) o.w[i] = 0; o.w[0] = 1; one_ = mul(o, r2);
     }

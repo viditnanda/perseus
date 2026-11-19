@@ -3,9 +3,10 @@
 
 Instances: all edges of K_n at time 1, then the first m triangles of a uniformly random order at times
 2, 3, ...; n = 70, m = 2400 and n = 90, m = 4000 (near c_2 * n^2 / 6 triangles, where H_1 dies and torsion
-appears). Generated deterministically into /tmp/certify_lm. For each instance, the F_2 time, and the default
-Q certificate with its phases from PERSEUS_DEBUG: the Q run, reconstruction and factoring of the pivot values,
-the reruns for big candidates (primes >= 2^63, modulo multi-word N) and for small ones.
+appears). Generated deterministically into /tmp/certify_lm. For each instance, the F_2 time; the default Q
+certificate (proved: exact rationals) with its phases from PERSEUS_DEBUG: the Q run, factoring of the pivot
+values, the reruns for big candidates (primes >= 2^63, modulo multi-word N) and for small ones; and, for
+comparison, --mode fast (random primes, not a proof), checked to find the same bad primes.
 
 usage: bench/certify_lm.py [out.json] [--threads n]
 """
@@ -55,6 +56,9 @@ def main():
         m2 = g(r"factoring ([0-9.]+) s, (\d+) \+ (\d+) candidates"); row["factoring_s"], row["small_candidates"], row["big_candidates"] = float(m2[1]), int(m2[2]), int(m2[3])
         m3 = g(r"big candidates ([0-9.]+) s, (\d+) runs"); row["big_s"], row["big_runs"] = float(m3[1]), int(m3[2])
         m4 = g(r"small candidates ([0-9.]+) s wall, ([0-9.]+) s summed"); row["small_wall_s"], row["small_cpu_s"] = float(m4[1]), float(m4[2])
+        row["mode"] = j["mode"]; row["proof"] = j.get("proof")
+        row["fast_s"], so, _ = run(["simplices", path, "--print", "json", "--threads", threads, "--mode", "fast"])
+        jf = json.loads(so); row["fast_bad_primes_agree"] = [str(b["p"]) for b in jf["bad_primes"]] == row["bad_primes"]
         rows.append(row); print(json.dumps(row), flush=True)
     json.dump(rows, open(out, "w"), indent=1)
 

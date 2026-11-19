@@ -32,7 +32,7 @@ static py::list bars_to_py(const Barcode& bc) {
 static py::object bigint_to_py(const BigInt& x) { return py::int_(py::str(x.str())); }
 
 struct SolveOpts {
-    std::string coeff = "Q", mode = "auto";
+    std::string coeff = "Q", mode = "proved";
     bool classify = true;
     int threads = 0;
     std::vector<uint64_t> fp;
@@ -63,7 +63,13 @@ static py::dict solve(const B& be, const SolveOpts& o) {
         res["barcode"] = bars_to_py(r.first.bars);
         py::dict cert;
         cert["mode"] = c.mode;
+        cert["proof"] = c.mode != "fast" && c.certified();
         cert["barcode_certified"] = c.certified();
+        if (c.mode == "fast") {
+            cert["warning"] = "mode='fast': probabilistic, not a proof";
+            py::module_::import("warnings").attr("warn")("perseus: mode='fast' gives a probabilistic certificate, not a proof; "
+                                                          "the default (mode='proved') proves the barcode and the bad primes");
+        }
         if (!c.note.empty()) cert["note"] = c.note;
         if (c.mode == "fast") {
             cert["log2_error_bound"] = std::isinf(c.log2_error) ? py::object(py::none()) : py::object(py::float_(c.log2_error));
@@ -294,7 +300,7 @@ static RipsInput rips_from_numpy(py::object points, py::object distances) {
 }
 
 #define COMMON_ARGS py::arg("coeff") = "Q", py::arg("classify") = true, py::arg("threads") = 0, \
-    py::arg("fp") = std::vector<uint64_t>(), py::arg("mode") = "auto", py::arg("seed") = py::none(), py::arg("target") = 64.0
+    py::arg("fp") = std::vector<uint64_t>(), py::arg("mode") = "proved", py::arg("seed") = py::none(), py::arg("target") = 64.0
 
 PYBIND11_MODULE(_perseus, m) {
     m.doc() = "Perseus 6: persistent homology over Q with certified bad primes, or over any F_p.";

@@ -32,6 +32,8 @@ test-chain: tests/t_chain.cpp tests/t_magnitude.cpp tests/t_laurent.cpp $(HDR)
 	$(CXX) -std=c++17 -O2 -Wall -pthread $(INC) tests/t_magnitude.cpp -o t_magnitude
 	$(CXX) -std=c++17 -O2 -Wall -pthread $(INC) tests/t_laurent.cpp -o t_laurent
 	./t_chain 200 && ./t_magnitude && ./t_laurent 60
+	$(CXX) -std=c++17 -O2 -Wall $(INC) tests/t_exact.cpp -o t_exact
+	./t_exact 2000
 
 clean:
-	rm -f perseus t_cubical_morse t_bitcol t_cubical_planar t_chain t_magnitude t_laurent
+	rm -f perseus t_cubical_morse t_bitcol t_cubical_planar t_chain t_magnitude t_laurent t_exact

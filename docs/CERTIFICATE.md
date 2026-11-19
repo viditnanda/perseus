@@ -44,11 +44,16 @@ the norms of M's columns (the largest m of them, for pairs bounded by m).
 
 ## 2. Three ways to run the Q reduction
 
-**proved** (`--mode proved`). Exact rational arithmetic. Each degree is tried with int64 numerators and
-denominators, with every operation overflow-checked. A degree that overflows is rerun with arbitrary
-precision. The barcode and the pivot values are exact, so Lemma 2 applies as stated.
+**proved** (`--mode proved`, the default; `--mode auto` is the same). Exact rational arithmetic. Each degree is
+tried with int64 numerators and denominators, with every operation overflow-checked. A degree that overflows
+is rerun exactly with rationals that stay in int64 while they fit and use big integers where they must
+(`QHyb` in `ring.hpp`). The barcode and the pivot values are exact, so Lemma 2 applies as stated, and the
+output says `"proof": true`. Until 19 Nov 2026 the default (`auto`) switched to fast mode when int64
+overflowed, so on torsion-heavy inputs the default answer was not a proof; it no longer does.
 
-**fast** (`--mode fast`). The reduction is carried modulo K primes drawn uniformly at random from
+**fast** (`--mode fast`, only when asked for). It is not a proof, and every output says so: a WARNING on
+stderr, `"proof": false` and a `"warning"` entry in the JSON and in the Python certificate, and a Python
+`UserWarning`. The reduction is carried modulo K primes drawn uniformly at random from
 [2^61, 2^62). The primes are distinct. They come from ChaCha20 keyed by a fresh 256-bit seed from the
 operating system's random source (`std::random_device`), and the seed is reported.
 
