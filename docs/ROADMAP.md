@@ -28,7 +28,7 @@ Last updated: 19 Nov 2026.
 |---|---|---|---|
 | #2 | `cubical-2d` | planar engine for 2D images (union-finds, Alexander duality, unimodular certificate); new 2D table; re-measured GUDHI and CubicalRipser columns of the 3D/4D table | awaiting review |
 | #3 | `simplicial-sets` | simplicial sets, chain complexes over Z, integral outputs, magnitude homology, Laurent coefficients | awaiting review |
-| (this) | `cubical-bittree` | bit-tree working columns, item 1 below | awaiting review |
+| #4 | `cubical-bittree` | bit-tree working columns, item 1 below; this file | awaiting review |
 
 `cubical-bittree` branches from `main` at `5716401` and does not depend on #2 or #3. It touches `cubical_morse.hpp` and `cubical_engine.hpp`, which #2 also edits. Expect a small merge conflict in `cubical_engine.hpp` (#2 adds the planar dispatch to the backend; this branch changes the classic engine's reduction loop) and in the README's 3D/4D section.
 
