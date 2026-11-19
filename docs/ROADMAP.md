@@ -84,15 +84,27 @@ The first items came from an external review of `main` at `5716401`; Vidit asked
    * Further: the exact run still spends most of its time in big-rational arithmetic. Fraction-free integer columns, which scale columns instead of keeping rationals, would remove most gcds; that is not done.
    * Tests: `t_exact` (BigInt identities, QHyb against plain big rationals) in `make test-chain`. The Python suite checks a torsion-heavy instance (Linial–Meshulam n = 60, int64 overflows): the default is proved with bad primes 2, 3, 922457715037; `auto` is the same; and fast agrees and is labelled in the module, the JSON and on stderr.
 
-4. **Scale the integral machinery of #3, and classify candidates through torsion (CERTIFICATE.md §7).**
-   * **Classification by torsion orders.** By Theorem 4 the bad primes in degree q are the primes of torsion in H_q(K_j, K_i; Z) and H_{q−1}(K_i; Z). For a value quadrant (rows born after s, columns born by t) of ∂_r, the torsion order of H_{r−1}(K_t, K_s) divides Δ(s, t) = ∏ π over the pairs in the quadrant, which the proved Q run already knows exactly. Only quadrants with Δ ≠ ±1 matter. Plan:
-     1. **Measure first:** count the value quadrants with Δ ≠ ±1 on the non-tied benchmarks (the quadrant family has two parameters there; on LM it is one sweep over t).
-     2. **Compute elementary divisors without big numbers.** Two cautions from V (19 Nov 2026):
-        * modulo Δ an elementary divisor equal to Δ is indistinguishable from a free summand: work modulo 2Δ, or use the known Q-rank of the quadrant;
-        * Δ can be tens of thousands of bits: prefer working modulo p^{v_p(Δ)+1} for each candidate p, batching small primes into 62-bit composite moduli (Z/m is a principal ideal ring, so a Smith form exists and is found by gcd pivoting). Large candidates: modulo p^{v+1} with multi-word arithmetic.
-     3. Run on the Morse-reduced complex of #3, one sweep per row threshold s, giving every t at once.
-     4. Bad primes are the primes of nontrivial torsion; every other candidate is proved harmless by Theorem 4 with no rerun. Bad primes still get their F_p barcode by one rerun each (6 instead of 496 on LM n = 90), or from the integral data.
-     5. Validate against `bench/certify_lm.py` (n = 70, 90) and V's LM n = 28, 30 checks.
+4. **Scale the integral machinery of #3, and classify candidates through torsion where it pays (CERTIFICATE.md §7).**
+   * **Classification by torsion orders: measured first (19 Nov 2026).** By Theorem 4 the bad primes in degree q are the primes of torsion in H_q(K_j, K_i; Z) and H_{q−1}(K_i; Z). For a value quadrant (rows born after s, columns born by t) of ∂_r, the torsion order of H_{r−1}(K_t, K_s) divides Δ(s, t) = ∏ π over the non-unit pairs in it. `PERSEUS_DUMP` now writes each non-unit pivot's birth and death; the counts come from `bench/quadrants.py` on the step-4 branch.
+
+     | instance | values | quadrants with Δ ≠ ±1 (share) | non-unit pairs | candidates | bad |
+     |---|---|---|---|---|---|
+     | LM n = 70, tied (edges all at 1) | 2,401 | 727 (0.03%), one row threshold | 133 | 205 | 7 |
+     | LM n = 90, tied | | one row threshold | 274 | 496 | 6 |
+     | LM n = 40, distinct interleaved values | 1,480 | 1.2·10^5 (11%) | 30 | 6 | 6 |
+     | LM n = 70, distinct interleaved values | 4,815 | 4.9·10^5 (4.3%) | 210 | 347 | 347 |
+     | random metric, 300 points, H≤1 | 43,483 | 2.5·10^7 (2.7%) | 61 | 15 | 13 |
+     | RP² Rips, 300 points, H≤2 | 18,452 | 8.6·10^7 (6–44% by degree) | 2 | 1 | 1 |
+     | cubical white noise 96³ | 884,736 | 7.9·10^10 (20%) | 20 | 1 | 1 |
+     | cubical white noise 24⁴ | 331,776 | 2.4·10^10 (14–29%) | 26 | 1 | 1 |
+
+     The non-tied LM n = 40 result was checked independently by plain reductions over Q and F_p (`/tmp/s4/indep.py`, to be moved to `tests/`): 2–13 bad, 17, 19, 23 harmless.
+   * **Conclusion.** Torsion classification pays only where most candidates are harmless, and that is the tied case. On non-tied inputs almost every candidate is bad, and each bad prime needs its F_p barcode anyway (the certificate lists the changed intervals), so there is at most 2 of 15 reruns to save. Even so, the quadrant family there is two-parameter and huge. Do not build general two-parameter torsion classification.
+   * **What to build instead (proposed to Vidit 19 Nov 2026).**
+     1. **Torsion sweep for few row values.** For ∂_{q+1}, quadrants change only when s crosses a value taken by a q-cell. If the q-cells take few distinct values, a few sweeps over t cover every relative group. The identity of `CERTIFICATE.md` §7 then gives the bad primes *and* their F_p barcodes with no reruns at all. On LM (K₀ the 1-skeleton): β^{i,j}_1(F_p) = β^{i,j}_1(Q) + t_p(j) and β^{i,j}_2(F_p) = β^{i,j}_2(Q) + t_p(i), where t_p(t) is the number of p-primary cyclic summands of tors H_1(K_t; Z). One sweep over t replaces all 496 reruns on n = 90.
+     2. **Arithmetic of the sweep** (V's cautions): an elementary divisor equal to the modulus is indistinguishable from a free summand, so work modulo p^{v_p(Δ)+1} (not Δ), or use the known Q-rank; batch small primes into 62-bit composite moduli (Z/m is a principal ideal ring: Smith/Howell form by gcd pivoting). Incremental maintenance as columns arrive must read off elementary divisors correctly; diagonal valuations of an echelon form are not enough.
+     3. **Non-tied inputs keep reruns,** made cheaper: one pool for small and big candidates, parallel factoring, and possibly V's composite-modulus batching applied to the reruns themselves (splitting at zero divisors, as Lemma 3 does for big candidates).
+     4. Validate the sweep against `bench/certify_lm.py` (n = 70, 90) and V's LM n = 28, 30 checks; the F_p barcodes it produces must equal the reruns'.
    * The integral outputs use a dense Smith form, capped at about 40M entries, and run only on explicit complexes. Replace this with sparse elimination down to a small residual, followed by a Smith form; the fill-in-free first phase of #3 is the starting point.
    * Then extend the integral outputs to cubical grids, which have torsion from dimension 3.
 
