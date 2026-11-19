@@ -161,3 +161,51 @@ component sets, and its cokernel is free. H_2(X, A) ≅ ker(H_1(A) → H_1(X)) i
 Periodic 2D grids (a torus, cylinder or annulus) are not planar. They go to the classic engine, whose
 certificate does the arithmetic of §2. A torus has no torsion, but its essential classes are not given by
 duality in S². Three-dimensional inputs can have torsion: a (2,1) curve on the core of a solid torus gives Z/2.
+
+## 6. Chain complexes over Z, magnitude homology and Laurent coefficients
+
+**Integral outputs** (`--integral`, `--image`, `integral=True`, `image=(s, t)`). The integral homology of the whole
+complex and the image of H_*(K_s; Z) → H_*(K_t; Z) are exact: Smith forms and lattice quotients in int64 with
+overflow checks, repeated with bigints when a check fails. Nothing is random. They are computed on the residual
+complex of the algebraic Morse reduction (`TECHNIQUES.md` 5.2), which is filtered chain homotopy equivalent to
+the input over Z; the tests check on random complexes that the reduction changes neither the groups nor any
+image. The F_p barcodes of the bad primes are reruns over F_p of the primes the Q certificate found, so they
+carry the Q certificate's guarantee (and its seed, in fast mode). Primes that the certificate only knows as
+"every prime factor of N" get no separate barcode; their intervals are in `bad_primes` as before.
+
+**Magnitude homology.** MH_{k,l}(G; Z) is computed exactly: the complexes are enumerated in full, reduced over Z
+by unit pairs, and the residual is put in Smith form. The torsion is exact, not inferred from ranks over fields.
+
+**Laurent coefficients.** Lemma 2 holds over any discrete valuation ring O with fraction field K and residue
+field k, with the same proof: if every pivot value of a reduction over K is a unit in O, the reduction is defined
+over O and its reduction to k is a valid reduction with the same pivots. Perseus uses it twice.
+
+* O = Q[t]_(f), f ∈ Q[t] irreducible, f ≠ t: residue field Q[t]/(f). A pivot value is a unit there unless f
+  divides its numerator or its denominator. So the bad irreducibles are among the irreducible factors of
+  the numerators and denominators of the pivot values over Q(t). Like the rational pivot values, these are
+  ratios of minors of the filtered matrix, independent of the reduction.
+* O = Z[t]_(p), the polynomials over Q whose denominators have content prime to p: residue field F_p(t).
+  A pivot value c·a/b, with a and b primitive integer polynomials and c ∈ Q, is a unit unless p divides the
+  numerator or the denominator of c (Gauss's lemma). So the bad primes of the barcode over F_p(t) are among the
+  prime factors of those contents.
+
+The polynomial candidates are not factored into irreducibles. Their gcd-free basis is computed, with linear factors
+split off by the rational root test. Each basis element g is settled by a reduction over Q[t]/(g), run as if it
+were a field. This is the analogue of Lemma 3. If a pivot is not invertible modulo g, the gcd splits g and the
+parts are settled separately. If the run finishes, then for every irreducible factor f of g it is a valid run
+over Q[t]/(f) with the same pivots, so all of them have the barcode it found. An entry with `"irreducible": true`
+(degree 1, or degree 2 with a non-square discriminant) names one irreducible. `"every_irreducible_factor_of": true`
+means the answer holds for every irreducible factor of the polynomial given.
+
+For the homology of the whole complex over Q[t, t^-1], the Smith form is computed by row and column operations
+that multiply by nonzero integers and powers of t, then divide by integer contents. If p divides none of these
+integers and none of the contents of the final pivots, the same operations are invertible over Z_(p)[t, t^-1].
+Then H_*( ; F_p[t, t^-1]) is the reduction mod p of the rational answer: the same free ranks, and the invariant
+factors (primitive integer polynomials, so none vanishes mod p, and the divisibility chain survives) reduced mod p,
+with units dropped. Every prime dividing a recorded integer is a candidate. Each candidate is settled by a Smith
+form over F_p[t]. `homology_bad_primes` lists those where the answer is not the reduction. `complete` is false
+only if some recorded integer could not be factored (`unresolved`).
+
+What this is not: a computation of the Z[t, t^-1]-module. That ring has dimension 2, and its modules are not
+determined by their fibres over Q and the F_p. Nor is it a computation over the residue fields F_p[t]/(h) or
+over the Novikov ring Z((t)).

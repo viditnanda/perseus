@@ -7,3 +7,6 @@ python/include/
 __pycache__/
 output_*.txt
 /t_cubical_morse
+/t_chain
+/t_magnitude
+/t_laurent

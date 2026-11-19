@@ -26,5 +26,12 @@ test-cubical: tests/t_cubical_morse.cpp tests/t_cubical_planar.cpp $(HDR)
 	./t_cubical_planar 400
 	PERSEUS_PLANAR_COMPRESS=1 ./t_cubical_planar 200 2
 
+# chain complexes over Z, simplicial sets, integral outputs, magnitude homology, Laurent coefficients
+test-chain: tests/t_chain.cpp tests/t_magnitude.cpp tests/t_laurent.cpp $(HDR)
+	$(CXX) -std=c++17 -O2 -Wall -pthread $(INC) tests/t_chain.cpp -o t_chain
+	$(CXX) -std=c++17 -O2 -Wall -pthread $(INC) tests/t_magnitude.cpp -o t_magnitude
+	$(CXX) -std=c++17 -O2 -Wall -pthread $(INC) tests/t_laurent.cpp -o t_laurent
+	./t_chain 200 && ./t_magnitude && ./t_laurent 60
+
 clean:
-	rm -f perseus t_cubical_morse t_bitcol t_cubical_planar
+	rm -f perseus t_cubical_morse t_bitcol t_cubical_planar t_chain t_magnitude t_laurent

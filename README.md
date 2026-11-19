@@ -8,6 +8,8 @@ One run gives you:
 * the complete list of *bad primes* — the p for which F_p coefficients give a different barcode — and, for each, exactly which intervals change,
 * the exact rational values of all non-unit pivots, which explain where the torsion lives.
 
+Beyond simplicial and cubical complexes, Perseus 6 takes filtered simplicial sets, nerves of finite categories and arbitrary filtered chain complexes over Z, and returns integral information: the torsion of the homology, the image of H_*(K_s; Z) → H_*(K_t; Z), and the F_p barcode of every bad prime. It computes magnitude homology of graphs over Z, torsion included, and handles chain complexes over the Laurent ring Z[t, t^-1] (infinite cyclic covers, Novikov homology). See [Chain complexes over Z and beyond](#chain-complexes-over-z-and-beyond).
+
 By default the Q reduction runs in exact int64 arithmetic. Then the certificate is a proof, at about the cost of an F_p run. When the numbers outgrow int64, as on torsion-heavy inputs, Perseus switches to a run modulo random 62-bit primes and reports a rigorous bound on the probability of error. `--proved` insists on exact arithmetic throughout. See [docs/CERTIFICATE.md](docs/CERTIFICATE.md).
 
 Perseus 6 is a rewrite from scratch. It does not read the old Perseus 4/5 input formats directly; `tools/convert_legacy.py` turns old files into new ones (see [Old Perseus files](#old-perseus-files)).
@@ -21,6 +23,7 @@ Executables for Linux, macOS and Windows are attached to each [GitHub release](h
 ```
 make                 # builds ./perseus (C++17 with 128-bit integers: g++ or clang; MinGW-w64 on Windows)
 make test            # differential tests (needs Ripser / Perseus 5 / p2ref; skips what is missing)
+make test-chain      # chain complexes over Z, simplicial sets, magnitude homology, Laurent coefficients
 cd python && pip install --no-build-isolation .   # Python module `perseus` (needs pybind11, numpy)
 ```
 
@@ -70,7 +73,10 @@ The output states what is guaranteed about the barcode (`proved`, or `probabilis
 | `npy` | the same from a numpy `.npy` file (any real or integer dtype, C or Fortran order) |
 | `cubes` | sparse cubical complex: one top cube per line, its integer anchor coordinates then its birth |
 | `simplices` | one simplex per line: vertex labels, then its birth; faces are added with the minimum birth of their cofaces |
-| `cells` | general cell complex with integer coefficients: one cell per line `dim birth [face coef]...`, faces are 0-based line numbers of earlier cells |
+| `cells` | filtered based chain complex over Z: one cell per line `dim birth [face coef]...`, faces are 0-based line numbers of earlier cells; d∘d = 0 is checked exactly |
+| `sset` | finite filtered simplicial set: one nondegenerate simplex per line `dim birth d_0 ... d_dim`; a face is an earlier line `y`, or `y@k1.k2...km` for the degenerate simplex s_k1 s_k2 ... s_km y |
+| `laurent` | filtered based chain complex over Z[t, t^-1]: one cell per line `dim birth face:poly ...`, e.g. `2 0 1:t^2-t+1 2:-1+t^-1` |
+| `magnitude` | a graph, one edge `u v` per line (vertices 0, 1, ...), for magnitude homology |
 
 `#` starts a comment. Births are arbitrary real numbers. Coefficients default to Q (with the bad-prime certificate); `--coeff p` gives F_p.
 
@@ -87,6 +93,8 @@ The output states what is guaranteed about the barcode (`proved`, or `probabilis
   * `bad_primes`: for each p, the intervals present only over F_p and only over Q. An entry with `"every_prime_factor_of": true` applies to every prime factor of the number given.
   * `unresolved_factors`
   * timings
+
+For `cells`, `sset` and `simplices`, `--integral` adds `integral_homology` (free rank and torsion of H_k of the whole complex, by degree) and, in Q mode, `bad_prime_barcodes` (the full F_p barcode of each bad prime below 2^64); `--image s,t` adds `integral_image`, the image of H_k(K_s; Z) → H_k(K_t; Z). The text forms go to stderr.
 
 `--print ripser|perseus|json|none` controls stdout.
 
@@ -105,6 +113,17 @@ perseus.flag([(0, 1, 0.5), (1, 2, 0.7)], vertex_births=[0, 0, 0.2])   # clique f
 perseus.cells([(0, 0.0, []), (1, 1.0, []), (2, 2.0, [(1, 12)])])   # Moore space M(Z/12, 1): bad primes [2, 3]
 perseus.rips(points=X, coeff=3)                 # plain F_3
 perseus.rips(points=X, mode="proved")           # exact arithmetic throughout (also "fast", seed=..., target=...)
+```
+
+Chain complexes over Z, simplicial sets, nerves, magnitude homology and Laurent coefficients:
+
+```python
+perseus.cells(cells, integral=True, image=(0, 1))     # r["integral"]: homology, image, bad_prime_barcodes
+perseus.simplicial_set([(0, 0, []), (1, 0, [0, 0]), (2, 1, [1, (0, [0]), 1])], integral=True, image=(0, 1))   # RP^2
+perseus.nerve(src, tgt, identities, composition, weights=w, maxdim=3, integral=True)
+perseus.bar_construction(mult, identity=0, maxdim=5)   # H_k(G; Z) for a finite group G
+perseus.magnitude(edges, lmax=6)                       # r["table"][(k, l)] = {"free", "torsion": {order: multiplicity}, ...}
+perseus.laurent([(0, 0, []), (1, 0, [(0, "t - 1")])])  # barcode over Q(t), bad irreducibles, homology over Q[t^±1]
 ```
 
 Every function takes `coeff`, `mode`, `seed`, `target`, `classify`, `threads` and `fp`, as on the command line; `rips` and `flag` also take `engine` (`auto`, `implicit`, `sparse`) and `collapse`, and `cubical` takes `engine` (`auto`, `planar`, `morse`, `classic`, `explicit`). For the planar engine (the 2D default) the array is read in place, without a copy. A key of `certificate["bad_primes"]` whose entry has `every_prime_factor_of` set is a number all of whose prime factors are bad; `probable_prime` marks a prime above 2^64 known only by Miller–Rabin. `tests/test_python.py` checks the module against the command line.
@@ -138,6 +157,30 @@ H0 uses union-find whenever every 1-cell has boundary ±(v − w).
   * Apparent pairs in the remaining levels are recognised implicitly.
   * The design follows Ripser (lazy coboundaries, clearing, apparent pairs).
 * **Active H1 enumeration** in the homology direction, for `--maxdim 1`, in the style of RedZeD.
+
+## Chain complexes over Z and beyond
+
+**Filtered chain complexes over Z** (`cells`). Any based chain complex with integer boundary coefficients and a filtration by births. Perseus checks d∘d = 0 exactly, then cancels every pair σ < τ with [τ : σ] = ±1 and equal births (algebraic Morse reduction). That is a filtered chain homotopy equivalence over Z, so every barcode, the bad primes and every integral group below are unchanged; `--no-reduce` skips it. The Q barcode and its bad-prime certificate are computed as for any complex. With `--integral` and `--image s,t`:
+
+* the integral homology of the whole complex, H_k(K_∞; Z) = Z^b ⊕ ⊕ Z/d_i, from Smith forms of the reduced boundary matrices;
+* the image of H_k(K_s; Z) → H_k(K_t; Z), computed as (Z_k(K_s) + B_k(K_t)) / B_k(K_t). Two-stage filtrations are the main use. For RP^2 built on a projective line (K_0 = RP^1, K_1 = RP^2) the image in degree 1 is Z/2: the generator of H_1(RP^1) = Z maps onto H_1(RP^2) = Z/2;
+* the F_p barcode of every bad prime.
+
+All of it is exact integer arithmetic (int64 with overflow checks, then bigints). The Smith forms are dense, so they run on the residual complex after reduction.
+
+**Simplicial sets** (`sset`, `perseus.simplicial_set`). Nondegenerate simplices with their faces, which may be degenerate; degeneracies are normalised away (normalised chains). The simplicial identities are checked. Constructions in the library: nerves of finite categories (`perseus.nerve`), the bar construction BG of a finite group or monoid (`perseus.bar_construction`), quotients X/A, cones, suspensions, and minimal spheres. In a **weighted nerve** a chain (f_1, …, f_n) of composable morphisms is born at the largest weight of a composite f_j ∘ … ∘ f_i of consecutive morphisms, so faces are never born after their simplices.
+
+**Magnitude homology** (`magnitude`, `perseus.magnitude`). MH_{k,l}(G; Z) of a graph (Hepworth–Willerton), directed or not, for lengths l ≤ `--lmax`, with torsion. The complex splits by endpoints (s, t) and length l. Each piece is enumerated in lexicographic order, stored compactly, reduced by the fill-in-free part of the algebraic Morse reduction in place, then by the general reduction and Smith forms. `--pairs s,t,...` restricts to chosen endpoints. The answer is exact; nothing is sampled or reduced mod p. [gramag](https://gramag.readthedocs.io/) computes ranks over F_2 only. On every graph of `bench/vs_gramag.py` where it finishes, they equal Perseus's integral answer reduced by universal coefficients (see [Benchmarks](#magnitude-homology-measured-18-nov-2026-2-core-xeon)).
+
+**Laurent coefficients** (`laurent`, `perseus.laurent`). Chain complexes over Z[t, t^-1]: infinite cyclic covers, Alexander modules, Novikov homology. Z[t, t^-1] is not a principal ideal domain, so its homology has no barcode and no Smith form. Perseus computes what the principal ideal domains around it see, and says which:
+
+* the barcode over the field Q(t). It equals the barcode over the Novikov field Q((t)), and its infinite bars count the Novikov Betti numbers;
+* the **bad irreducibles**: the irreducible f ∈ Q[t] (f ≠ t) whose residue field Q[t]/(f) gives a different barcode, each with that barcode. When a polynomial is not proved irreducible, the answer holds for every irreducible factor of it;
+* the **bad primes** p for the barcode over F_p(t);
+* the homology of the whole complex over Q[t, t^-1]: free rank and invariant factors (the Alexander polynomials, up to units ±t^k);
+* the primes p for which the homology over F_p[t, t^-1] is not the reduction mod p of the rational answer, each with its homology over F_p[t, t^-1]. This is the integral content Perseus reports. For Z[t, t^-1]/(2, t + 1), which is zero over Q[t, t^-1], it gives F_2[t, t^-1]/(t + 1) at p = 2.
+
+Not computed: the Z[t, t^-1]-module itself, residue fields F_p[t]/(h), and torsion over the Novikov ring Z((t)). Pairs with unit incidence ±t^k are cancelled first. `docs/CERTIFICATE.md` §6 states what is certified.
 
 ## Benchmarks
 
@@ -247,6 +290,46 @@ Random metrics have many bad primes. For 450 uniformly random distances (H≤1):
 * the complete certificate covers 179 non-unit pivots and 225 candidate primes, of which 161 are bad, the largest ≈ 2.6·10¹³;
 * the certificate takes 288 s on 2 cores. Classification is embarrassingly parallel, so `--threads` makes it scale with the core count.
 
+### Magnitude homology (measured 18 Nov 2026, 2-core Xeon)
+
+**Torsion families** (`bench/mag_families.cpp`, results in `bench/mag_families.json`). The Kaneta–Yoshinaga graph of a regular CW complex M is the Hasse diagram of its face poset with a bottom 0̂ and a top 1̂ added. H̃_{k−2}(M) embeds in MH_{k,d}(0̂, 1̂), d = d(0̂, 1̂) = dim M + 2. Sazdanovic and Summers use these graphs, for projective spaces and lens spaces, to get torsion of every prime order. Cases: `rpN` is RP^N as the boundary of the (N+1)-cube modulo the antipodal map; `rp2_6` is the 6-vertex RP^2; `lensP_M` is L(P, 1), of dimension 2M − 1, as a join of M cycles C_2P modulo a diagonal rotation. Each row is the largest l reached with one thread and at most 3.5 GB of address space. The next even l ran out of memory in every (0̂, 1̂) row; each step of 2 multiplies the number of tuples by about 30 to 75. The all-pairs rows stop at the 900 s limit. Times are CPU seconds. Every group is computed over Z: the torsion below is exact, and so are the free ranks, which are omitted here.
+
+| graph | pairs | vertices | d | l ≤ | generators | largest complex | time | memory | torsion (k, l) |
+|---|---|---|---|---|---|---|---|---|---|
+| `rp2_6` | (0̂, 1̂) | 33 | 4 | 10 | 20,437,390 | 19,988,734 | 20.4 s | 1619 MB | (3,4): Z/2 |
+| `rp2` | (0̂, 1̂) | 15 | 4 | 10 | 1,987,552 | 1,920,676 | 1.7 s | 209 MB | (3,4): Z/2; (5,6): Z/2; (7,8): Z/2; (8,10): Z/2^4; (9,10): Z/2 |
+| `rp3` | (0̂, 1̂) | 42 | 5 | 9 | 3,647,549 | 3,587,888 | 5.5 s | 306 MB | (3,5): Z/2; (5,7): Z/2^8; (7,9): Z/2^17 |
+| `rp4` | (0̂, 1̂) | 123 | 6 | 8 | 1,687,264 | 1,675,022 | 2.9 s | 141 MB | (3,6): Z/2; (5,6): Z/2; (5,8): Z/2^16 |
+| `rp5` | (0̂, 1̂) | 366 | 7 | 7 | 211,929 | 211,929 | 0.7 s | 41 MB | (3,7): Z/2; (5,7): Z/2 |
+| `lens3_2` | (0̂, 1̂) | 58 | 5 | 9 | 8,524,653 | 8,411,880 | 13.0 s | 729 MB | (3,5): Z/3; (5,7): Z/3 |
+| `lens5_2` | (0̂, 1̂) | 90 | 5 | 9 | 27,389,309 | 27,123,536 | 33.5 s | 2020 MB | (3,5): Z/5; (5,7): Z/5^3 |
+| `lens7_2` | (0̂, 1̂) | 122 | 5 | 7 | 481,141 | 478,212 | 0.4 s | 40 MB | (3,5): Z/7; (5,7): Z/7^5 |
+| `lens2_3` | (0̂, 1̂) | 366 | 7 | 7 | 211,929 | 211,929 | 0.5 s | 41 MB | (3,7): Z/2; (5,7): Z/2 |
+| `lens3_3` | (0̂, 1̂) | 734 | 7 | 7 | 474,937 | 474,937 | 2.1 s | 97 MB | (3,7): Z/3; (5,7): Z/3 |
+| `rp2_6` | all | 33 | 4 | 9 | 807,438,559 | 2,512,138 | 651.7 s | 260 MB | (3,4): Z/2^2 |
+| `rp2` | all | 15 | 4 | 9 | 62,032,711 | 507,431 | 41.5 s | 54 MB | (3,4): Z/2^2; (4,5): Z/2^8; (5,6): Z/2^14; (6,7): Z/2^14; (6,8): Z/2^2; (7,8): Z/2^15; (7,9): Z/2^22; (8,9): Z/2^14 |
+| `rp3` | all | 42 | 5 | 8 | 435,632,452 | 677,916 | 320.9 s | 65 MB | (3,5): Z/2^2; (4,6): Z/2^16; (5,7): Z/2^48; (6,8): Z/2^91 |
+
+"Generators" counts all tuples up to length l; "largest complex" is the largest single piece MC_{*,l}(s, t). In the (0̂, 1̂) rows, the torsion at l = d is the Kaneta–Yoshinaga embedding of H_odd(RP^N) = Z/2 and H_odd(L(P, 1)) = Z/P. The torsion at larger l, such as Z/2^17 in MH_{7,9} for RP^3, goes beyond it.
+
+**Against gramag** (`bench/vs_gramag.py`, results in `bench/vs_gramag.json`). gramag 0.4.1 computes ranks over F_2: its documentation describes representatives as Z_2-linear combinations of paths, and its reduction is lophat's. On the Kaneta–Yoshinaga graph of RP^2 it reports rank 1 in both MH_{3,4} and MH_{4,4}, where the integral groups are Z/2 and 0. It reports no torsion, so the comparison is of F_2 ranks, from Perseus's integral groups by universal coefficients. Both programs run in a fresh process (Perseus with 2 threads, gramag on all cores) under a 3.5 GB limit:
+
+| graph | l ≤ | generators | Perseus | gramag | F_2 ranks |
+|---|---|---|---|---|---|
+| C_7 | 7 | 13,797 | 0.13 s, 9 MB | 0.06 s, 17 MB | agree |
+| C_12 | 10 | 702,432 | 0.30 s, 9 MB | 2.23 s, 140 MB | agree |
+| directed C_6 | 8 | 1,464 | 0.00 s, 9 MB | 0.03 s, 14 MB | agree |
+| grid 4x4 | 6 | 111,468 | 0.04 s, 9 MB | 0.31 s, 34 MB | agree |
+| G(20, 0.2) | 5 | 294,562 | 0.09 s, 9 MB | 0.70 s, 64 MB | agree |
+| directed G(16, 0.18) | 5 | 25,446 | 0.01 s, 9 MB | 0.08 s, 20 MB | agree |
+| KY rp2 (all pairs) | 6 | 383,455 | 0.14 s, 9 MB | 1.01 s, 83 MB | agree |
+| KY rp2_6 (all pairs) | 5 | 393,623 | 0.15 s, 9 MB | 1.29 s, 87 MB | agree |
+| KY rp2 (pair (0,1)) | 8 | 66,876 | 0.04 s, 10 MB | 19.15 s, 1325 MB | agree |
+| KY rp3 (pair (0,1)) | 7 | 59,661 | 0.04 s, 9 MB | out of memory | — |
+| KY lens3_2 (pair (0,1)) | 7 | 112,773 | 0.09 s, 13 MB | out of memory | — |
+
+gramag enumerates the paths between all pairs of vertices before computing anything, even when asked for one pair. On the single pair (0̂, 1̂) of the RP^3 and L(3, 1) graphs at l ≤ 7 it ran out of memory after 1–2 minutes; Perseus takes 0.1 s. Where both finish, the ranks agree everywhere. On the inputs with more than 100,000 generators Perseus is 7 to 9 times faster and uses a fraction of the memory.
+
 ## Old Perseus files
 
 The Perseus 4/5 input formats (`simtop`, `nmfsimtop`, `cubtop`, `scubtop`, `cellcomp`, `distmat`, `corrmat`, `rips`, `brips`) are not read directly. Convert them:
@@ -276,6 +359,7 @@ Two things differ from the old programs:
 * **Python:** `tests/test_python.py` runs every entry point of the module against the command line, in every certificate mode.
 * **G:** the implicit cubical engines against the explicit complex and against each other (1–4 dimensions, periodic axes, absent cells, zero-length bars, 4D white noise and quantised fields), and the sparse Rips route against the dense engine.
 * **Cubical engines:** `make test-cubical` (`tests/t_cubical_morse.cpp`) runs the discrete-gradient engine against the classic one on random grids with heavy ties, absent cells and nearly distinct values. It compares barcodes over F_2, F_3, F_5 and Q (int64 and multi-modular), with and without zero-length bars, and from every degree with clearing data. It also compares certificates in auto and fast mode. It checks the Morse complex itself: every column is recomputed by recursion over gradient paths, along with the filtration order, δδ = 0, and the apparent pairs. It also covers degenerate shapes (axes of length 0, 1 and 2, very elongated grids, a single cube, grids entirely absent or constant) and the int64 guard: with the bound on path sums lowered, the engine must refuse, and the default must fall back to the classic engine.
+* **Chain complexes, simplicial sets, magnitude, Laurent:** `make test-chain`. `tests/t_chain.cpp`: Smith forms (with the bigint fallback), integral homology and images on RP^2 and two-stage filtrations, minimal spheres, torus, Klein bottle, RP^2 as simplicial sets, BZ/2, BZ/3, BS_3 (H_3 = Z/6), nerves with non-identity endomorphisms, suspensions, weighted poset nerves against order complexes, and on random complexes that the algebraic Morse reduction preserves barcodes over F_2, F_3, F_5 and Q, bad primes, integral homology and every image. `tests/t_magnitude.cpp`: the integral answer reduced by universal coefficients against field reductions of the unreduced complexes (trees, cycles, random graphs, directed and not), and the Z/2 of the Kaneta–Yoshinaga graph of RP^2. `tests/t_laurent.cpp`: Alexander polynomials of knots by Fox calculus, Z[t, t^-1]/(2, t + 1), the cylinder covering the torus, and on random complexes the Q(t) and F_p(t) barcodes against the rank function, the bad irreducibles against evaluation at t = t0 through the explicit engine, and the homology over Q[t, t^-1] and F_p[t, t^-1] against evaluation.
 * **Fuzzing:** `tests/fuzz_cubical.py` drives the Python module against the explicit complex (F_2, F_3, and Q with bad primes, with absent cells) and against CubicalRipser (F_2). It uses value distributions built for ties: few integer levels, quantised smooth fields, step functions, ±0, extreme magnitudes, plus degenerate shapes.
 
 The current tree passes all of them.
@@ -284,7 +368,8 @@ The current tree passes all of them.
 
 * Dense Rips inputs (distance matrices) are still n × n; point clouds and graphs go through the sparse route when it pays.
 * Classifying many candidate primes dominates on torsion-heavy inputs (Linial–Meshulam at the threshold: about 100 s for 359 candidates at n = 90). Settling groups of primes in one run modulo their product is the obvious next step.
-* Twisted coefficients (Z[t]/(t^n − 1) via primes p ≡ 1 mod n) for Milnor fibres and Novikov homology are planned.
+* Laurent coefficients cover Q(t), Q[t, t^-1], its residue fields and F_p(t), F_p[t, t^-1], not Z[t, t^-1] itself; images over Q[t, t^-1] are not computed yet. Finite twisted coefficients (Z[t]/(t^n − 1), for Milnor fibres) are planned.
+* Integral homology and images use dense Smith forms on the residual complex; inputs that do not reduce well are limited to residual blocks of about 40 million entries.
 * Checkpointed reruns for candidate primes.
 
 ## Techniques and credits

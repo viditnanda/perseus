@@ -7,6 +7,10 @@
 #include "perseus/collapse.hpp"
 #include "perseus/rips_sparse.hpp"
 #include "perseus/cubical_engine.hpp"
+#include "perseus/chain.hpp"
+#include "perseus/simplicial_set.hpp"
+#include "perseus/magnitude.hpp"
+#include "perseus/laurent.hpp"
 #include <cstdio>
 #include <cstring>
 #include <string>
@@ -24,6 +28,9 @@ static const char* USAGE =
 "          flag                                                  clique filtration of a weighted graph\n"
 "          cubical | npy | cubes                                 cubical complexes (dense text, numpy, sparse)\n"
 "          simplices | cells                                     simplicial / general cell complexes\n"
+"          sset                                                  finite simplicial set (normalised chains)\n"
+"          magnitude                                             magnitude homology of a graph (edge list)\n"
+"          laurent                                               chain complex over Z[t, t^-1] (Novikov / twisted)\n"
 "          (old Perseus 4/5 files: convert them with tools/convert_legacy.py)\n"
 "\n"
 "options:\n"
@@ -52,6 +59,13 @@ static const char* USAGE =
 "                   | morse (discrete gradient; dimensions 2-4, no periodic axes) | classic\n"
 "                   | explicit (build the complex); auto = planar in 2D, else morse where it applies\n"
 "  --direction d    explicit complexes: auto | cohomology | homology | forward\n"
+"  --integral       explicit complexes: also the integral homology of the whole complex (torsion\n"
+"                   by Smith forms) and, in Q mode, the F_p barcode of every bad prime\n"
+"  --image s,t      explicit complexes: the image of H_*(K_s; Z) -> H_*(K_t; Z)\n"
+"  --no-reduce      cells/sset: skip the algebraic Morse reduction (unit pairs with equal births)\n"
+"  --lmax l         magnitude: lengths 0..l (default 4)\n"
+"  --directed       magnitude: the edges are directed\n"
+"  --pairs s,t,...  magnitude: only these (start, end) pairs\n"
 "  --print fmt      ripser | perseus | json | none   (stdout; default ripser unless a prefix is given)\n"
 "  --stats          timing and engine statistics on stderr\n"
 "\n"
@@ -66,7 +80,34 @@ struct Opts {
     double threshold = -1, target = 64;
     std::string mode = "auto"; std::string seed;
     bool classify = true, zero = false, stats = false;
+    bool integral = false, image = false, reduce = true, directed = false;
+    double img_s = 0, img_t = 0; int lmax = 4;
+    std::vector<std::pair<int, int>> pairs;
 };
+
+// integral outputs for an explicit complex (computed on the given, possibly reduced, complex)
+struct IntegralSpec { const FilteredComplex* C = nullptr; };
+static std::string json_integral(const IntegralHomology& H) {
+    std::string s = "[";
+    for (size_t k = 0; k < H.free.size(); ++k) {
+        s += (k ? "," : ""); s += "{\"degree\": " + std::to_string(k) + ", \"free\": " + std::to_string(H.free[k]) + ", \"torsion\": [";
+        for (size_t i = 0; i < H.torsion[k].size(); ++i) s += (i ? "," : "") + H.torsion[k][i].str();
+        s += "]}";
+    }
+    return s + "]";
+}
+static std::string text_integral(const IntegralHomology& H) {
+    std::string s;
+    for (size_t k = 0; k < H.free.size(); ++k) {
+        s += "  H_" + std::to_string(k) + " = ";
+        bool any = false;
+        if (H.free[k]) { s += "Z" + (H.free[k] > 1 ? "^" + std::to_string(H.free[k]) : std::string()); any = true; }
+        for (auto& t : H.torsion[k]) { s += std::string(any ? " + " : "") + "Z/" + t.str(); any = true; }
+        if (!any) s += "0";
+        s += "\n";
+    }
+    return s;
+}
 
 static std::string json_bars(const Barcode& bc) {
     std::string s = "[";
@@ -89,7 +130,8 @@ static std::string guarantee_text(const Certificate& c) {
     if (c.seed_user) return "NOT certified (reproduced from a supplied seed; a fresh seed would give " + std::string(b).substr(15) + ")";
     return std::string(b) + (c.note.empty() ? "" : " (" + c.note + ")");
 }
-static std::string json_cert(const Barcode& q, const Certificate& c, int coeff_q) {
+static bool qmode_of(const Opts& o) { std::string c = o.coeff.empty() ? "Q" : o.coeff; return c == "Q" || c == "q" || c == "0"; }
+static std::string json_cert(const Barcode& q, const Certificate& c, int coeff_q, const std::string& extra = "") {
     std::string s = "{\n  \"coefficients\": \"" + std::string(coeff_q ? "Q" : "F_p") + "\",\n";
     s += "  \"barcode\": " + json_bars(q) + ",\n";
     if (coeff_q) {
@@ -126,8 +168,8 @@ static std::string json_cert(const Barcode& q, const Certificate& c, int coeff_q
     s += "],\n  \"unresolved_factors\": [";
     for (size_t i = 0; i < c.unresolved.size(); ++i) { s += (i ? "," : ""); s += "\"" + c.unresolved[i].str() + "\""; }
     s += "],\n  \"unreconstructed_pivots\": " + std::to_string(c.unreconstructed) + ",\n";
-    char tb[200]; snprintf(tb, sizeof tb, "  \"seconds\": {\"Q\": %.4f, \"reconstruction\": %.4f, \"classification\": %.4f}\n}\n", c.t_q, c.t_recon, c.t_classify);
-    return s + tb;
+    char tb[200]; snprintf(tb, sizeof tb, "  \"seconds\": {\"Q\": %.4f, \"reconstruction\": %.4f, \"classification\": %.4f}", c.t_q, c.t_recon, c.t_classify);
+    return s + tb + extra + "\n}\n";
 }
 
 static int choose_direction(const Prepared& P, const std::string& d0, int maxdim) {
@@ -140,7 +182,7 @@ static int choose_direction(const Prepared& P, const std::string& d0, int maxdim
 }
 
 template <class B>
-static int solve(const B& be, const Opts& o) {
+static int solve(const B& be, const Opts& o, const IntegralSpec& ispec = IntegralSpec()) {
     auto T0 = std::chrono::steady_clock::now();
     std::string coeff = o.coeff.empty() ? "Q" : o.coeff;
     Barcode main_bars; Certificate cert; bool qmode = (coeff == "Q" || coeff == "q" || coeff == "0");
@@ -155,13 +197,42 @@ static int solve(const B& be, const Opts& o) {
         main_bars = run_field(be, p, 0, be.maxdim(), nullptr).bars;
     }
     auto T1 = std::chrono::steady_clock::now();
+    // integral outputs: homology of the whole complex, the image of H(K_s) -> H(K_t), F_p barcodes of bad primes
+    std::string ijson, itext;
+    if (ispec.C && (o.integral || o.image)) {
+        int md = o.maxdim >= 0 ? o.maxdim : std::max(0, ispec.C->max_dim());
+        try {
+            if (o.integral) {
+                IntegralHomology H = integral_homology(*ispec.C, md);
+                ijson += ",\n  \"integral_homology\": " + json_integral(H);
+                itext += "integral homology of the whole complex:\n" + text_integral(H);
+            }
+            if (o.image) {
+                IntegralHomology H = integral_image(*ispec.C, o.img_s, o.img_t, md);
+                char b[160]; snprintf(b, sizeof b, "{\"s\": %s, \"t\": %s, \"groups\": ", fmt_num(o.img_s).c_str(), fmt_num(o.img_t).c_str());
+                ijson += ",\n  \"integral_image\": " + std::string(b) + json_integral(H) + "}";
+                itext += "image of H_*(K_" + fmt_num(o.img_s) + "; Z) -> H_*(K_" + fmt_num(o.img_t) + "; Z):\n" + text_integral(H);
+            }
+            if (o.integral && qmode_of(o) && cert.classified) {
+                std::string fj;
+                for (auto& bp : cert.bad) {
+                    if (bp.is_big) continue;
+                    Barcode b = run_field(be, bp.p, 0, be.maxdim(), nullptr).bars;
+                    fj += std::string(fj.empty() ? "" : ", ") + "\"" + std::to_string(bp.p) + "\": " + json_bars(b);
+                    itext += "barcode over F_" + std::to_string(bp.p) + " (a bad prime):\n";
+                    for (size_t k = 0; k < b.size(); ++k) { itext += "  degree " + std::to_string(k) + ":"; for (auto& x : b[k]) itext += " [" + fmt_num(x.birth) + "," + (std::isinf(x.death) ? std::string("inf") : fmt_num(x.death)) + ")"; itext += "\n"; }
+                }
+                ijson += ",\n  \"bad_prime_barcodes\": {" + fj + "}";
+            }
+        } catch (std::exception& e) { itext += std::string("integral output: ") + e.what() + "\n"; ijson += std::string(",\n  \"integral_error\": \"") + e.what() + "\""; }
+    }
     std::string pr = o.print.empty() ? (o.prefix.empty() ? "ripser" : "none") : o.print;
     if (pr == "ripser") print_ripser(stdout, main_bars);
     else if (pr == "perseus") { for (size_t k = 0; k < main_bars.size(); ++k) for (auto& b : main_bars[k]) printf("%zu %s %s\n", k, fmt_num(b.birth).c_str(), std::isinf(b.death) ? "-1" : fmt_num(b.death).c_str()); }
-    else if (pr == "json") fputs(json_cert(main_bars, cert, qmode).c_str(), stdout);
+    else if (pr == "json") fputs(json_cert(main_bars, cert, qmode, ijson).c_str(), stdout);
     if (!o.prefix.empty()) {
         write_files(o.prefix, main_bars);
-        if (qmode) { FILE* f = fopen((o.prefix + "_cert.json").c_str(), "w"); fputs(json_cert(main_bars, cert, 1).c_str(), f); fclose(f); }
+        if (qmode) { FILE* f = fopen((o.prefix + "_cert.json").c_str(), "w"); fputs(json_cert(main_bars, cert, 1, ijson).c_str(), f); fclose(f); }
     }
     if (qmode) {
         fprintf(stderr, "Q barcode: %s\n", guarantee_text(cert).c_str());
@@ -176,6 +247,7 @@ static int solve(const B& be, const Opts& o) {
         if (!cert.unresolved.empty()) fprintf(stderr, "; %zu unresolved factors, list INCOMPLETE", cert.unresolved.size());
         fprintf(stderr, ")\n");
     }
+    if (!itext.empty()) fputs(itext.c_str(), stderr);
     for (uint64_t p : o.fp) {
         if (!is_prime64(p)) { fprintf(stderr, "--fp: %llu is not a prime\n", (unsigned long long)p); continue; }
         Barcode b = run_field(be, p, 0, be.maxdim(), nullptr).bars;
@@ -214,6 +286,12 @@ int main(int argc, char** argv) {
         else if (a == "--collapse") o.collapse = val();
         else if (a == "--print") o.print = val();
         else if (a == "--stats") o.stats = true;
+        else if (a == "--integral") o.integral = true;
+        else if (a == "--image") { std::string v = val(); for (char& ch : v) if (ch == ',') ch = ' '; auto t = split_ws(v); if (t.size() != 2) { fprintf(stderr, "--image s,t\n"); return 1; } o.image = true; o.img_s = std::stod(t[0]); o.img_t = std::stod(t[1]); }
+        else if (a == "--no-reduce") o.reduce = false;
+        else if (a == "--lmax") o.lmax = std::stoi(val());
+        else if (a == "--directed") o.directed = true;
+        else if (a == "--pairs") { std::string v = val(); for (char& ch : v) if (ch == ',') ch = ' '; auto t = split_ws(v); if (t.size() % 2) { fprintf(stderr, "--pairs s,t,...\n"); return 1; } for (size_t i = 0; i < t.size(); i += 2) o.pairs.push_back({std::stoi(t[i]), std::stoi(t[i + 1])}); }
         else if (a == "-h" || a == "--help") { fputs(USAGE, stdout); return 0; }
         else pos.push_back(a);
     }
@@ -258,6 +336,83 @@ int main(int argc, char** argv) {
         else if (f == "cubes") in.complex = read_cubes(is);
         else if (f == "simplices") in.complex = read_simplices(is);
         else if (f == "cells") in.complex = read_cells(is);
+        else if (f == "sset") {
+            SimplicialSet S = read_simplicial_set(is);
+            std::string e = S.validate(); if (!e.empty()) { fprintf(stderr, "invalid simplicial set: %s\n", e.c_str()); return 3; }
+            in.complex = S.chains();
+        }
+        else if (f == "laurent") {
+            // barcode over Q(t), bad irreducibles and bad primes; homology over Q[t, t^-1] and its bad primes
+            laurent::LaurentComplex X = laurent::read_laurent(is);
+            std::string e = X.validate(); if (!e.empty()) { fprintf(stderr, "invalid complex: %s\n", e.c_str()); return 3; }
+            int md = o.maxdim >= 0 ? o.maxdim : std::max(0, X.max_dim());
+            laurent::LaurentResult L = laurent::laurent_persistence(X, md, o.classify, true);
+            std::string pr = o.print.empty() ? "text" : o.print;
+            if (pr == "json") { fputs(laurent::to_json(L).c_str(), stdout); return 0; }
+            auto bars = [](const laurent::LBarcode& B) {
+                std::string s;
+                for (size_t k = 0; k < B.size(); ++k) { s += "    degree " + std::to_string(k) + ":"; for (auto& b : B[k]) s += " [" + fmt_num(b.first) + "," + (std::isinf(b.second) ? std::string("inf") : fmt_num(b.second)) + ")"; s += "\n"; }
+                return s;
+            };
+            auto hom = [](const laurent::LHomology& H, const char* R) {
+                std::string s;
+                for (size_t k = 0; k < H.free.size(); ++k) {
+                    s += "    H_" + std::to_string(k) + " = "; bool any = false;
+                    if (H.free[k]) { s += std::string(R) + (H.free[k] > 1 ? "^" + std::to_string(H.free[k]) : ""); any = true; }
+                    for (auto& t : H.torsion[k]) { s += std::string(any ? " + " : "") + R + "/(" + laurent::to_string(t) + ")"; any = true; }
+                    if (!any) s += "0";
+                    s += "\n";
+                }
+                return s;
+            };
+            printf("barcode over Q(t):\n%s", bars(L.bars).c_str());
+            if (o.classify) {
+                printf("bad irreducibles (%zu candidates):%s\n", L.candidate_polys, L.bad_irreducibles.empty() ? " none" : "");
+                for (auto& b : L.bad_irreducibles) printf("  %s%s: barcode over Q[t]/(f):\n%s", b.irreducible ? "f = " : "every irreducible factor f of ", laurent::to_string(b.g).c_str(), bars(b.bars).c_str());
+                printf("bad primes over F_p(t) (%zu candidates):%s\n", L.candidate_primes.size(), L.bad_primes.empty() ? " none" : "");
+                for (auto& kv : L.bad_primes) printf("  p = %llu:\n%s", (unsigned long long)kv.first, bars(kv.second).c_str());
+            }
+            printf("homology of the whole complex over Q[t, t^-1]:\n%s", hom(L.homology, "L").c_str());
+            if (o.classify) {
+                printf("primes where H_*( ; F_p[t, t^-1]) is not the reduction mod p (%zu candidates):%s\n", L.homology_candidate_primes.size(), L.homology_bad_primes.empty() ? " none" : "");
+                for (auto& kv : L.homology_bad_primes) printf("  p = %llu:\n%s", (unsigned long long)kv.first, hom(kv.second, "L_p").c_str());
+                if (!L.complete) { printf("INCOMPLETE: unfactored integers"); for (auto& u : L.unresolved) printf(" %s", u.c_str()); printf("\n"); }
+            }
+            return 0;
+        }
+        else if (f == "magnitude") {
+            // edge list: "u v" per line (0-based vertices); MH_{k,l} for l <= lmax with torsion
+            std::vector<std::pair<int, int>> E; std::string line; int n = 0;
+            while (std::getline(is, line)) { if (line.empty() || line[0] == '#') continue; for (char& ch : line) if (ch == ',') ch = ' '; auto t = split_ws(line); if (t.size() < 2) continue; int a = std::stoi(t[0]), b = std::stoi(t[1]); E.push_back({a, b}); n = std::max(n, std::max(a, b) + 1); }
+            MagGraph G(n, E, o.directed);
+            MagResult R = magnitude_homology(G, o.lmax, o.threads > 0 ? o.threads : (int)std::max(1u, std::thread::hardware_concurrency()), o.pairs);
+            if (o.print == "json") {
+                printf("{\n  \"vertices\": %d, \"edges\": %zu, \"directed\": %s, \"pairs\": %zu, \"seconds\": %.4f,\n  \"groups\": [", n, E.size(), o.directed ? "true" : "false", R.pairs, R.seconds);
+                bool first = true;
+                for (int l = 0; l <= o.lmax; ++l) for (int k = 0; k <= l; ++k) {
+                    const MagEntry& e = R.table[l][k];
+                    if (!e.generators) continue;
+                    printf("%s\n    {\"k\": %d, \"l\": %d, \"free\": %zu, \"torsion\": {", first ? "" : ",", k, l, e.free);
+                    bool f2 = true; for (auto& kv : e.torsion) { printf("%s\"%s\": %zu", f2 ? "" : ", ", kv.first.c_str(), kv.second); f2 = false; }
+                    printf("}, \"generators\": %zu, \"after_reduction\": %zu}", e.generators, e.residual);
+                    first = false;
+                }
+                printf("\n  ]\n}\n");
+                return 0;
+            }
+            printf("magnitude homology MH_{k,l} over Z (%d vertices, %zu edges, %s; %zu (s, t) pairs; %.3f s)\n", n, E.size(), o.directed ? "directed" : "undirected", R.pairs, R.seconds);
+            for (int l = 0; l <= o.lmax; ++l) for (int k = 0; k <= l; ++k) {
+                const MagEntry& e = R.table[l][k];
+                if (!e.free && e.torsion.empty() && !o.stats) continue;
+                printf("  MH_{%d,%d} = ", k, l);
+                bool any = false;
+                if (e.free) { printf("Z%s", e.free > 1 ? ("^" + std::to_string(e.free)).c_str() : ""); any = true; }
+                for (auto& kv : e.torsion) { printf("%s(Z/%s)%s", any ? " + " : "", kv.first.c_str(), kv.second > 1 ? ("^" + std::to_string(kv.second)).c_str() : ""); any = true; }
+                if (!any) printf("0");
+                printf("    [%zu generators, %zu after reduction]\n", e.generators, e.residual);
+            }
+            return 0;
+        }
         else {
             fprintf(stderr, "unknown format '%s'%s\n\n%s", f.c_str(),
                     (f == "simtop" || f == "nmfsimtop" || f == "cubtop" || f == "scubtop" || f == "cellcomp" || f == "distmat" || f == "corrmat" || f == "rips" || f == "brips")
@@ -324,13 +479,26 @@ int main(int argc, char** argv) {
             }
             return solve(be, o);
         }
-        std::string err = in.complex.validate(false);
+        bool chain_input = (f == "cells" || f == "sset");
+        std::string err = chain_input ? validate_chain_complex(in.complex) : in.complex.validate(false);
         if (!err.empty()) { fprintf(stderr, "invalid complex: %s\n", err.c_str()); return 3; }
         lap("validate");
+        if (chain_input && o.reduce) {
+            // algebraic Morse reduction (unit pairs with equal births): a filtered chain homotopy equivalence over Z
+            ReducedComplex R = algebraic_morse(in.complex);
+            if (o.stats) fprintf(stderr, "  [algebraic Morse reduction: %zu -> %zu cells (%zu pairs)]\n", in.complex.size(), R.C.size(), R.pairs);
+            int md = o.maxdim >= 0 ? o.maxdim : in.complex.max_dim();
+            Prepared P(R.C);
+            lap("reduce and prepare");
+            ReducedBackend be(R, P, md, choose_direction(P, o.direction, md)); be.keep_zero_length = o.zero;
+            IntegralSpec ispec; ispec.C = &R.C;
+            return solve(be, o, ispec);
+        }
         Prepared P(in.complex);
         lap("prepare");
         ExplicitBackend be(P, o.maxdim >= 0 ? o.maxdim : P.D, choose_direction(P, o.direction, o.maxdim >= 0 ? o.maxdim : P.D)); be.keep_zero_length = o.zero;
-        return solve(be, o);
+        IntegralSpec ispec; ispec.C = &in.complex;
+        return solve(be, o, ispec);
     } catch (std::exception& e) {
         fprintf(stderr, "error: %s\n", e.what()); return 2;
     }
