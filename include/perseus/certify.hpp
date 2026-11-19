@@ -124,7 +124,7 @@ struct CertifyOptions {
     int maxdim = 1 << 20;
     int threads = 1;
     bool classify = true;                 // rerun mod each candidate prime
-    std::string mode = "auto";            // "auto" (exact int64 if it suffices, else fast), "fast" or "proved"
+    std::string mode = "proved";          // "proved" (exact; the default), "auto" (the same), or "fast" (random primes)
     std::string seed;                     // fast mode: hex seed to reproduce a run; empty = fresh from std::random_device
     double target_log2 = -64;             // fast mode: aim for an error bound below 2^target
     int max_lanes = 32;
@@ -176,10 +176,10 @@ BRun<typename B::Clear> run_exact(const B& be, int kmax, std::string& arithmetic
     for (int k = 0; k <= kmax; ++k) {
         const Clear* in = k > 0 ? &out.clear_out[k - 1] : nullptr;
         Q64 R; BRun<Clear> r = be.run(R, k, k, in);
-        if (R.overflow) { r = be.run(QBig(), k, k, in); big.push_back(k); }
+        if (R.overflow) { r = be.run(QHyb(), k, k, in); big.push_back(k); }   // exact: int64 pairs and big rationals
         detail::merge_run(out, std::move(r), k);
     }
-    arithmetic = "int64, bigint in degree"; for (size_t i = 0; i < big.size(); ++i) arithmetic += (i ? ", " : " ") + std::to_string(big[i]);
+    arithmetic = "int64, big rationals in degree"; for (size_t i = 0; i < big.size(); ++i) arithmetic += (i ? ", " : " ") + std::to_string(big[i]);
     if (big.empty()) arithmetic = "int64";
     return out;
 }
@@ -220,14 +220,10 @@ std::pair<BRun<typename B::Clear>, Certificate> certify(const B& be, const Certi
     auto t0 = now();
     BRun<Clear> q;
     std::map<std::pair<int, uint64_t>, size_t> where;
-    bool exact_done = false;
-    if (opt.mode == "auto") {                        // exact int64 arithmetic is a proof and usually costs nothing
-        Q64 R; q = be.run(R, 0, kmax, nullptr);
-        if (!R.overflow) { exact_done = true; cert.mode = "proved"; cert.arithmetic = "int64"; }
-        else { cert.mode = "fast"; cert.note = "int64 overflowed; random primes used"; q = BRun<Clear>(); }
-    }
-    if (opt.mode == "proved" || exact_done) {
-        if (!exact_done) q = run_exact(be, kmax, cert.arithmetic);
+    // The default is a proof: exact rationals, int64 where they fit and big rationals in the degrees where
+    // they do not (run_exact). Random primes only when asked for ("fast"); "auto" is a synonym of "proved".
+    if (opt.mode != "fast") {
+        q = run_exact(be, kmax, cert.arithmetic); cert.mode = "proved";
         for (auto& pv : q.nonunit) {
             PivotValue v; v.k = pv.k; v.key = pv.key; v.birth = pv.birth; v.death = pv.death;
             v.ok = true; v.num = pv.num; v.den = pv.den;

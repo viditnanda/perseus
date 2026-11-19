@@ -1044,7 +1044,7 @@ private:
     // Path sums are kept within +-path_limit() (2^62 by default), so that every product with an incidence
     // +-1 and every sum of two of them is exact in int64. Beyond it the constructor throws
     // std::overflow_error, and CubicalBackend falls back to the classic engine (or, with --engine morse,
-    // reports the error). The Q reduction itself is guarded separately (Q64 overflow -> QBig).
+    // reports the error). The Q reduction itself is guarded separately (Q64 overflow -> QHyb, exact).
     static void add_ck(int64_t& a, int64_t b) {
         const int64_t lim = path_limit();
         if (__builtin_add_overflow(a, b, &a) || a > lim || a < -lim) throw std::overflow_error("cubical morse: a gradient-path sum exceeds the int64 bound");

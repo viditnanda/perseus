@@ -96,6 +96,35 @@ for f in ("crt_alias_0.cells", "crt_alias_1.cells", "crt_group.cells", "crt_grou
         mine = sorted((p, d["every_prime_factor_of"], d["first_degree"]) for p, d in r2["certificate"]["bad_primes"].items())
         theirs = sorted((int(x["p"]), bool(x.get("every_prime_factor_of")), x["first_degree"]) for x in j["bad_primes"])
         check(f"cells {f} {mode} keys, groups and degrees as on the command line", mine == theirs and 0 not in r2["certificate"]["bad_primes"], f"{mine} vs {theirs}")
+# ---- the default certificate is a proof, also where int64 overflows ------------------------------------------
+# A Linial-Meshulam process near the threshold (all edges of K_60, then 1700 random triangles): int64 overflows,
+# and the default must still prove the barcode and the bad primes (exact big rationals), not fall back to random
+# primes. Fast mode must agree, and must say it is not a proof.
+_rng = np.random.default_rng(5)
+_tris = list(itertools.combinations(range(60), 3)); _idx = _rng.permutation(len(_tris))[:1700]
+_lm = [((a, b), 1.0) for a, b in itertools.combinations(range(60), 2)] + [(_tris[i], float(t + 2)) for t, i in enumerate(_idx)]
+r = perseus.simplices(_lm)
+c = r["certificate"]
+check("default on a torsion-heavy complex: proved, a proof", c["mode"] == "proved" and c["proof"] and c["complete"] and "big rationals" in c["arithmetic"], (c["mode"], c.get("arithmetic")))
+check("default on a torsion-heavy complex: bad primes 2, 3, 922457715037", sorted(c["bad_primes"]) == [2, 3, 922457715037], sorted(c["bad_primes"]))
+r_auto = perseus.simplices(_lm, mode="auto")
+check("mode='auto' is the same as proved", r_auto["certificate"]["mode"] == "proved" and py_bars(r_auto) == py_bars(r) and sorted(r_auto["certificate"]["bad_primes"]) == sorted(c["bad_primes"]))
+import warnings
+with warnings.catch_warnings(record=True) as _w:
+    warnings.simplefilter("always")
+    rf = perseus.simplices(_lm, mode="fast")
+cf = rf["certificate"]
+check("fast mode: same barcode and bad primes, labelled as no proof",
+      py_bars(rf) == py_bars(r) and sorted(cf["bad_primes"]) == sorted(c["bad_primes"]) and cf["mode"] == "fast" and not cf["proof"]
+      and "not a proof" in cf["warning"] and any("not a proof" in str(x.message) for x in _w), (cf["mode"], cf.get("warning"), [str(x.message) for x in _w]))
+_path = os.path.join(TMP, "lm60.txt")
+with open(_path, "w") as _fh:
+    for s, b in _lm: _fh.write(" ".join(map(str, s)) + f" {int(b)}\n")
+_p = subprocess.run([PERSEUS, "simplices", _path, "--print", "json"], capture_output=True, text=True, timeout=600); _j = json.loads(_p.stdout)
+check("command line default: proof true, no warning", _j["mode"] == "proved" and _j["proof"] is True and "warning" not in _j and "WARNING" not in _p.stderr)
+_p = subprocess.run([PERSEUS, "simplices", _path, "--print", "json", "--mode", "fast"], capture_output=True, text=True, timeout=600); _j = json.loads(_p.stdout)
+check("command line fast: proof false, warning in the JSON and on stderr", _j["mode"] == "fast" and _j["proof"] is False and "not a proof" in _j["warning"] and "WARNING: --mode fast" in _p.stderr)
+
 r = perseus.cells(read_cells(os.path.join(FIX, "crt_alias_1.cells")))
 big = [p for p, d in r["certificate"]["bad_primes"].items() if d["probable_prime"]]
 check("cells: 98-bit bad prime reported", big == [294719631262177595678027596519], big)

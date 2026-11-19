@@ -70,7 +70,16 @@ The first items came from an external review of `main` at `5716401`; Vidit asked
    * **The bigger lever (open).** Bad primes are the primes of p-torsion in relative groups H_k(K_t, K_s; Z). Here they all sit in one short window of H_1. Computing torsion where the Q barcode has events, with the sparse integral machinery of step 4, might replace hundreds of reruns with a few Smith forms. This needs a criterion that is provably complete before it can replace classification; it is not one yet.
    * **Smaller remaining items:** factoring takes 8.5 s on one thread (parallelise across pivot values), and the small-candidate pool starts only after the big one finishes (one pool would avoid idle threads at the end).
 
-3. **Make the default certificate exact all the way.** Vidit decided that certified Q should end in exact arithmetic. Today, when int64 arithmetic overflows, `--mode auto` falls back to `fast`, which is probabilistic. Make the fallback `proved` (big-integer arithmetic), or at minimum make the fallback impossible to miss in the output and in `cert.json`.
+3. **Make the default certificate exact all the way: done (19 Nov 2026).**
+   * The default is now `proved`, and `auto` is a synonym. Random primes run only with `--mode fast`, and are labelled loudly: a WARNING on stderr, `"proof": false` and a `"warning"` entry in the JSON and in the Python certificate, and a Python `UserWarning`. Every certificate carries `"proof"`.
+   * To make this affordable, exact arithmetic got:
+     * inline limbs in `BigInt` (up to 256 bits);
+     * a binary gcd on 128-bit words, with one-word shortcuts;
+     * `QHyb`, rationals that are int64 pairs while they fit;
+     * Henrici's formulas for sums and products.
+   * The exact Q run on n = 90 went from 202 s to 24 s (fast mode: 2 s). Overall, proved costs 1.2× fast on n = 90 (126.7 s against 103.7 s) and 1.35× on n = 70 (6.9 s against 5.1 s), with the same bad primes.
+   * Further: the exact run still spends most of its time in big-rational arithmetic. Fraction-free integer columns, which scale columns instead of keeping rationals, would remove most gcds; that is not done.
+   * Tests: `t_exact` (BigInt identities, QHyb against plain big rationals) in `make test-chain`. The Python suite checks a torsion-heavy instance (Linial–Meshulam n = 60, int64 overflows): the default is proved with bad primes 2, 3, 922457715037; `auto` is the same; and fast agrees and is labelled in the module, the JSON and on stderr.
 
 4. **Scale the integral machinery of #3.**
    * The integral outputs use a dense Smith form, capped at about 40M entries, and run only on explicit complexes. Replace this with sparse elimination down to a small residual, followed by a Smith form; the fill-in-free first phase of #3 is the starting point.

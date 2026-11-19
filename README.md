@@ -53,7 +53,7 @@ For example, 1024 random points of SO(3) ≅ RP³ (`bench/o3_1024`, H≤3, thres
 
 Run the reduction over Q and look at the pivots. If a prime p divides no numerator and no denominator of a pivot value, then the same run reduced mod p is a valid F_p reduction with the same pivots. So the F_p barcode equals the Q barcode, and the bad primes are among the prime factors of the pivot values. Pivot values are invariants of the filtered matrix (ratios of minors), whichever reduction computes them. Perseus 6:
 
-1. **Reduces over Q.** By default (`--mode auto`) it tries exact int64 arithmetic first. If that suffices, the barcode and pivots are exact. Otherwise it reduces modulo K random primes from [2^61, 2^62) and reports a bound on the probability of error that holds for every input (default below 2^-64; `--target`). The bound is over a fresh 256-bit seed; `--seed` reproduces a run but does not certify it. `--mode proved` uses exact arithmetic throughout, with bigints where int64 overflows. `--mode fast` always uses random primes.
+1. **Reduces over Q, exactly.** By default (`--mode proved`; `--mode auto` is the same) the reduction runs in exact rational arithmetic: int64 numerators and denominators with every operation overflow-checked, and, in a degree where they overflow, rationals that stay in int64 while they fit and become big integers only where they must. The barcode and the pivot values are exact, so the certificate is a proof. `--mode fast` reduces modulo K random primes from [2^61, 2^62) instead and reports a bound on the probability of error that holds for every input (default below 2^-64; `--target`). It is not a proof, and every output says so: a warning on stderr, `"proof": false` and a `"warning"` entry in the JSON, and a Python warning. The bound is over a fresh 256-bit seed; `--seed` reproduces a run but does not certify it.
 2. **Reconstructs** non-unit pivot values in fast mode, by Wang reconstruction checked against two independent primes.
 3. **Factors** the pivot values: trial division, division by primes already found, Pollard–Brent rho, and gcds between leftovers. Large primes and unsplit composites N are not factored further.
 4. **Settles every candidate.** Primes below 2^63 are settled by reruns over F_p, in parallel. Each remaining N is settled by one run modulo N. Either the run splits N, or every prime factor of N gives the same barcode. Then the certificate states the answer for all of them at once, e.g. "every prime factor of N is bad", without knowing the factors.
@@ -198,6 +198,21 @@ Not computed: the Z[t, t^-1]-module itself, residue fields F_p[t]/(h), and torsi
 
 On geometric data a proof costs nothing extra; time beyond F_2 is classification of candidate primes. Exact arithmetic gets expensive only when the integers involved grow, which happens on torsion-heavy inputs, and then the default switches to random primes. On Linial–Meshulam complexes the Q reduction itself is fast (1.3 s at n = 90, with 261 non-unit pivots of up to 170 bits); classifying the 463 candidate primes, of which exactly two are bad, takes the rest. Since 19 Nov 2026 the candidates of at least 2^63 are classified in parallel too. On the reproducible instance of `bench/certify_lm.py` (n = 90, the first 4,000 triangles; 496 candidates, 6 bad), the default run went from 147 to 105 s on 2 cores, and the reruns scale with cores.
 
+**Since 19 Nov 2026 the default is proved everywhere.** The table above is from 16 Nov, when the default (`auto`) fell back to random primes where int64 overflowed, as in its Linial–Meshulam rows. Now the default never falls back. Its exact arithmetic was made fast for this:
+* rationals stay in int64 pairs while they fit;
+* big integers keep up to 256 bits inline;
+* gcds finish as binary gcds on 128-bit words;
+* sums and products cancel common factors before multiplying (Henrici).
+
+On the reproducible instances of `bench/certify_lm.py` (2 cores, raw results in `bench/certify_lm.json`):
+
+| instance | default, proved | `--mode fast` | exact Q run alone |
+|---|---|---|---|
+| n = 70 | 6.9 s | 5.1 s | 1.8 s |
+| n = 90 | 126.7 s | 103.7 s | 23.8 s (it was 202 s with plain big rationals) |
+
+Both modes find the same bad primes. On both instances most of the time goes to classifying candidate primes, which both modes do the same way.
+
 ### Cubical (F_2, measured 19 Nov 2026 in one sitting, 2-core Xeon, 7.8 GB)
 
 These two tables are the single source of truth for cubical timings. Both were measured on the same code, with the planar engine and the bit-tree working columns, in one sitting. `bench/cubical2d.py` and `bench/cubical.py` regenerate the inputs and run every program in a fresh process. The raw results are in `bench/cubical2d.json` and `bench/cubical.json`.
@@ -240,7 +255,7 @@ These two tables are the single source of truth for cubical timings. Both were m
 "Critical cells" is the share of cells the gradient leaves unmatched. In every case above it equals the minimum any filtered gradient can reach, 2·(finite bars) + (essential bars). The engine therefore reduces 0.1–0.2% of the cells on smooth data and 5–9% on white noise; in 2D, 0.33% on smoothed noise and 15.5% on white noise. Apparent pairs alone leave 1.7–50 times more (`docs/TECHNIQUES.md` §4.6).
 
 * In 3D and 4D the gradient engine is 2.1–3.1× faster than CubicalRipser, 1.8–3.6× faster than the classic engine and 5.6–15× faster than GUDHI. It uses less memory than any of them, even though its time includes process start and reading the file. On white noise 48⁴ it is the only one of the three implicit engines to finish within this machine's memory.
-* Q certified (default `--mode auto`: exact int64 arithmetic, a proof) costs 1.0–1.5× F_2 on these inputs, and 1.75× on white noise 48⁴.
+* Q certified (the default, a proof: exact int64 arithmetic suffices on these inputs) costs 1.0–1.5× F_2, and 1.75× on white noise 48⁴.
 * Where the time goes (white noise 48⁴, F_2, 37.5 s):
   * setup 24.4 s: births 1.2 s; gradient 6.8 s (1.2 million distinct block patterns, 259 exact searches); critical cells 1.0 s; the Morse complex 14.8 s (101 million path cells visited);
   * reduction 12.8 s: degree 1 7.9 s, degree 2 4.9 s.

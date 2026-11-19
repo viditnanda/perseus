@@ -2,8 +2,8 @@
  {
   "case": "Linial-Meshulam n=70, first 2400 triangles",
   "threads": 2,
-  "F2_s": 0.033705450000070414,
-  "Q_s": 5.247205137000037,
+  "F2_s": 0.032547190000059345,
+  "Q_s": 6.876988573999824,
   "bad_primes": [
    "2",
    "3",
@@ -14,22 +14,26 @@
    "1585183289"
   ],
   "complete": true,
-  "q_run_s": 0.355,
+  "q_run_s": 1.841,
   "nonunit": 133,
   "largest_bits": 85,
-  "factoring_s": 0.2,
+  "factoring_s": 0.136,
   "small_candidates": 202,
   "big_candidates": 3,
-  "big_s": 0.203,
+  "big_s": 0.211,
   "big_runs": 3,
-  "small_wall_s": 4.478,
-  "small_cpu_s": 8.935
+  "small_wall_s": 4.679,
+  "small_cpu_s": 9.301,
+  "mode": "proved",
+  "proof": true,
+  "fast_s": 5.10185417699995,
+  "fast_bad_primes_agree": true
  },
  {
   "case": "Linial-Meshulam n=90, first 4000 triangles",
   "threads": 2,
-  "F2_s": 0.15231232600035582,
-  "Q_s": 105.26341870100032,
+  "F2_s": 0.1360596490003445,
+  "Q_s": 126.65433164700016,
   "bad_primes": [
    "2",
    "5",
@@ -39,15 +43,19 @@
    "88470064351375266636417736072324987"
   ],
   "complete": true,
-  "q_run_s": 1.934,
+  "q_run_s": 23.752,
   "nonunit": 274,
   "largest_bits": 170,
-  "factoring_s": 8.711,
+  "factoring_s": 6.471,
   "small_candidates": 386,
   "big_candidates": 110,
-  "big_s": 39.275,
+  "big_s": 40.737,
   "big_runs": 110,
-  "small_wall_s": 55.326,
-  "small_cpu_s": 110.487
+  "small_wall_s": 55.677,
+  "small_cpu_s": 111.311,
+  "mode": "proved",
+  "proof": true,
+  "fast_s": 103.65740460900042,
+  "fast_bad_primes_agree": true
  }
 ]

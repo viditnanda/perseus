@@ -35,9 +35,10 @@ static const char* USAGE =
 "\n"
 "options:\n"
 "  --coeff Q|p      coefficients: Q (default; certified bad primes) or a prime p\n"
-"  --mode m         Q certificate: auto (default: exact int64 arithmetic, a proof; if it overflows, as fast)\n"
-"                   | fast (random 62-bit primes; error probability bounded and reported)\n"
-"                   | proved (exact rational arithmetic, bigint where int64 overflows)\n"
+"  --mode m         Q certificate: proved (default: exact rationals, int64 where they fit, big ones\n"
+"                   where they do not; a proof) | auto (the same as proved)\n"
+"                   | fast (random 62-bit primes: NOT a proof; the error probability is bounded and\n"
+"                   reported, and every output says so)\n"
 "  --proved         same as --mode proved\n"
 "  --target t       fast mode: use enough primes for an error bound below 2^-t (default 64)\n"
 "  --seed hex       fast mode: reproduce a run from its reported seed (up to 64 hex digits).\n"
@@ -78,7 +79,7 @@ struct Opts {
     std::vector<int> periodic;
     int maxdim = -1, threads = 0;
     double threshold = -1, target = 64;
-    std::string mode = "auto"; std::string seed;
+    std::string mode = "proved"; std::string seed;
     bool classify = true, zero = false, stats = false;
     bool integral = false, image = false, reduce = true, directed = false;
     double img_s = 0, img_t = 0; int lmax = 4;
@@ -136,6 +137,8 @@ static std::string json_cert(const Barcode& q, const Certificate& c, int coeff_q
     s += "  \"barcode\": " + json_bars(q) + ",\n";
     if (coeff_q) {
         s += "  \"mode\": \"" + c.mode + "\",\n";
+        s += "  \"proof\": " + std::string(c.mode != "fast" && c.certified() ? "true" : "false") + ",\n";
+        if (c.mode == "fast") s += "  \"warning\": \"--mode fast: probabilistic, not a proof\",\n";
         s += "  \"guarantee\": {\"barcode_certified\": " + std::string(c.certified() ? "true" : "false");
         if (c.mode == "fast") {
             char b[64]; snprintf(b, sizeof b, "%.2f", c.log2_error);
@@ -235,6 +238,9 @@ static int solve(const B& be, const Opts& o, const IntegralSpec& ispec = Integra
         if (qmode) { FILE* f = fopen((o.prefix + "_cert.json").c_str(), "w"); fputs(json_cert(main_bars, cert, 1, ijson).c_str(), f); fclose(f); }
     }
     if (qmode) {
+        if (cert.mode == "fast")
+            fprintf(stderr, "WARNING: --mode fast: the Q barcode and the bad primes below are probabilistic, NOT proved.\n"
+                            "         Run without --mode fast (the default, --mode proved) for a proof.\n");
         fprintf(stderr, "Q barcode: %s\n", guarantee_text(cert).c_str());
         fprintf(stderr, "bad primes: ");
         if (!cert.barcode_ok) fprintf(stderr, "not determined");
