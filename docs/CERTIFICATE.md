@@ -119,7 +119,7 @@ the factors (`"every_prime_factor_of": true` in the JSON). It is still complete.
 the parts are classified in turn. Lemma 3 applies whether or not N is prime, so primes above 2^64, which
 Miller–Rabin only identifies as probable primes (`"probable_prime": true`), need no primality proof.
 
-**Classification by Howell sweeps (explicit complexes; the default since 20 Nov 2026).** For simplicial, cell and
+**Classification by Howell sweeps (explicit complexes; the default since 19 Nov 2026).** For simplicial, cell and
 simplicial-set inputs, the candidates below 2^63 are not rerun one by one. They are packed into squarefree moduli
 m < 2^63, and each m is handled by one sweep of a boundary matrix over Z/m (`howell.hpp`, `torsion.hpp`). The sweep
 takes the columns of d_j in filtration order and keeps a Howell basis of their span (Howell, *Spans in the module
@@ -346,5 +346,35 @@ barcode in degree 1, by (a), and in degree 2, by (b). On n = 90 each of the six 
 H_1 interval and one H_2 interval. All six come from transient torsion in H_1(K_t; Z) for t ∈ [3564, 3568).
 The other 490 candidates divide particular minors but no torsion order.
 
-Classifying candidates through torsion orders, rather than by one rerun per candidate, is step 4 of
-`docs/ROADMAP.md`.
+**The torsion trajectory (`--torsion`).** Step 2 and Step 3 with a = −1 give, for every value t and prime p, the
+number of cyclic summands of the p-part of tors H_q(K_t; Z):
+
+    r_Q(t) − r_{F_p}(t),
+
+the ranks of the columns of d_{q+1} born by t. More precisely, let the p-primary exponents be a_1, …, a_s. Over
+Z_(p), d_{q+1} restricted to those columns has Smith form diag(p^{a_i}, units, 0), and coker ⊗ Z/p^k has length
+k(n − r_Q) + Σ_i min(a_i, k), where n is the number of rows. That length is kn − log_p |span mod p^k|. For a Howell
+basis modulo p^k, |span| = ∏_r p^{k − min(k, v_p(d_r))} (Howell, see §3). Therefore
+
+    Σ_i min(a_i, k) = k r_Q(t) − Σ_r (k − min(k, v_p(d_r(t)))),
+
+and the differences in k count the exponents ≥ k. Perseus sweeps modulo p for every prime it follows, then modulo
+p^2, p^3, … (batched below 2^63, big integers beyond). It stops at the first k for which no t has an exponent
+≥ k. r_Q(t) comes from the reference sweep of §3. The primes followed are the bad primes. By Theorem 4, a prime with
+absolute torsion in a degree we report is bad, and only primes dividing a pivot value of degree q can have torsion in
+H_q. Composites that could not be factored ("every prime factor of N") are followed as such, modulo N^k. If a
+pivot ideal splits such an N, the output says the trajectory is incomplete.
+
+The result is exact: every invariant factor of H_q(K_t; Z), at every t where the group changes, for every filtration
+of an explicit complex, with or without ties. It was checked against FLINT Smith forms at every t on:
+* Linial–Meshulam processes in dimensions 2 (n = 18, 24) and 3 (n = 12, 13);
+* 20 random filtered chain complexes over Z, with tied and distinct values, invariant factors up to 1.7·10^7 and
+  primes up to 701.
+
+On the benchmark processes it was checked at 194 values, by exact elimination of unit entries followed by FLINT on
+the residual. These were all t in the torsion windows and samples elsewhere. At n = 70, H_1(K_t; Z) passes through
+Z/2 ⊕ Z/11618403313260425604101352 (2^3 · 3^2 · 43 · 1249 · 23561 · 80447 · 1585183289). At n = 90 it passes
+through a cyclic group of order 1.09·10^50, which includes the 117-bit prime, for three steps before it dies. These
+are the objects of the random-complex torsion studies of Kahle, Lutz, Newman and Parsons (*Cohen–Lenstra heuristics
+for torsion in homology of random complexes*, Exp. Math. 2020), here at every step of the process rather than at its
+end.

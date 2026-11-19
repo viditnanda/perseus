@@ -34,6 +34,7 @@ Vidit's merge order (19 Nov 2026): **#4, then #2, then #3**. He verifies each on
 | #5 | `certify-warmstart` | classification profiled on Linial–Meshulam; big candidates in parallel (step 2) | merged 19 Nov 2026 (merge commit 00a8ec0) |
 | #6 | `certify-proved-default` | the default certificate is a proof everywhere; fast mode only on request, labelled (step 3) | merged 19 Nov 2026 (merge commit d089aec) |
 | #7 | `certificate-per-prime-theorem` | docs only: Theorem 4 (bad primes = primes of torsion in relative homology) in `CERTIFICATE.md` §7; step 4 plan | open; Vidit asked for this as a separate docs PR before step 4 |
+| #8 | `step4-torsion-classify` | Howell sweeps: batched classification of small candidates (default on explicit complexes), `--torsion` trajectories; based on #7 | open |
 
 The README's cubical tables (2D, 3D and 4D) are the single source of truth for cubical timings. They were re-measured on the code of #4 and #2 together, all programs in one sitting. Any later change that affects cubical speed re-measures the affected rows, or the whole table, and dates it.
 
@@ -84,7 +85,7 @@ The first items came from an external review of `main` at `5716401`; Vidit asked
    * Further: the exact run still spends most of its time in big-rational arithmetic. Fraction-free integer columns, which scale columns instead of keeping rationals, would remove most gcds; that is not done.
    * Tests: `t_exact` (BigInt identities, QHyb against plain big rationals) in `make test-chain`. The Python suite checks a torsion-heavy instance (Linial–Meshulam n = 60, int64 overflows): the default is proved with bad primes 2, 3, 922457715037; `auto` is the same; and fast agrees and is labelled in the module, the JSON and on stderr.
 
-4. **Scale the integral machinery of #3, and classify candidates through torsion where it pays (CERTIFICATE.md §7).**
+4. **Scale the integral machinery of #3, and classify candidates through torsion where it pays (CERTIFICATE.md §7). Howell sweeps and torsion trajectories: done (19 Nov 2026, branch `step4-torsion-classify`, on top of #7).**
    * **Classification by torsion orders: measured first (19 Nov 2026).** By Theorem 4 the bad primes in degree q are the primes of torsion in H_q(K_j, K_i; Z) and H_{q−1}(K_i; Z). For a value quadrant (rows born after s, columns born by t) of ∂_r, the torsion order of H_{r−1}(K_t, K_s) divides Δ(s, t) = ∏ π over the non-unit pairs in it. `PERSEUS_DUMP` now writes each non-unit pivot's birth and death; the counts come from `bench/quadrants.py` on the step-4 branch.
 
      | instance | values | quadrants with Δ ≠ ±1 (share) | non-unit pairs | candidates | bad |
@@ -98,13 +99,40 @@ The first items came from an external review of `main` at `5716401`; Vidit asked
      | cubical white noise 96³ | 884,736 | 7.9·10^10 (20%) | 20 | 1 | 1 |
      | cubical white noise 24⁴ | 331,776 | 2.4·10^10 (14–29%) | 26 | 1 | 1 |
 
-     The non-tied LM n = 40 result was checked independently by plain reductions over Q and F_p (`/tmp/s4/indep.py`, to be moved to `tests/`): 2–13 bad, 17, 19, 23 harmless.
+     The non-tied LM n = 40 result was checked independently by plain reductions over Q and F_p (`tests/fp_reference.py`): 2–13 bad, 17, 19, 23 harmless.
    * **Conclusion.** Torsion classification pays only where most candidates are harmless, and that is the tied case. On non-tied inputs almost every candidate is bad, and each bad prime needs its F_p barcode anyway (the certificate lists the changed intervals), so there is at most 2 of 15 reruns to save. Even so, the quadrant family there is two-parameter and huge. Do not build general two-parameter torsion classification.
-   * **What to build instead (proposed to Vidit 19 Nov 2026).**
-     1. **Torsion sweep for few row values.** For ∂_{q+1}, quadrants change only when s crosses a value taken by a q-cell. If the q-cells take few distinct values, a few sweeps over t cover every relative group. The identity of `CERTIFICATE.md` §7 then gives the bad primes *and* their F_p barcodes with no reruns at all. On LM (K₀ the 1-skeleton): β^{i,j}_1(F_p) = β^{i,j}_1(Q) + t_p(j) and β^{i,j}_2(F_p) = β^{i,j}_2(Q) + t_p(i), where t_p(t) is the number of p-primary cyclic summands of tors H_1(K_t; Z). One sweep over t replaces all 496 reruns on n = 90.
-     2. **Arithmetic of the sweep** (V's cautions): an elementary divisor equal to the modulus is indistinguishable from a free summand, so work modulo p^{v_p(Δ)+1} (not Δ), or use the known Q-rank; batch small primes into 62-bit composite moduli (Z/m is a principal ideal ring: Smith/Howell form by gcd pivoting). Incremental maintenance as columns arrive must read off elementary divisors correctly; diagonal valuations of an echelon form are not enough.
-     3. **Non-tied inputs keep reruns,** made cheaper: one pool for small and big candidates, parallel factoring, and possibly V's composite-modulus batching applied to the reruns themselves (splitting at zero divisors, as Lemma 3 does for big candidates).
-     4. Validate the sweep against `bench/certify_lm.py` (n = 70, 90) and V's LM n = 28, 30 checks; the F_p barcodes it produces must equal the reruns'.
+   * **Vidit's decision (19 Nov 2026).** No general two-parameter classification. Build the sweep, starting with the tied case, validated against reruns and independent Smith forms. Expose the torsion trajectory itself (tors H_{d−1}(K_t; Z) with exponents at every t; for random-complex studies, Kahle–Lutz–Newman–Parsons). Handle d-dimensional Linial–Meshulam processes, and any filtration whose q-cells take few values.
+   * **What was built (`howell.hpp`, `torsion.hpp`; CERTIFICATE.md §3 Lemma 5 and §7).**
+     * *A Howell sweep* of a boundary matrix over Z/m, m any modulus (one word below 2^63, or BigInt): columns in filtration order, one basis vector per leading row with pivot ideal (d_r), extended gcds, annihilator multiples. For squarefree m, the rows with p ∤ d_r are the F_p lows (Lemma 5), so one sweep gives the F_p pairs of every prime in m. For m = ∏ p^k, Σ_r (k − min(k, v_p(d_r))) = log_p |span mod p^k|.
+     * *Why not a plain run modulo a composite:* every candidate divides some pivot value, so such a run splits at every candidate (Lemma 3 style); the Howell form carries on through non-unit pivots instead.
+     * *A correction to the plan above.* "One sweep over t replaces all 496 reruns" was wrong: it assumed one modulus holding every candidate, which is the modulus-Δ route that Vidit's second caution rules out. With 62-bit batches the cost is one sweep per batch and degree: 124 sweeps for 386 small candidates at n = 90.
+     * *The tied-case restriction turned out unnecessary.* The sweep reads off F_p pairs directly, not relative torsion of quadrants, so it works for every filtration of an explicit complex. Absolute torsion needs only the column prefixes (s = −1), for any filtration too.
+     * *Classification (`--classify-by auto|sweep|rerun`, default sweep on explicit complexes).* Small candidates are packed per degree into 62-bit moduli. A reference prime ℓ dividing no pivot value gives the Q pairs; its barcode must equal the Q barcode, or the code falls back to reruns. Big candidates (≥ 2^63) are still one run each modulo N.
+     * *Torsion trajectory (`--torsion`, `torsion=True`).* For each bad prime p (Theorem 4: only bad primes have torsion), sweeps modulo p, then p^2, p^3, … until no exponent reaches k, give the p-primary exponents of tors H_q(K_t; Z) at every t. Output: per degree, the steps where the group changes, with invariant factors and primary parts. Composites that could not be factored are followed as such modulo N^k and flagged as groups. A split marks the trajectory incomplete.
+   * **Validation.**
+     * `tests/t_howell.cpp`: Lemma 5 against plain F_p reductions, and the length formula against brute-force spans; 6,000 random cases in both arithmetics; part of `make test-chain`.
+     * Sweeps and reruns give identical bad primes and intervals on LM n = 40, 60, 70, 90 (tied and distinct values) and the Python fixtures.
+     * The trajectory was checked against FLINT Smith forms at every t (`tests/torsion_flint.py`, needs python-flint, installed privately in `/tmp/pyflint`):
+       * LM processes in dimension 2 (n = 18, 24) and 3 (n = 12, 13); only Z/2 at these sizes;
+       * 20 random filtered chain complexes over Z, tied and distinct, invariant factors up to 1.7·10^7, primes up to 701, higher exponents.
+     * On the benchmark processes, a full Smith form is too slow (over 20 min for one at n = 70). `tests/torsion_flint_large.py` instead eliminates unit entries exactly and runs FLINT on the residual (about 80 × 33). It agreed at 123 values at n = 70 and 71 at n = 90, all t in the torsion windows plus samples.
+     * Python tests: a hand example, random chain complexes against a pure-Python Smith form (itself checked against FLINT on 3,000 matrices), the 98-bit-prime and composite-group fixtures, and command line = module.
+   * **Results (`bench/certify_lm.py`, 2 cores, under the bench lock).**
+
+     | instance | default (sweeps) | reruns | small candidates: sweeps / reruns | `--torsion` adds |
+     |---|---|---|---|---|
+     | LM n = 70, tied | 4.3 s | 7.0 s | 2.1 s (61) / 4.8 s (202) | 0.3 s |
+     | LM n = 90, tied | 93.8 s | 125.5 s | 24.4 s (124) / 56.4 s (386) | 19.9 s |
+     | LM n = 70, distinct values | 18.7 s | 31.4 s | 7.3 s (114) / 20.1 s (326) | 21.7 s |
+
+     Trajectories found:
+     * n = 70: H_1 passes through Z/2 ⊕ Z/11618403313260425604101352.
+     * n = 90: a cyclic group of order 1.09·10^50, including the 117-bit prime, for three steps.
+     * 3-dimensional LM, n = 25, 2,700 tetrahedra: H_2 passes through Z/8705060926506448518465431062162, with an 81-bit composite followed as a group.
+   * **Next, in order of payoff.**
+     1. The 110 big candidates at n = 90 (39 s) are now the largest classification cost. Packing them into multi-word moduli does not pay, since schoolbook arithmetic is quadratic in the words. Options: Montgomery arithmetic for `ModBig` (it uses BigInt division now), and running them in the Howell sweep so that a split no longer restarts a run.
+     2. `ModBig` sweeps are slow (most of the trajectory's 20 s at n = 90 is the 117-bit prime). Montgomery multi-word arithmetic, as in `run_mod_big`, would fix this.
+     3. Rips and cubical inputs still rerun every candidate. They have few candidates (1–15 in the measurements), so this is low priority.
    * The integral outputs use a dense Smith form, capped at about 40M entries, and run only on explicit complexes. Replace this with sparse elimination down to a small residual, followed by a Smith form; the fill-in-free first phase of #3 is the starting point.
    * Then extend the integral outputs to cubical grids, which have torsion from dimension 3.
 
