@@ -196,7 +196,7 @@ Not computed: the Z[t, t^-1]-module itself, residue fields F_p[t]/(h), and torsi
 | Linial–Meshulam n = 70, H≤2 | — | 4.5 s, fast (int64 overflows) | 4.4 s | 12.1 s | — |
 | Linial–Meshulam n = 90, H≤2 | 0.16 s | ≈ 113 s, fast | 113 s | 259 s | does not finish |
 
-On geometric data a proof costs nothing extra; time beyond F_2 is classification of candidate primes. Exact arithmetic gets expensive only when the integers involved grow, which happens on torsion-heavy inputs, and then the default switches to random primes. On Linial–Meshulam complexes the Q reduction itself is fast (1.3 s at n = 90, with 261 non-unit pivots of up to 170 bits); classifying the 463 candidate primes, of which exactly two are bad, takes the rest.
+On geometric data a proof costs nothing extra; time beyond F_2 is classification of candidate primes. Exact arithmetic gets expensive only when the integers involved grow, which happens on torsion-heavy inputs, and then the default switches to random primes. On Linial–Meshulam complexes the Q reduction itself is fast (1.3 s at n = 90, with 261 non-unit pivots of up to 170 bits); classifying the 463 candidate primes, of which exactly two are bad, takes the rest. Since 19 Nov 2026 the candidates of at least 2^63 are classified in parallel too. On the reproducible instance of `bench/certify_lm.py` (n = 90, the first 4,000 triangles; 496 candidates, 6 bad), the default run went from 147 to 105 s on 2 cores, and the reruns scale with cores.
 
 ### Cubical (F_2, measured 19 Nov 2026 in one sitting, 2-core Xeon, 7.8 GB)
 

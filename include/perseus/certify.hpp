@@ -39,6 +39,7 @@
 #include <thread>
 #include <atomic>
 #include <mutex>
+#include <condition_variable>
 #include <limits>
 #include <algorithm>
 #include <random>
@@ -390,36 +391,57 @@ std::pair<BRun<typename B::Clear>, Certificate> certify(const B& be, const Certi
         // big candidates first, sequentially: a run modulo N either classifies every prime factor of N at
         // once, or splits N; split parts that are small primes join the small candidates
         std::vector<std::pair<BigInt, int>> queue = cert.big_candidates, done;
+        auto tb0 = now(); int nbig_runs = 0;
         auto is_group = [&](const BigInt& x) { for (auto& g : cert.groups) if (g == x) return true; return false; };
-        while (!queue.empty()) {
-            auto job = queue.back(); queue.pop_back();
-            const BigInt& N = job.first; int k0 = job.second;
-            if (N.fits_u64() && N.to_u64() < (1ULL << 63) && is_prime64(N.to_u64())) {
-                add_small(N.to_u64(), k0);
-                continue;
-            }
-            if (N.fits_u64() && N.to_u64() < (1ULL << 63)) {        // a small composite: factor it outright
-                std::map<uint64_t, int> f; factor64(N.to_u64(), f);
-                for (auto& kv : f) add_small(kv.first, k0);
-                continue;
-            }
-            BRun<Clear> r; BigInt g;
-            if (!run_mod_big(be, N, k0, kmax, k0 > 0 ? &q.clear_out[k0 - 1] : nullptr, r, g)) {
-                BigInt h = N / g;
-                bool grp = is_group(N) || !is_probable_prime(N);
-                for (BigInt part : {g, h}) {
-                    add_pair(queue, part, k0);
-                    if (grp && !is_probable_prime(part) && !is_group(part)) cert.groups.push_back(part);
+        // the runs are independent: a pool of threads takes jobs from the queue; a split puts its two parts
+        // back, so a thread finding the queue empty waits while other runs may still add to it
+        std::mutex mu; std::condition_variable cv; int active = 0;
+        auto big_worker = [&]() {
+            std::unique_lock<std::mutex> lk(mu);
+            while (true) {
+                cv.wait(lk, [&] { return !queue.empty() || active == 0; });
+                if (queue.empty()) return;                      // and nothing running: done
+                auto job = queue.back(); queue.pop_back();
+                const BigInt N = job.first; const int k0 = job.second;
+                if (N.fits_u64() && N.to_u64() < (1ULL << 63)) {    // a small prime or composite: factor it outright
+                    if (is_prime64(N.to_u64())) add_small(N.to_u64(), k0);
+                    else { std::map<uint64_t, int> f; factor64(N.to_u64(), f); for (auto& kv : f) add_small(kv.first, k0); }
+                    continue;
                 }
-                continue;
+                ++active; ++nbig_runs;
+                lk.unlock();
+                BRun<Clear> r; BigInt g;
+                const bool ok = run_mod_big(be, N, k0, kmax, k0 > 0 ? &q.clear_out[k0 - 1] : nullptr, r, g);
+                BadPrime bp;
+                if (ok) { bp.only_p = bar_diff(r.bars, q.bars, k0); bp.only_q = bar_diff(q.bars, r.bars, k0); }
+                lk.lock();
+                --active;
+                if (!ok) {
+                    BigInt h = N / g;
+                    bool grp = is_group(N) || !is_probable_prime(N);
+                    for (BigInt part : {g, h}) {
+                        add_pair(queue, part, k0);
+                        if (grp && !is_probable_prime(part) && !is_group(part)) cert.groups.push_back(part);
+                    }
+                } else {
+                    bp.p = 0; bp.k0 = k0; bp.big = N; bp.is_big = true; bp.group = is_group(N) && !is_probable_prime(N);
+                    if (!bars_empty(bp.only_p) || !bars_empty(bp.only_q)) cert.bad.push_back(std::move(bp));
+                    done.push_back(job);
+                }
+                cv.notify_all();
             }
-            BadPrime bp; bp.p = 0; bp.k0 = k0; bp.big = N; bp.is_big = true; bp.group = is_group(N) && !is_probable_prime(N);
-            bp.only_p = bar_diff(r.bars, q.bars, k0); bp.only_q = bar_diff(q.bars, r.bars, k0);
-            if (!bars_empty(bp.only_p) || !bars_empty(bp.only_q)) cert.bad.push_back(std::move(bp));
-            done.push_back(job);
+        };
+        {
+            int nb = std::max(1, std::min<int>(opt.threads, (int)queue.size()));
+            std::vector<std::thread> pool; for (int t = 1; t < nb; ++t) pool.emplace_back(big_worker);
+            big_worker(); for (auto& th : pool) th.join();
         }
+        std::sort(done.begin(), done.end(), [](const std::pair<BigInt, int>& x, const std::pair<BigInt, int>& y) { return x.first < y.first; });
         cert.big_candidates = done;
+        auto tb1 = now();
+        if (dbg) fprintf(stderr, "  [debug: big candidates %.3f s, %d runs modulo multi-word N, %zu settled]\n", std::chrono::duration<double>(tb1 - tb0).count(), nbig_runs, done.size());
         std::vector<std::pair<uint64_t, int>> cand(cert.candidates.begin(), cert.candidates.end());
+        std::vector<double> tcand(cand.size(), 0);
         std::vector<BadPrime> found(cand.size()); std::vector<char> isbad(cand.size(), 0);
         std::atomic<size_t> next(0);
         auto worker = [&]() {
@@ -427,7 +449,9 @@ std::pair<BRun<typename B::Clear>, Certificate> certify(const B& be, const Certi
                 uint64_t p = cand[i].first; int k0 = cand[i].second;
                 const Clear* in = k0 > 0 ? &q.clear_out[k0 - 1] : nullptr;
                 BadPrime bp; bp.p = p; bp.k0 = k0;
+                auto tc0 = std::chrono::steady_clock::now();
                 BRun<Clear> r = run_field(be, p, k0, kmax, in);
+                tcand[i] = std::chrono::duration<double>(std::chrono::steady_clock::now() - tc0).count();
                 bp.only_p = bar_diff(r.bars, q.bars, k0); bp.only_q = bar_diff(q.bars, r.bars, k0);
                 if (!bars_empty(bp.only_p) || !bars_empty(bp.only_q)) { found[i] = std::move(bp); isbad[i] = 1; }
             }
@@ -436,6 +460,25 @@ std::pair<BRun<typename B::Clear>, Certificate> certify(const B& be, const Certi
         std::vector<std::thread> pool; for (int t = 1; t < nt; ++t) pool.emplace_back(worker);
         worker(); for (auto& th : pool) th.join();
         for (size_t i = 0; i < cand.size(); ++i) if (isbad[i]) cert.bad.push_back(std::move(found[i]));
+        if (dbg) {        // where each small candidate first divides a pivot, against the cost of its rerun
+            double tsum = 0; for (double x : tcand) tsum += x;
+            fprintf(stderr, "  [debug: small candidates %.3f s wall, %.3f s summed over %zu reruns, %d threads]\n", std::chrono::duration<double>(now() - tb1).count(), tsum, cand.size(), nt);
+            if (const char* path = getenv("PERSEUS_CLASSIFY_DUMP")) {
+                FILE* f = fopen(path, "w");
+                std::map<int, uint64_t> kmaxkey; for (auto& v : cert.values) kmaxkey[v.k] = std::max(kmaxkey[v.k], v.key);
+                for (size_t i = 0; i < cand.size(); ++i) {
+                    uint64_t p = cand[i].first; int k0 = cand[i].second; uint64_t first = UINT64_MAX, last = 0; int nvals = 0;
+                    for (auto& v : cert.values) {
+                        if (!v.ok || v.k != k0) continue;
+                        bool d = false;
+                        for (const BigInt* x : {&v.num, &v.den}) { BigInt a = x->abs(); if (a.mod_small(p) == 0) d = true; }
+                        if (d) { first = std::min(first, v.key); last = std::max(last, v.key); ++nvals; }
+                    }
+                    fprintf(f, "%llu %d %llu %llu %llu %d %.6f %d\n", (unsigned long long)p, k0, (unsigned long long)first, (unsigned long long)last, (unsigned long long)kmaxkey[k0], nvals, tcand[i], (int)isbad[i]);
+                }
+                fclose(f);
+            }
+        }
         std::stable_sort(cert.bad.begin(), cert.bad.end(), [](const BadPrime& a, const BadPrime& b) {
             if (a.is_big != b.is_big) return !a.is_big; return a.is_big ? a.big < b.big : a.p < b.p; });
         cert.classified = true;
