@@ -180,7 +180,15 @@ On geometric data a proof costs nothing extra; time beyond F_2 is classification
 * In 3D and 4D the gradient engine is 1.8–3.2× faster than CubicalRipser and 2.2–3.9× faster than the classic engine, and it uses less memory than either. On white noise 48⁴ it is the only one of the three implicit engines to finish within this machine's memory.
 * **In 2D, GUDHI's dedicated image algorithm is still the fastest** at 4096² (3.4 s against 7.5 s on white noise). The gradient engine is 1.5–2.2× faster than CubicalRipser in 2D.
 * Q certified (default `--mode auto`: exact int64 arithmetic, a proof) costs 1.0–1.6× F_2 on these inputs, and 2× on white noise 48⁴.
-* Where the time goes (white noise 48⁴, F_2, 60 s): gradient 6.4 s (1.2 million distinct block patterns, 259 exact searches), Morse complex 15.5 s (101 million path cells visited), reduction 35 s. Degree 1 alone takes 29 s; its longest working column has 2.4 million entries. Two remedies for degree 1 were tried, and both are slower. Storing the reductions (V) instead of the reduced columns, as Ripser does, merged 5–9× more entries and took 10× longer. Reducing degree 1 by homology took 83 s. On smooth inputs the reduction is negligible (under 0.1 s), and the gradient and the path sums dominate.
+* Where the time goes (white noise 48⁴, F_2, 60 s): gradient 6.4 s (1.2 million distinct block patterns, 259 exact searches), Morse complex 15.5 s (101 million path cells visited), reduction 35 s. Degree 1 alone took 29 s: its long working columns were binary heaps, which keep duplicate rows until they surface (the longest held 2.4 million entries). Two remedies for degree 1 were tried, and both are slower. Storing the reductions (V) instead of the reduced columns, as Ripser does, merged 5–9× more entries and took 10× longer. Reducing degree 1 by homology took 83 s. On smooth inputs the reduction is negligible (under 0.1 s), and the gradient and the path sums dominate.
+* **Bit-tree working columns (19 Nov 2026).** Long working columns now live in a 64-ary bit tree with a coefficient array (`bitcol.hpp`, after PHAT), where duplicates cancel on arrival. This applies to the gradient and classic engines and to every coefficient ring. Measured on 19 Nov with identical output:
+  * white noise 48⁴, F_2: degree-1 reduction from 26.3 to 7.9 s, total from 66.1 to 52.0 s;
+  * white noise 48⁴, Q certified: total from 134.5 to 76.6 s, with degree 1 from 48.6 to 17.2 s and the reruns mod 2 and 3 from 27 and 34 s to 7.5 and 10.7 s;
+  * white noise 40⁴, F_2: degree 1 from 6.5 to 2.4 s;
+  * white noise 32⁴, classic engine, F_2: total from 20.3 to 12.4 s;
+  * smoothed noise 48⁴: total from 8.4 to 7.2 s.
+
+  The table above predates this change.
 
 The table this replaces measured the classic engine on other inputs: smoothed noise 4096² 8.0 s, white noise 4096² 11.6 s, smoothed noise 192³ 10.4 s, white noise 192³ 26.0 s, white noise 32⁴ 19.3 s, smoothed noise 48⁴ 20.3 s, against CubicalRipser's 7.4, 8.5, 9.3, 24.9, 15.2 and 16.0 s.
 

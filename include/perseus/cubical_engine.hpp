@@ -13,6 +13,7 @@
 #include "ring.hpp"
 #include "types.hpp"
 #include "cubical_morse.hpp"
+#include "bitcol.hpp"
 #include <vector>
 #include <unordered_map>
 #include <algorithm>
@@ -199,8 +200,9 @@ public:
             cleared = out.clear_out[0];
             kstart = 1;
         }
-        std::vector<Ent> w, tmp, cob, heap;
-        auto cmp = [](const Ent& x, const Ent& y) { return x.row > y.row; };   // min-heap on the row
+        std::vector<Ent> w, tmp, cob;
+        BitCol<R> tc; size_t tc_rows = 0;                  // long working columns (bitcol.hpp), allocated on first use
+        const size_t LONG = long_column_threshold();
         size_t dbg_maxw = 0; long long dbg_merged = 0;
         for (int k = kstart; k <= kmax; ++k) {
             size_t nk = count(k), nk1 = count(k + 1);
@@ -348,20 +350,15 @@ public:
                         continue;
                     }
                 }
-                // working column: a sorted vector while it is short (an addition merges), a min-heap on the row
-                // with lazy cancellation once it is long (an addition pushes the few entries of the added column
-                // and never copies the working column)
+                // working column: a sorted vector while it is short (an addition merges), a bit tree once it is
+                // long (bitcol.hpp: duplicates cancel on arrival, the pivot is found by descending the tree, and
+                // an addition never copies the working column)
                 coboundary(j, w);
-                bool ch = false, found = false, heapmode = false; Ent piv{0, ring.zero()};
-                heap.clear();
+                bool ch = false, found = false, treemode = false; Ent piv{0, ring.zero()};
                 while (true) {
                     found = false;
-                    if (!heapmode) { if (!w.empty()) { piv = w[0]; found = true; } }
-                    else while (!heap.empty()) {                    // pop the smallest row, summing duplicates
-                        std::pop_heap(heap.begin(), heap.end(), cmp); Ent e = heap.back(); heap.pop_back();
-                        while (!heap.empty() && heap.front().row == e.row) { std::pop_heap(heap.begin(), heap.end(), cmp); e.c = ring.add(e.c, heap.back().c); heap.pop_back(); }
-                        if (!ring.is_zero(e.c)) { piv = e; found = true; break; }
-                    }
+                    if (!treemode) { if (!w.empty()) { piv = w[0]; found = true; } }
+                    else if (!tc.empty()) { uint32_t r0 = tc.min_row(); piv = {(int32_t)r0, tc.coef(ring, r0)}; found = true; }
                     if (!found) break;
                     int32_t i = piv_col[piv.row];
                     if (i < 0) break;
@@ -369,13 +366,16 @@ public:
                     const std::vector<Ent>* ci;
                     auto it = stored.find(i);
                     if (it != stored.end()) ci = &it->second; else { coboundary(i, cob); ci = &cob; }
-                    if (!heapmode && w.size() > 2048) {               // switch: w[0] cancels against (*ci)[0]
-                        heapmode = true; heap.assign(w.begin() + 1, w.end()); std::make_heap(heap.begin(), heap.end(), cmp);
+                    if (!treemode && w.size() > LONG) {
+                        treemode = true;
+                        if (tc_rows != piv_col.size()) { tc.init(piv_col.size()); tc_rows = piv_col.size(); }
+                        for (const Ent& e : w) tc.add(ring, (uint32_t)e.row, e.c);
                     }
-                    if (heapmode) {
-                        for (size_t q = 1; q < ci->size(); ++q) {   // entry 0 is the pivot: it cancels piv
+                    if (treemode) {
+                        tc.erase((uint32_t)piv.row);                 // entry 0 of the added column cancels the pivot
+                        for (size_t q = 1; q < ci->size(); ++q) {
                             T sc = ring.mul(f, (*ci)[q].c);
-                            if (!ring.is_zero(sc)) { heap.push_back({(*ci)[q].row, sc}); std::push_heap(heap.begin(), heap.end(), cmp); }
+                            if (!ring.is_zero(sc)) tc.add(ring, (uint32_t)(*ci)[q].row, sc);
                         }
                     } else {
                         tmp.clear(); size_t a2 = 1, bq = 1, be = ci->size();
@@ -388,7 +388,7 @@ public:
                         for (; bq < be; ++bq) { T sc = ring.mul(f, (*ci)[bq].c); if (!ring.is_zero(sc)) tmp.push_back({(*ci)[bq].row, sc}); }
                         w.swap(tmp);
                     }
-                    ch = true; ++out.additions; dbg_merged += (long long)ci->size(); dbg_maxw = std::max(dbg_maxw, heapmode ? heap.size() : w.size());
+                    ch = true; ++out.additions; dbg_merged += (long long)ci->size(); dbg_maxw = std::max(dbg_maxw, treemode ? tc.count : w.size());
                 }
                 if (!found) { out.bars[k].push_back({bj, INF}); continue; }
                 T pc = piv.c; int32_t r = piv.row;
@@ -398,15 +398,10 @@ public:
                 if (dv > bj || keep) out.bars[k].push_back({bj, dv});
                 if (!top) next_cleared.push_back(cells[k + 1][r]);
                 if (!ring.is_pm1(pc)) { Pivot pv; pv.k = k; pv.key = (uint64_t)j; pv.birth = bj; pv.death = dv; ring.store(pc, pv); out.nonunit.push_back(std::move(pv)); }
-                if (ch && !heapmode) stored[j] = w;
-                else if (ch) {                                     // materialise the reduced column: pivot, then the rest
-                    std::vector<Ent>& RC = stored[j]; RC.clear(); RC.push_back(piv);
-                    std::sort(heap.begin(), heap.end(), [](const Ent& x, const Ent& y) { return x.row < y.row; });
-                    for (size_t q = 0; q < heap.size();) {
-                        size_t e = q; T sum = heap[q].c; while (++e < heap.size() && heap[e].row == heap[q].row) sum = ring.add(sum, heap[e].c);
-                        if (!ring.is_zero(sum)) RC.push_back({heap[q].row, sum});
-                        q = e;
-                    }
+                if (ch && !treemode) stored[j] = w;
+                else if (ch) {                                     // the reduced column, pivot first (the smallest row)
+                    std::vector<Ent>& RC = stored[j]; RC.clear(); RC.reserve(tc.count);
+                    tc.drain(ring, [&](uint32_t r0, T c0) { RC.push_back({(int32_t)r0, c0}); });
                 }
             }
             if (getenv("PERSEUS_DEBUG")) fprintf(stderr, "    [degree %d: %lld columns, %lld additions so far, max working length %zu, total merged entries %lld]\n", k, out.columns, out.additions, dbg_maxw, dbg_merged);

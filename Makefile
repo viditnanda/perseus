@@ -18,6 +18,9 @@ test: perseus
 test-cubical: tests/t_cubical_morse.cpp $(HDR)
 	$(CXX) -std=c++17 -O2 -Wall -pthread $(INC) tests/t_cubical_morse.cpp -o t_cubical_morse
 	./t_cubical_morse 300
+	PERSEUS_LONG_COLUMN=0 ./t_cubical_morse 100
+	$(CXX) -std=c++17 -O2 -Wall $(INC) tests/t_bitcol.cpp -o t_bitcol
+	./t_bitcol 100
 
 clean:
-	rm -f perseus t_cubical_morse
+	rm -f perseus t_cubical_morse t_bitcol
