@@ -28,8 +28,8 @@ Vidit's merge order (19 Nov 2026): **#4, then #2, then #3**. He verifies each on
 
 | PR | branch | content | state |
 |---|---|---|---|
-| #4 | `cubical-bittree` | bit-tree working columns (step 1 below); this file | verified by Vidit, to be merged first |
-| #2 | `cubical-2d` | planar engine for 2D images (union-finds, Alexander duality, unimodular certificate); the README cubical tables, re-measured in one sitting on top of #4 | rebased onto #4; force-pushed once #4 is on `main` |
+| #4 | `cubical-bittree` | bit-tree working columns (step 1 below); this file | merged 19 Nov 2026 (merge commit b706d25) |
+| #2 | `cubical-2d` | planar engine for 2D images (union-finds, Alexander duality, unimodular certificate); the README cubical tables, re-measured in one sitting on top of #4 | rebased onto `main` after #4; awaiting Vidit's check |
 | #3 | `simplicial-sets` | simplicial sets, chain complexes over Z, integral outputs, magnitude homology, Laurent coefficients | to be rebased onto `main` after #2, then the same independent check |
 
 The README's cubical tables (2D, 3D and 4D) are the single source of truth for cubical timings. They were re-measured on the code of #4 and #2 together, all programs in one sitting. Any later change that affects cubical speed re-measures the affected rows, or the whole table, and dates it.
