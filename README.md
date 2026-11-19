@@ -403,6 +403,7 @@ Vidit Nanda (Perseus, 2010–). Perseus 6 builds on ideas from:
 * J.-D. Boissonnat and S. Pritam, edge collapse and edge domination;
 * *RedZeD*;
 * I. Obayashi and M. Yoshiwaki, field choice and torsion;
+* J. Luo and G. Henselman-Petrusek, interval decomposition over a PID and field choice;
 * J.-D. Boissonnat and C. Maria, multi-field persistence and modular reconstruction.
 
 ## Citing
