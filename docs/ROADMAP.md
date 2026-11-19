@@ -30,7 +30,10 @@ Vidit's merge order (19 Nov 2026): **#4, then #2, then #3**. He verifies each on
 |---|---|---|---|
 | #4 | `cubical-bittree` | bit-tree working columns (step 1 below); this file | merged 19 Nov 2026 (merge commit b706d25) |
 | #2 | `cubical-2d` | planar engine for 2D images (union-finds, Alexander duality, unimodular certificate); the README cubical tables, re-measured in one sitting on top of #4 | merged 19 Nov 2026 (merge commit af0e491) |
-| #3 | `simplicial-sets` | simplicial sets, chain complexes over Z, integral outputs, magnitude homology, Laurent coefficients | rebased onto `main` after #2 (conflicts only in the Makefile and docs); awaiting Vidit's check |
+| #3 | `simplicial-sets` | simplicial sets, chain complexes over Z, integral outputs, magnitude homology, Laurent coefficients | merged 19 Nov 2026 (merge commit 6237171) |
+| #5 | `certify-warmstart` | classification profiled on Linial–Meshulam; big candidates in parallel (step 2) | merged 19 Nov 2026 (merge commit 00a8ec0) |
+| #6 | `certify-proved-default` | the default certificate is a proof everywhere; fast mode only on request, labelled (step 3) | merged 19 Nov 2026 (merge commit d089aec) |
+| #7 | `certificate-per-prime-theorem` | docs only: Theorem 4 (bad primes = primes of torsion in relative homology) in `CERTIFICATE.md` §7; step 4 plan | open; Vidit asked for this as a separate docs PR before step 4 |
 
 The README's cubical tables (2D, 3D and 4D) are the single source of truth for cubical timings. They were re-measured on the code of #4 and #2 together, all programs in one sitting. Any later change that affects cubical speed re-measures the affected rows, or the whole table, and dates it.
 
@@ -67,7 +70,7 @@ The first items came from an external review of `main` at `5716401`; Vidit asked
      * But a restart needs the reduction's state modulo p at that column. In fast mode (int64 overflowed here) the Q run exists only modulo random 62-bit primes, so the state is not available. Exact checkpoints mean the proved run, which took 259 s on the README's instance.
      * The alternative, a run modulo a product of candidates that forks its state at each split, shares only the prefix among the 2–3 primes fitting in one word, so about 30% at best. It also needs resumable state in every engine.
      * So this is not worth building now.
-   * **The bigger lever (open).** Bad primes are the primes of p-torsion in relative groups H_k(K_t, K_s; Z). Here they all sit in one short window of H_1. Computing torsion where the Q barcode has events, with the sparse integral machinery of step 4, might replace hundreds of reruns with a few Smith forms. This needs a criterion that is provably complete before it can replace classification; it is not one yet.
+   * **The bigger lever: now a theorem.** `docs/CERTIFICATE.md` §7 (Theorem 4) proves that p is bad in degree q iff some H_q(K_j, K_i; Z) or H_{q−1}(K_i; Z) has p-torsion (per-prime refinement of Obayashi–Yoshiwaki; checked independently against FLINT Smith forms on LM n = 28, 30). On LM only tors H_1(K_t; Z) matters, and the six bad primes on n = 90 all come from t ∈ [3564, 3568). The cheap necessary condition (p divides the product of pivot values over a value quadrant) excludes none of the 205 / 496 candidates, so classification through torsion needs actual torsion orders. That is step 4.
    * **Smaller remaining items:** factoring takes 8.5 s on one thread (parallelise across pivot values), and the small-candidate pool starts only after the big one finishes (one pool would avoid idle threads at the end).
 
 3. **Make the default certificate exact all the way: done (19 Nov 2026).**
@@ -81,10 +84,29 @@ The first items came from an external review of `main` at `5716401`; Vidit asked
    * Further: the exact run still spends most of its time in big-rational arithmetic. Fraction-free integer columns, which scale columns instead of keeping rationals, would remove most gcds; that is not done.
    * Tests: `t_exact` (BigInt identities, QHyb against plain big rationals) in `make test-chain`. The Python suite checks a torsion-heavy instance (Linial–Meshulam n = 60, int64 overflows): the default is proved with bad primes 2, 3, 922457715037; `auto` is the same; and fast agrees and is labelled in the module, the JSON and on stderr.
 
-4. **Scale the integral machinery of #3.**
+4. **Scale the integral machinery of #3, and classify candidates through torsion where it pays (CERTIFICATE.md §7).**
+   * **Classification by torsion orders: measured first (19 Nov 2026).** By Theorem 4 the bad primes in degree q are the primes of torsion in H_q(K_j, K_i; Z) and H_{q−1}(K_i; Z). For a value quadrant (rows born after s, columns born by t) of ∂_r, the torsion order of H_{r−1}(K_t, K_s) divides Δ(s, t) = ∏ π over the non-unit pairs in it. `PERSEUS_DUMP` now writes each non-unit pivot's birth and death; the counts come from `bench/quadrants.py` on the step-4 branch.
+
+     | instance | values | quadrants with Δ ≠ ±1 (share) | non-unit pairs | candidates | bad |
+     |---|---|---|---|---|---|
+     | LM n = 70, tied (edges all at 1) | 2,401 | 727 (0.03%), one row threshold | 133 | 205 | 7 |
+     | LM n = 90, tied | | one row threshold | 274 | 496 | 6 |
+     | LM n = 40, distinct interleaved values | 1,480 | 1.2·10^5 (11%) | 30 | 6 | 6 |
+     | LM n = 70, distinct interleaved values | 4,815 | 4.9·10^5 (4.3%) | 210 | 347 | 347 |
+     | random metric, 300 points, H≤1 | 43,483 | 2.5·10^7 (2.7%) | 61 | 15 | 13 |
+     | RP² Rips, 300 points, H≤2 | 18,452 | 8.6·10^7 (6–44% by degree) | 2 | 1 | 1 |
+     | cubical white noise 96³ | 884,736 | 7.9·10^10 (20%) | 20 | 1 | 1 |
+     | cubical white noise 24⁴ | 331,776 | 2.4·10^10 (14–29%) | 26 | 1 | 1 |
+
+     The non-tied LM n = 40 result was checked independently by plain reductions over Q and F_p (`/tmp/s4/indep.py`, to be moved to `tests/`): 2–13 bad, 17, 19, 23 harmless.
+   * **Conclusion.** Torsion classification pays only where most candidates are harmless, and that is the tied case. On non-tied inputs almost every candidate is bad, and each bad prime needs its F_p barcode anyway (the certificate lists the changed intervals), so there is at most 2 of 15 reruns to save. Even so, the quadrant family there is two-parameter and huge. Do not build general two-parameter torsion classification.
+   * **What to build instead (proposed to Vidit 19 Nov 2026).**
+     1. **Torsion sweep for few row values.** For ∂_{q+1}, quadrants change only when s crosses a value taken by a q-cell. If the q-cells take few distinct values, a few sweeps over t cover every relative group. The identity of `CERTIFICATE.md` §7 then gives the bad primes *and* their F_p barcodes with no reruns at all. On LM (K₀ the 1-skeleton): β^{i,j}_1(F_p) = β^{i,j}_1(Q) + t_p(j) and β^{i,j}_2(F_p) = β^{i,j}_2(Q) + t_p(i), where t_p(t) is the number of p-primary cyclic summands of tors H_1(K_t; Z). One sweep over t replaces all 496 reruns on n = 90.
+     2. **Arithmetic of the sweep** (V's cautions): an elementary divisor equal to the modulus is indistinguishable from a free summand, so work modulo p^{v_p(Δ)+1} (not Δ), or use the known Q-rank; batch small primes into 62-bit composite moduli (Z/m is a principal ideal ring: Smith/Howell form by gcd pivoting). Incremental maintenance as columns arrive must read off elementary divisors correctly; diagonal valuations of an echelon form are not enough.
+     3. **Non-tied inputs keep reruns,** made cheaper: one pool for small and big candidates, parallel factoring, and possibly V's composite-modulus batching applied to the reruns themselves (splitting at zero divisors, as Lemma 3 does for big candidates).
+     4. Validate the sweep against `bench/certify_lm.py` (n = 70, 90) and V's LM n = 28, 30 checks; the F_p barcodes it produces must equal the reruns'.
    * The integral outputs use a dense Smith form, capped at about 40M entries, and run only on explicit complexes. Replace this with sparse elimination down to a small residual, followed by a Smith form; the fill-in-free first phase of #3 is the starting point.
    * Then extend the integral outputs to cubical grids, which have torsion from dimension 3.
-   * Then test whether integral persistence can read off bad primes directly, without reruns. That would make step 2 partly redundant on explicit complexes.
 
 5. **Laurent (Novikov) coefficients, driven by applications.** Use SnapPy knot-complement triangulations and a Salvetti-complex model of a Milnor fibre as tests, and add the missing pieces in the order those tests need them:
    * irreducibility proofs beyond degree 2 (Berlekamp–Zassenhaus factoring over Z);

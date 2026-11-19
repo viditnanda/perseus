@@ -17,7 +17,8 @@ below it are zero, so every column keeps its lowest entry and the pairing is unc
 
 So the bad primes lie among the prime factors of the pivot values, and each candidate is settled by a rerun
 mod p. That rerun starts in the first degree where p divides a pivot, because lower degrees and their
-clearing data are unchanged.
+clearing data are unchanged. §7 says which candidates are bad in terms of the filtration itself: exactly the
+primes of torsion in its relative integral homology.
 
 **Pivot values are invariants.** Let (i, j) be a pair. Let J be the paired columns c ≤ j with low(c) ≥ i,
 and I their lows: the pairs nested in (i, j). Then R[I, J] is triangular, and Cauchy–Binet with the
@@ -89,10 +90,6 @@ is below 2^-64 (`--target`) and reports it.
 *Reconstruction.* A non-unit pivot is reconstructed by Wang's method from all lanes but two. It is accepted
 only if it agrees with those two independent lanes. Degrees holding non-unit pivots are rerun with more
 fresh lanes (4, 8, 16, 32) as needed, and each rerun must reproduce the pairing of the first run.
-
-**auto** (default). First try exact int64 arithmetic. When it does not overflow, which is the common case,
-the result is a proof and costs about as much as the multi-modular run. When it does overflow
-(torsion-heavy inputs), the fast mode runs and the output says so.
 
 ## 3. Classifying candidates
 
@@ -214,3 +211,103 @@ only if some recorded integer could not be factored (`unresolved`).
 What this is not: a computation of the Z[t, t^-1]-module. That ring has dimension 2, and its modules are not
 determined by their fibres over Q and the F_p. Nor is it a computation over the residue fields F_p[t]/(h) or
 over the Novikov ring Z((t)).
+
+## 7. Which primes are bad: torsion in relative homology
+
+Obayashi and Yoshiwaki proved that the degree-q persistence diagram of a finite filtration is the same over
+every field if and only if H_q(K_j, K_i; Z) is free for all i < j and H_{q−1}(K_i; Z) is free for all i
+(*Field choice problem in persistent homology*, Discrete Comput. Geom. 70 (2023) 645–670, Theorem 1.6). Luo
+and Henselman-Petrusek proved that a pointwise free, finitely generated persistence module over a PID splits
+into interval modules if and only if every structure map has free cokernel (*Interval decomposition of
+persistence modules over a principal ideal domain*, arXiv:2310.07971). Their sequel extends this to infinite
+index sets and, when every H_q(K_i; Z) and H_{q−1}(K_i; Z) is free, shows that the integral persistence
+module splits if and only if the diagram is field-independent (arXiv:2511.07614, Theorem 5.1). These results
+quantify over all fields at once. The certificate needs them one prime at a time: for which p does the
+barcode over F_p differ from the one over Q? The refinement below answers this. It follows by localising at p.
+
+Index the filtration by its distinct values, ∅ = K₋₁ ⊂ K₀ ⊂ … ⊂ K_N. This is the barcode Perseus compares,
+so ties are absorbed. Groups with i = −1 are absolute: H_q(K_j, K₋₁) = H_q(K_j).
+
+**Theorem 4 (field choice, one prime at a time).** Let p be a prime and q ≥ 0. The degree-q barcodes over
+F_p and over Q agree if and only if
+
+* (a) H_q(K_j, K_i; Z) has no p-torsion for every −1 ≤ i < j ≤ N, and
+* (b) H_{q−1}(K_i; Z) has no p-torsion for every 0 ≤ i ≤ N.
+
+Hence the barcodes agree in all degrees ≤ M if and only if H_q(K_j, K_i; Z) has no p-torsion for every
+q ≤ M and every −1 ≤ i < j ≤ N; condition (b) in degree q is condition (a) with i = −1 in degree q − 1. So
+the bad primes are exactly the primes dividing the order of the torsion subgroup of some relative group.
+Taking all primes together recovers Obayashi–Yoshiwaki, because Q and the F_p are, up to isomorphism, the
+prime fields, and a barcode over a field depends only on its characteristic.
+
+*Proof.* Let R = Z_(p). This is a PID with residue field F_p and fraction field Q, and it is flat over Z, so
+H(C ⊗ R) = H(C) ⊗ R. A finitely generated abelian group has no p-torsion exactly when its localisation at p
+is torsion-free. It therefore suffices to count torsion over R. The degree-q barcode over a field F is
+determined by the ranks β^{i,j}_q(F) = rank(H_q(K_i; F) → H_q(K_j; F)), for 0 ≤ i ≤ j ≤ N.
+
+*Step 1 (ranks of matrices).* For −1 ≤ a ≤ b, let ∂^{a,b}_r : C_r(K_b) → C_{r−1}(K_b)/C_{r−1}(K_a) be
+the induced map. This is an integer matrix, with columns the r-cells of K_b and rows the (r−1)-cells of
+K_b − K_a. Write r_F for its rank over F. Let Z and B denote cycles and boundaries. Then
+β^{i,j}_q = dim Z_q(K_i) − dim(Z_q(K_i) ∩ B_q(K_j)), and Z_q(K_i) ∩ B_q(K_j) = C_q(K_i) ∩ B_q(K_j). The
+image of ∂^{i,j}_{q+1} is B_q(K_j)/(B_q(K_j) ∩ C_q(K_i)). So
+
+    β^{i,j}_q(F) = dim C_q(K_i) − r_F(∂^{−1,i}_q) − r_F(∂^{−1,j}_{q+1}) + r_F(∂^{i,j}_{q+1}).
+
+*Step 2 (one matrix).* Put an integer matrix A in Smith form over R: invertible matrices times
+diag(p^{a_1}, …, p^{a_r}, 0, …). Then r_Q(A) = r and r_{F_p}(A) = #{k : a_k = 0}. So r_Q(A) − r_{F_p}(A)
+is the number of a_k ≥ 1, which is the number of cyclic summands of the torsion of coker A ⊗ R.
+
+*Step 3 (the cokernels are relative homology).* Let D = C(K_b)/C(K_a), a free complex. The map
+C_r(K_a) → C_{r−1}(K_b) lands in C_{r−1}(K_a), so the image of ∂^{a,b}_r is B_{r−1}(D) and its cokernel is
+D_{r−1}/B_{r−1}(D). In the exact sequence
+
+    0 → H_{r−1}(D) → D_{r−1}/B_{r−1}(D) → B_{r−2}(D) → 0
+
+the right-hand term is a submodule of the free module D_{r−2}. It is therefore free, and the sequence splits.
+Hence tors coker ∂^{a,b}_r ≅ tors H_{r−1}(K_b, K_a), over Z and over R. Write t_r(a, b) for the number of
+cyclic summands of tors H_r(K_b, K_a; R), with t_r(a, a) = 0.
+
+*Combining.* Steps 1–3 give, for 0 ≤ i ≤ j ≤ N,
+
+    β^{i,j}_q(Q) − β^{i,j}_q(F_p) = t_q(i, j) − t_{q−1}(−1, i) − t_q(−1, j).
+
+(⇐) Under (a) and (b) every term on the right vanishes, so every rank agrees, and so do the barcodes.
+(⇒) If the barcodes agree, take i = j. The left side vanishes, and t_q(i, i) = 0, so
+t_{q−1}(−1, i) + t_q(−1, i) = 0. Both terms are non-negative, so both vanish: this is (b), and (a) for
+i = −1. Then for i < j the identity gives t_q(i, j) = 0, which is the rest of (a). ∎
+
+The identity is sharper than the theorem. Each rank β^{i,j}_q can only drop over F_p, and it drops by
+exactly the torsion count above.
+
+*Checks.* Checked independently: Smith forms of every K_t (FLINT) on Linial–Meshulam processes with n = 28
+and 30 give exactly the bad primes Perseus reports: {2}, with torsion at a single step; {2, 7}, with torsion on
+t ∈ [340, 360]; and none in the controls.
+
+*Other engines.* The cubical Morse engine reduces the Morse complex M (§1). M is filtered chain-homotopy
+equivalent to the cubical complex over Z, so both have the same relative groups, and the theorem applies to M
+unchanged.
+
+**What the pivot values already say.** Fix a degree r and values s < t, and take the value quadrant of ∂_r
+whose rows are the (r−1)-cells born after s and whose columns are the r-cells born by t. This is ∂^{s,t}_r,
+with zero rows added. By the pairing lemma, its rank is the number of pairs (σ, τ) with σ in the rows and τ in
+the columns. The argument of §1 shows that these pairs index a nonsingular square minor with
+det = ±∏ π, the product of their pivot values. It is a maximal minor, and the product of the elementary
+divisors is the gcd of all maximal minors. So |tors H_{r−1}(K_t, K_s; Z)| divides ∏ π over the quadrant,
+and p-torsion there requires p to divide that product.
+
+This condition is necessary but not sufficient, because a single minor can be divisible by p even when the
+gcd of all of them is not. It also excludes nothing in practice. On the two Linial–Meshulam instances of
+`bench/certify_lm.py` (n = 70 and 90), every one of the 205 and 496 candidates divides some quadrant
+product. Proving a candidate harmless needs the torsion orders themselves.
+
+**Ties: Linial–Meshulam.** Here the whole 1-skeleton of the simplex has value 1 (vertices enter with their
+edges), and triangles follow one per value. So K₀ is the 1-skeleton. For i ≥ 0 the quotient complex
+C(K_j)/C(K_i) has no chains below degree 2, so H_q(K_j, K_i) vanishes for q < 2, and H_2(K_j, K_i) is a
+subgroup of a free group. The absolute H_0 and H_2 are free, the latter because K_j has dimension 2. Only
+H_1(K_t; Z) remains, so p is bad if and only if p divides |tors H_1(K_t; Z)| for some t. By Theorem 4, such a p changes the
+barcode in degree 1, by (a), and in degree 2, by (b). On n = 90 each of the six bad primes changes exactly one
+H_1 interval and one H_2 interval. All six come from transient torsion in H_1(K_t; Z) for t ∈ [3564, 3568).
+The other 490 candidates divide particular minors but no torsion order.
+
+Classifying candidates through torsion orders, rather than by one rerun per candidate, is step 4 of
+`docs/ROADMAP.md`.
