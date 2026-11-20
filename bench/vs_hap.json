@@ -203,7 +203,9 @@
    "hap": {
     "GroupHomology": {
      "status": "timeout",
-     "wall_s": 300.0
+     "wall_s": 300.0,
+     "stage": "timed computation",
+     "note": "run separately without the limit (20 Nov 2026, once): GroupHomology(G, 6) took 556.0 s of HAP's Runtime(); its H_6, and H_1..H_3 from the cross-check, agree with Perseus"
     },
     "ResolutionNilpotentGroup": {
      "status": "ok",

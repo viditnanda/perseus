@@ -14,8 +14,9 @@ own "seconds" (reading and validating the table excluded). Both are the best of 
 REPEAT_BELOW = 10 s, which are run once. GroupHomology is timed as one call at the top degree, GroupHomology(G, D);
 the lower degrees are computed afterwards, untimed, for the cross-check (each call builds its own resolution, and the
 single call omits the lower-degree Smith forms, which favours HAP slightly). Each HAP process is limited to LIMIT
-seconds of wall clock (default 300); a run is recorded as "timeout" only when that limit stops it, and as "error",
-with the tail of GAP's output, when GAP fails.
+seconds of wall clock (default 300), start-up and cross-check included; a run is recorded as "timeout" only when that
+limit stops it during the timed computation, and as "error", with the tail of GAP's output, when GAP fails. If the
+limit falls in GroupHomology's untimed cross-check, the timed call's figure stands and only H_D is compared.
 
     python3 bench/vs_hap.py [--quick] [--out bench/vs_hap.json]
 
@@ -40,16 +41,26 @@ QUICK_H = [((16, 14), 6), ((27, 3), 6), ((64, 138), 6)]
 QUICK_R = [((32, 49), 4)]
 
 
+SIDE = os.path.join(TMP, "timed.txt")
+
+
 def gap_once(body):
     """One GAP run. Returns {"status": "ok" | "timeout" | "error", "runtime_s": HAP's Runtime() around the timed part
-    (ok only), "wall_s": wall clock of the whole process, "result": the printed result (ok only), "stderr": tail}."""
+    (ok only), "wall_s": wall clock of the whole process, "result": the printed result (ok only), "stderr": tail}.
+    A body may write "MS <ms> RES <result> END" to SIDE (AppendTo closes the file, so it survives the process being
+    killed) as soon as its timed part finishes; if the process then times out in its untimed cross-check, the timed
+    figure is kept: status "timeout", stage "cross-check", with "runtime_s" and "result" from SIDE."""
     path = os.path.join(TMP, "s.g")
     open(path, "w").write('LoadPackage("hap");; SizeScreen([4096, 24]);;\n' + body + "\nQUIT;\n")
+    if os.path.exists(SIDE): os.remove(SIDE)
     t0 = time.time()
     try:
         p = subprocess.run(["gap", "-q", "-o", "16g", path], capture_output=True, text=True, timeout=LIMIT)
     except subprocess.TimeoutExpired:
-        return {"status": "timeout", "wall_s": round(time.time() - t0, 1)}
+        r = {"status": "timeout", "wall_s": round(time.time() - t0, 1), "stage": "timed computation"}
+        m = re.search(r"MS (\d+) RES (.*?) END", open(SIDE).read().replace("\\\n", "").replace("\n", " ")) if os.path.exists(SIDE) else None
+        if m: r.update(stage="cross-check", runtime_s=int(m.group(1)) / 1000, result=json.loads(m.group(2).replace(" ", "")))
+        return r
     wall = round(time.time() - t0, 3)
     out = p.stdout.replace("\\\n", "").replace("\n", " ")
     m = re.search(r"MS (\d+) RES (.*?) END", out)
@@ -116,10 +127,15 @@ def main():
         runs = {}
         # GroupHomology: one call at the top degree is timed; the lower degrees are computed afterwards, untimed,
         # only for the cross-check (each GroupHomology call builds its own resolution)
-        r = gap(G + ' t := Runtime();; top := GroupHomology(G, %d);; ms := Runtime() - t;; H := Concatenation(List([1..%d], k -> GroupHomology(G, k)), [top]);; '
-                'Print("MS ", ms, " RES ", H, " END\\n");' % (D, D - 1))
+        r = gap(G + ' t := Runtime();; top := GroupHomology(G, %d);; ms := Runtime() - t;; AppendTo("%s", "MS ", ms, " RES ", top, " END\\n");; H := Concatenation(List([1..%d], k -> GroupHomology(G, k)), [top]);; '
+                'Print("MS ", ms, " RES ", H, " END\\n");' % (D, SIDE, D - 1))
+        if r.get("stage") == "cross-check":
+            # the timed call finished; only its top degree can be compared, and its time stands
+            if prime_powers(r["result"]) != ours[-1]: raise SystemExit("MISMATCH (GroupHomology, top degree) on SmallGroup%s" % (g,))
+            r = {"status": "ok", "runtime_s": r["runtime_s"], "wall_s": r["wall_s"], "runs": 1,
+                 "note": "cross-check of degrees < %d stopped by the time limit; H_%d compared" % (D, D)}
         runs["GroupHomology"] = r
-        if r["status"] == "ok" and [prime_powers(x) for x in r["result"]] != ours: raise SystemExit("MISMATCH (GroupHomology) on SmallGroup%s" % (g,))
+        if r["status"] == "ok" and "result" in r and [prime_powers(x) for x in r["result"]] != ours: raise SystemExit("MISMATCH (GroupHomology) on SmallGroup%s" % (g,))
         r = gap(G + ' if IsNilpotentGroup(G) then t := Runtime();; R := ResolutionNilpotentGroup(G, %d);; H := List([1..%d], k -> Homology(TensorWithIntegers(R), k));; '
                 'Print("MS ", Runtime() - t, " RES ", H, " END\\n"); else Print("MS 0 RES \\"not_nilpotent\\" END\\n"); fi;' % (D + 1, D))
         if r["status"] == "ok" and r["result"] == "not_nilpotent": r = {"status": "not applicable"}
