@@ -27,7 +27,9 @@
 //
 // Mod-p cohomology ring: cocycles on chains over F_p, and products by Yoneda composition: a cocycle alpha of
 // degree a lifts through h to a chain map alpha~ : P_{a+*} -> P_*, and (alpha . beta)(c) = beta(eps alpha~_b(c)).
-// This is the cup product up to the sign (-1)^(ab) (and equals it over F_2).
+// This is the cup product: pulled back to the normalised bar resolution through the comparison map built from h,
+// it agrees with the Alexander-Whitney cup product of the pulled-back cocycles up to a coboundary, with no sign
+// (tests/t_pcgroup.cpp checks this at p = 2, 3, 5, in degrees where the sign (-1)^(ab) would be visible).
 #pragma once
 #include <vector>
 #include <deque>
@@ -40,7 +42,6 @@
 #include <algorithm>
 #include <chrono>
 #include <numeric>
-#include <random>
 #include <queue>
 #include <climits>
 #include <cstdio>
@@ -99,12 +100,6 @@ struct PcGroup {
             std::fill(seen.begin(), seen.end(), 0); for (int b = 0; b < n; ++b) { if (seen[mul(a, b)]) throw std::invalid_argument("pc_group: not a group (a row of the table repeats an element)"); seen[mul(a, b)] = 1; }
             std::fill(seen.begin(), seen.end(), 0); for (int b = 0; b < n; ++b) { if (seen[mul(b, a)]) throw std::invalid_argument("pc_group: not a group (a column of the table repeats an element)"); seen[mul(b, a)] = 1; }
         }
-        if (n <= 512) {
-            for (int a = 0; a < n; ++a) for (int b = 0; b < n; ++b) { int ab = mul(a, b); for (int c = 0; c < n; ++c) if (mul(ab, c) != mul(a, mul(b, c))) throw std::invalid_argument("pc_group: the table is not associative"); }
-        } else {                                  // a random sample of 10^6 triples
-            std::mt19937_64 rng(12345);
-            for (int t = 0; t < 1000000; ++t) { int a = rng() % n, b = rng() % n, c = rng() % n; if (mul(mul(a, b), c) != mul(a, mul(b, c))) throw std::invalid_argument("pc_group: the table is not associative"); }
-        }
         inv.assign(n, -1);
         for (int a = 0; a < n; ++a) for (int b = 0; b < n; ++b) if (mul(a, b) == e) { inv[a] = b; break; }
         gen = pcgs; k = (int)gen.size();
@@ -137,6 +132,9 @@ struct PcGroup {
             if (code[g] != -1) throw std::invalid_argument("pc_group: not a pcgs (two collected words give the same element)");
             code[g] = c; of_code[c] = g;
         }
+        // Light's associativity test: the s with (x s) y = x (s y) for all x, y are closed under products, and every
+        // element is a product of pcgs elements (the collected words above), so checking s in the pcgs is exact
+        for (int s2 : gen) for (int x = 0; x < n; ++x) { int xs = mul(x, s2); for (int y = 0; y < n; ++y) if (mul(xs, y) != mul(x, mul(s2, y))) throw std::invalid_argument("pc_group: the table is not associative"); }
         // G_{i+1} = the elements whose exponents vanish at 1..i: check f_i^r_i and f_i^-1 f_j f_i (j > i) lie there
         auto in_tail = [&](int g, int i) { for (int j = 0; j <= i; ++j) if (ex(g, j)) return false; return true; };
         for (int i = 0; i < k; ++i) {
@@ -430,6 +428,7 @@ struct CohomologyRing {
     std::vector<size_t> indecomposables;              // minimal ring generators in degree n (index n; n >= 1)
     std::vector<std::pair<int, int>> generators;      // (degree, basis index) of a choice of minimal generators
     std::map<std::tuple<int, int, int, int>, std::vector<uint32_t>> products;   // (a, i, b, j), a <= b: coordinates
+    std::vector<std::vector<std::vector<std::pair<int32_t, uint32_t>>>> basis;   // basis[n][i]: a cocycle on the Anick n-chains
 };
 struct PcResult {
     bool has_homology = false, has_ring = false;
@@ -626,6 +625,7 @@ inline CohomologyRing cohomology_ring(const PcGroup& G, int maxdim, int p, size_
         R.indecomposables[n] = R.dims[n] - E.rows.size();
         for (size_t i = 0; i < R.dims[n]; ++i) if (!E.rows.count((int32_t)i)) R.generators.push_back({n, (int)i});
     }
+    R.basis = basis;
     if (states_out) *states_out = A.states();
     return R;
 }

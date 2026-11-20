@@ -467,7 +467,7 @@ int main(int argc, char** argv) {
                 for (auto x : R.R.dims) printf(" %zu", x);
                 printf("\n  minimal generators by degree (n = 1..%d):", md);
                 for (int d = 1; d <= md; ++d) printf(" %zu", R.R.indecomposables[d]);
-                printf("\n  (products: --print json; they are Yoneda products, the cup product up to the sign (-1)^(ab))\n");
+                printf("\n  (all products of basis classes: --print json; they are cup products)\n");
             }
             if (o.stats) { printf("  [Anick chains per degree:"); for (auto c : R.chains) printf(" %zu", c); printf("; %zu homotopy states]\n", R.states); }
             return 0;

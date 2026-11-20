@@ -10,6 +10,8 @@
 #include <fstream>
 #include <sstream>
 #include <functional>
+#include <array>
+#include <map>
 using namespace perseus::pcg;
 
 static int fails = 0, checks = 0;
@@ -77,6 +79,70 @@ static void check_uct(const Grp& G, const GroupHomology& H, int D) {
             CHECK(R.dims[n] == expect, G.name + ": UCT mod " + std::to_string(p) + " in degree " + std::to_string(n) + ": ring " + std::to_string(R.dims[n]) + " vs " + std::to_string(expect));
         }
     }
+}
+
+
+// The ring products against the Alexander-Whitney cup product, on cocycles: pull the basis cocycles back to the
+// normalised bar resolution through the comparison map f_m = h o f_{m-1} o d, and compare the AW cup of the pull-backs
+// with the pull-back of our product modulo bar coboundaries; also against (-1)^(ab) times it. Returns
+// {agree only with the cup, agree only with the twisted product, agree with both (sign invisible), neither}.
+static std::array<int, 4> cup_versus_aw(const Grp& g, int D) {
+    PcGroup P(g.T, g.pcgs, g.rel, g.e);
+    int p = P.rel[0], n = P.n; const u64 N = (u64)n;
+    CohomologyRing R = cohomology_ring(P, D, p);
+    Anick A(P, D + 1, p);
+    std::vector<int> ne; for (int x = 0; x < n; ++x) if (x != P.e) ne.push_back(x);
+    std::map<std::vector<int>, Vec> fmemo;
+    std::function<Vec(const std::vector<int>&)> f = [&](const std::vector<int>& b) -> Vec {
+        auto it = fmemo.find(b); if (it != fmemo.end()) return it->second;
+        size_t m = b.size(); Vec out;
+        if (m == 0) out = Vec{{(u64)P.e, 1}};
+        else {
+            std::vector<std::pair<u64, i64>> acc;
+            auto add = [&](const Vec& v, i64 s, int right) { for (auto& kv : v) acc.push_back({(kv.first / N) * N + (u64)P.mul((int)(kv.first % N), right), ((s * kv.second) % p + p) % p}); };
+            add(f(std::vector<int>(b.begin(), b.end() - 1)), 1, b[m - 1]);         // d[g1..gm] = [g1..g_{m-1}] g_m + ...
+            for (size_t i = 0; i + 1 < m; ++i) { int y = P.mul(b[i], b[i + 1]); if (y == P.e) continue; std::vector<int> c(b); c[i] = y; c.erase(c.begin() + i + 1); add(f(c), ((m - (i + 1)) % 2) ? -1 : 1, P.e); }
+            add(f(std::vector<int>(b.begin() + 1, b.end())), (m % 2) ? -1 : 1, P.e);
+            Vec X; normalize(acc, p, X); A.hvec((int)m - 1, X, out);
+        }
+        return fmemo[b] = out;
+    };
+    auto pull = [&](int deg, const std::vector<std::pair<int32_t, uint32_t>>& coc, const std::vector<int>& b) {
+        std::vector<i64> c(A.C.size(deg), 0); for (auto& kv : coc) c[kv.first] = kv.second;
+        i64 s = 0; for (auto& kv : f(b)) s += kv.second * c[kv.first / N]; return s % p;
+    };
+    auto cells = [&](int m) { std::vector<std::vector<int>> out(1); for (int k = 0; k < m; ++k) { std::vector<std::vector<int>> o2; for (auto& c : out) for (int x : ne) { auto d = c; d.push_back(x); o2.push_back(d); } out.swap(o2); } return out; };
+    std::array<int, 4> res{0, 0, 0, 0};
+    for (int b = 1; 1 + b <= D; ++b) {
+        int a = 1, m = a + b; auto cm = cells(m);
+        std::map<std::vector<int>, std::map<int32_t, i64>> rows;               // coboundaries of indicators of (m-1)-cells
+        for (size_t j = 0; j < cm.size(); ++j) {
+            const auto& c0 = cm[j];
+            auto term = [&](const std::vector<int>& face, int s) { i64& v = rows[face][(int32_t)j]; v = ((v + s) % p + p) % p; };
+            term(std::vector<int>(c0.begin(), c0.end() - 1), 1);
+            for (size_t i = 0; i + 1 < (size_t)m; ++i) { int y = P.mul(c0[i], c0[i + 1]); if (y == P.e) continue; std::vector<int> c(c0); c[i] = y; c.erase(c.begin() + i + 1); term(c, ((m - (i + 1)) % 2) ? -1 : 1); }
+            term(std::vector<int>(c0.begin() + 1, c0.end()), (m % 2) ? -1 : 1);
+        }
+        Echelon E(p); for (auto& kv : rows) { SV v; for (auto& t : kv.second) if (t.second) v.push_back({t.first, (uint32_t)t.second}); E.insert(v); }
+        for (size_t i = 0; i < R.basis[a].size(); ++i) for (size_t j = 0; j < R.basis[b].size(); ++j) {
+            auto it = R.products.find(std::make_tuple(a, (int)i, b, (int)j)); if (it == R.products.end()) continue;
+            std::vector<i64> ours(A.C.size(m), 0);
+            for (size_t t = 0; t < it->second.size(); ++t) if (it->second[t]) for (auto& kv : R.basis[m][t]) ours[kv.first] = (ours[kv.first] + (i64)it->second[t] * kv.second) % p;
+            std::vector<std::pair<int32_t, uint32_t>> oc; for (size_t c = 0; c < ours.size(); ++c) if (ours[c]) oc.push_back({(int32_t)c, (uint32_t)ours[c]});
+            SV d1, d2;
+            for (size_t c = 0; c < cm.size(); ++c) {
+                const auto& bc = cm[c];
+                i64 cup = pull(a, R.basis[a][i], std::vector<int>(bc.begin(), bc.begin() + a)) * pull(b, R.basis[b][j], std::vector<int>(bc.begin() + a, bc.end())) % p;
+                i64 pr = pull(m, oc, bc), tw = (a * b) % 2 ? (p - pr) % p : pr;
+                i64 x = ((cup - pr) % p + p) % p, y = ((cup - tw) % p + p) % p;
+                if (x) d1.push_back({(int32_t)c, (uint32_t)x});
+                if (y) d2.push_back({(int32_t)c, (uint32_t)y});
+            }
+            E.reduce(d1); E.reduce(d2);
+            if (d1.empty() && d2.empty()) ++res[2]; else if (d1.empty()) ++res[0]; else if (d2.empty()) ++res[1]; else ++res[3];
+        }
+    }
+    return res;
 }
 
 int main() {
@@ -147,6 +213,14 @@ int main() {
         }
         check_uct(P, C, 5);
     }
+    // 3b. the products are cup products: against Alexander-Whitney on the bar resolution, on cocycles
+    for (auto ng : std::vector<std::pair<std::string, Grp>>{{"(Z/3)^2", elem_abelian(3, 2)}, {"(Z/5)^2", elem_abelian(5, 2)}, {"(Z/2)^3", elem_abelian(2, 3)},
+                                                           {"Q8", metacyclic(4, true, "Q8")}, {"SmallGroup(27,3)", read_fixture("tests/fixtures/pcgroups/g27_3.txt")}}) {
+        auto r = cup_versus_aw(ng.second, 3);
+        CHECK(r[3] == 0, ng.first + ": a product agrees with neither the cup product nor its twist");
+        CHECK(r[1] == 0, ng.first + ": a product agrees only with (-1)^(ab) times the cup product");
+        if (ng.first == "(Z/3)^2" || ng.first == "(Z/5)^2") CHECK(r[0] > 0, ng.first + ": no pair where the sign is visible was tested");
+    }
     // 4. HAP and Green-King ground truth
     std::string dir = "tests/fixtures/pcgroups/";
     std::ifstream ex(dir + "expected.txt"); std::string line;
@@ -177,6 +251,15 @@ int main() {
     { Grp G = metacyclic(4, false, "D8"); std::swap(G.T[1][2], G.T[1][3]); CHECK(rejects([&] { PcGroup(G.T, G.pcgs, G.rel, G.e); }), "a table that is not a group is rejected"); }
     { Grp G = cyclic(8); auto T = G.T; T[3][5] = 1; CHECK(rejects([&] { PcGroup(T, G.pcgs, G.rel, 0); }), "a corrupted table is rejected"); }
     { Grp G = metacyclic(4, false, "D8"); CHECK(rejects([&] { PcGroup(G.T, {1, 2, 4}, {4, 2, 2}, 0); }), "a sequence that is not a pcgs is rejected"); }
+    {   // a loop that is not a group: (Z/2)^3 with an intercalate swapped. It has an identity, is a Latin square and passes
+        // every pcgs check, so only the associativity test (Light's, on the pcgs) can reject it
+        Grp G = elem_abelian(2, 3); auto& T = G.T;
+        std::swap(T[1][4], T[1][7]); std::swap(T[2][4], T[2][7]);
+        bool latin = true; for (int a = 0; a < 8; ++a) { std::vector<int> r(8, 0), c(8, 0); for (int b = 0; b < 8; ++b) { if (r[T[a][b]]++) latin = false; if (c[T[b][a]]++) latin = false; } }
+        CHECK(latin, "the intercalate swap keeps a Latin square");
+        std::string msg; try { PcGroup(T, G.pcgs, G.rel, 0); } catch (const std::invalid_argument& ex) { msg = ex.what(); }
+        CHECK(msg.find("associative") != std::string::npos, "a non-associative loop is rejected by the associativity test: " + msg);
+    }
     printf("t_pcgroup: %d checks, %d failures\n", checks, fails);
     return fails ? 1 : 0;
 }

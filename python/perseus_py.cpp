@@ -502,6 +502,8 @@ PYBIND11_MODULE(_perseus, m) {
             py::list gens; for (auto& x : R.R.generators) gens.append(py::make_tuple(x.first, x.second)); c["generators"] = gens;
             py::dict prods; for (auto& kv : R.R.products) prods[py::make_tuple(std::get<0>(kv.first), std::get<1>(kv.first), std::get<2>(kv.first), std::get<3>(kv.first))] = kv.second;
             c["products"] = prods;
+            py::list basis; for (auto& deg : R.R.basis) { py::list l; for (auto& v : deg) { py::list cv; for (auto& kv : v) cv.append(py::make_tuple(kv.first, kv.second)); l.append(cv); } basis.append(l); }
+            c["basis"] = basis;
             res["cohomology"] = c;
         }
         return res;
@@ -513,7 +515,8 @@ PYBIND11_MODULE(_perseus, m) {
        "homology: H_n(G; Z) for n <= maxdim, as {'degree', 'free', 'torsion': invariant factors}.\n"
        "ring=p: the mod-p cohomology ring through degree maxdim: dims, minimal generators by degree, a choice of\n"
        "generators (degree, basis index), and products {(a, i, b, j): coordinates in the basis of H^{a+b}} for a <= b;\n"
-       "these are Yoneda products, the cup product up to the sign (-1)^(ab).\n"
+       "these are cup products (computed by Yoneda composition, checked against Alexander-Whitney); basis: the\n"
+       "cocycles on the Anick chains, basis[n][i].\n"
        "tools/export_pcgroup.g writes these inputs from GAP; perseus.read_pcgroup(path) reads them.");
 
     m.def("simplices", [](std::vector<std::pair<std::vector<int>, double>> simp, int maxdim, py::object coeff, bool classify, int threads,
