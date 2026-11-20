@@ -13,6 +13,7 @@
 #include "perseus/simplicial_set.hpp"
 #include "perseus/magnitude.hpp"
 #include "perseus/laurent.hpp"
+#include "perseus/torsion.hpp"
 #include <thread>
 #include <cmath>
 
@@ -38,6 +39,8 @@ struct SolveOpts {
     std::vector<uint64_t> fp;
     std::string seed;
     double target = 64;
+    std::string classify_by = "auto";
+    bool torsion = false;
 };
 static SolveOpts make_opts(py::object coeff, bool classify, int threads, std::vector<uint64_t> fp, std::string mode, py::object seed, double target) {
     SolveOpts o; o.coeff = py::str(coeff).cast<std::string>(); o.classify = classify; o.threads = threads; o.fp = std::move(fp);
@@ -56,6 +59,13 @@ static py::dict solve(const B& be, const SolveOpts& o) {
     bool qmode = (o.coeff == "Q" || o.coeff == "q" || o.coeff == "0");
     if (qmode) {
         CertifyOptions co; co.threads = threads; co.classify = o.classify; co.mode = o.mode; co.seed = o.seed; co.target_log2 = -o.target;
+        const Prepared* prep = prepared_of(be);
+        torsion::Cache tcache;
+        if (o.classify_by != "auto" && o.classify_by != "sweep" && o.classify_by != "rerun") throw std::invalid_argument("classify_by must be 'auto', 'sweep' or 'rerun'");
+        if (prep && o.classify_by != "rerun")
+            { co.sweep_policy = o.classify_by == "sweep" ? "sweep" : "auto"; }
+            co.sweep = [&](const Certificate& c, const Barcode& qb, int kmax, double budget, const std::set<uint64_t>& skip, std::vector<BadPrime>& bad, std::string& diag) {
+                return torsion::classify(*prep, c, qb, kmax, threads, be.keep_zero_length, bad, tcache, &diag, budget, skip); };
         std::pair<BRun<typename B::Clear>, Certificate> r;
         { py::gil_scoped_release nogil; r = certify(be, co); }
         const Certificate& c = r.second;
@@ -104,6 +114,30 @@ static py::dict solve(const B& be, const SolveOpts& o) {
         py::dict secs; secs["Q"] = c.t_q; secs["factoring"] = c.t_recon; secs["classification"] = c.t_classify;
         cert["seconds"] = secs;
         res["certificate"] = cert;
+        if (o.torsion) {
+            if (!prep) throw std::invalid_argument("torsion=True: explicit complexes only");
+            if (!c.barcode_ok || !c.candidates_complete()) throw std::runtime_error("torsion=True: the candidate primes are not completely known");
+            torsion::TorsionResult T;
+            { py::gil_scoped_release nogil; T = torsion::trajectory(*prep, c, std::min(be.maxdim(), prep->D), threads, tcache, torsion::primes_to_follow(c)); }
+            py::dict D;
+            for (auto& tr : T.degrees) {
+                py::list steps;
+                for (auto& st : tr.steps) {
+                    py::dict sd; sd["value"] = st.value;
+                    py::list inv; for (auto& x : torsion::invariant_factors(T, st)) inv.append(bigint_to_py(x));
+                    sd["invariant_factors"] = inv;
+                    py::dict prim; for (auto& pe : st.primary) prim[bigint_to_py(T.factors[pe.first].p)] = py::cast(pe.second);
+                    sd["primary"] = prim;
+                    steps.append(sd);
+                }
+                D[py::int_(tr.degree)] = steps;
+            }
+            py::dict tor; tor["degrees"] = D;
+            py::list grp; for (auto& F : T.factors) if (F.group) grp.append(bigint_to_py(F.p));
+            tor["groups"] = grp; tor["complete"] = T.complete; tor["proof"] = c.mode != "fast" && c.certified(); tor["seconds"] = T.seconds; tor["sweeps"] = T.sweeps;
+            if (!T.note.empty()) tor["note"] = T.note;
+            res["torsion"] = tor;
+        }
     } else {
         uint64_t p = std::stoull(o.coeff);
         if (!is_prime64(p)) throw std::invalid_argument("coeff must be 'Q' or a prime");
@@ -299,6 +333,7 @@ static RipsInput rips_from_numpy(py::object points, py::object distances) {
     return R;
 }
 
+#define TORSION_ARGS py::arg("torsion") = false, py::arg("classify_by") = "auto"
 #define COMMON_ARGS py::arg("coeff") = "Q", py::arg("classify") = true, py::arg("threads") = 0, \
     py::arg("fp") = std::vector<uint64_t>(), py::arg("mode") = "proved", py::arg("seed") = py::none(), py::arg("target") = 64.0
 
@@ -336,8 +371,9 @@ PYBIND11_MODULE(_perseus, m) {
        "Clique (flag) filtration of a weighted graph: edges as (u, v, birth); optional vertex births.");
 
     m.def("cells", [](std::vector<std::tuple<int, double, std::vector<std::pair<int32_t, int64_t>>>> cells, int maxdim, bool zero_length,
-                      std::string direction, bool reduce, bool integral, py::object image, py::object coeff, bool classify, int threads, std::vector<uint64_t> fp, std::string mode, py::object seed, double target) {
-        SolveOpts o = make_opts(coeff, classify, threads, fp, mode, seed, target);
+                      std::string direction, bool reduce, bool integral, py::object image, py::object coeff, bool classify, int threads, std::vector<uint64_t> fp, std::string mode, py::object seed, double target,
+                      bool torsion, std::string classify_by) {
+        SolveOpts o = make_opts(coeff, classify, threads, fp, mode, seed, target); o.torsion = torsion; o.classify_by = classify_by;
         FilteredComplex C;
         for (auto& t : cells) {
             for (auto& fc : std::get<2>(t)) if (fc.first < 0 || (size_t)fc.first >= C.size()) throw std::invalid_argument("cells: a face must be an earlier cell");
@@ -345,19 +381,22 @@ PYBIND11_MODULE(_perseus, m) {
         }
         return solve_chain(std::move(C), maxdim, zero_length, direction, reduce, integral, image, o);
     }, py::arg("cells"), py::arg("maxdim") = -1, py::arg("zero_length") = false, py::arg("direction") = "auto",
-       py::arg("reduce") = true, py::arg("integral") = false, py::arg("image") = py::none(), COMMON_ARGS,
+       py::arg("reduce") = true, py::arg("integral") = false, py::arg("image") = py::none(), COMMON_ARGS, TORSION_ARGS,
        "Filtered based chain complex over Z: list of (dim, birth, [(face index, integer coefficient), ...]).\n"
        "d o d = 0 is checked exactly; unit pairs with equal births are cancelled first (reduce=False to skip).\n"
        "integral=True adds the integral homology of the whole complex and the F_p barcode of each bad prime;\n"
-       "image=(s, t) adds the image of H_*(K_s; Z) -> H_*(K_t; Z).");
+       "image=(s, t) adds the image of H_*(K_s; Z) -> H_*(K_t; Z).\n"
+       "torsion=True adds the torsion of H_q(K_t; Z) at every t where it changes (invariant factors and p-primary\n"
+       "exponents); classify_by='sweep' | 'rerun' | 'auto' chooses how candidate primes are classified.");
 
     m.def("simplicial_set", [](py::list simplices, int maxdim, bool zero_length, bool reduce, bool integral, py::object image,
-                               py::object coeff, bool classify, int threads, std::vector<uint64_t> fp, std::string mode, py::object seed, double target) {
-        SolveOpts o = make_opts(coeff, classify, threads, fp, mode, seed, target);
+                               py::object coeff, bool classify, int threads, std::vector<uint64_t> fp, std::string mode, py::object seed, double target,
+                               bool torsion, std::string classify_by) {
+        SolveOpts o = make_opts(coeff, classify, threads, fp, mode, seed, target); o.torsion = torsion; o.classify_by = classify_by;
         SimplicialSet S = sset_from_py(simplices);
         return solve_chain(S.chains(), maxdim, zero_length, "auto", reduce, integral, image, o);
     }, py::arg("simplices"), py::arg("maxdim") = -1, py::arg("zero_length") = false, py::arg("reduce") = true,
-       py::arg("integral") = false, py::arg("image") = py::none(), COMMON_ARGS,
+       py::arg("integral") = false, py::arg("image") = py::none(), COMMON_ARGS, TORSION_ARGS,
        "Finite filtered simplicial set: list of nondegenerate simplices (dim, birth, [d_0 x, ..., d_n x]); a face\n"
        "is an earlier simplex y or (y, [k1, ..., km]) for s_{k1} ... s_{km} y. Normalised chains.");
 
@@ -484,14 +523,16 @@ PYBIND11_MODULE(_perseus, m) {
        "table[(k, l)] = {'free': rank, 'torsion': {order: multiplicity}, 'generators': ..., 'after_reduction': ...}.");
 
     m.def("simplices", [](std::vector<std::pair<std::vector<int>, double>> simp, int maxdim, py::object coeff, bool classify, int threads,
-                          std::vector<uint64_t> fp, std::string mode, py::object seed, double target) {
-        SolveOpts o = make_opts(coeff, classify, threads, fp, mode, seed, target);
+                          std::vector<uint64_t> fp, std::string mode, py::object seed, double target, bool torsion, std::string classify_by) {
+        SolveOpts o = make_opts(coeff, classify, threads, fp, mode, seed, target); o.torsion = torsion; o.classify_by = classify_by;
         SimplicialBuilder B; for (auto& s : simp) B.add(s.first, s.second);
         FilteredComplex C = B.build();
         Prepared P(C); int md_ = maxdim < 0 ? P.D : maxdim; ExplicitBackend be(P, md_, auto_direction(P, md_));
         return solve(be, o);
-    }, py::arg("simplices"), py::arg("maxdim") = -1, COMMON_ARGS,
-       "Simplicial complex from (vertices, birth) pairs; faces get the minimum birth of their cofaces.");
+    }, py::arg("simplices"), py::arg("maxdim") = -1, COMMON_ARGS, TORSION_ARGS,
+       "Simplicial complex from (vertices, birth) pairs; faces get the minimum birth of their cofaces.\n"
+       "torsion=True adds the torsion of H_q(K_t; Z) at every t where it changes, e.g. along a Linial-Meshulam\n"
+       "process: invariant factors and p-primary exponents.");
 
     m.def("cubical", [](py::array_t<double, py::array::forcecast> top_in, std::vector<bool> periodic, int maxdim, std::string engine,
                         py::object coeff, bool classify, int threads, std::vector<uint64_t> fp, std::string mode, py::object seed, double target) {

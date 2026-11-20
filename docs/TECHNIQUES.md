@@ -95,10 +95,12 @@ Glisse, `Persistence_on_rectangle_from_top_cells.h` (GUDHI, 2023, MIT licence), 
 
 Numbers that still resist are not factored further. A run modulo such an N either splits it (a pivot shares a factor with N) or proves that all its prime factors give the same barcode. This is the idea of computing modulo a number as if it were prime and learning from the failure, as in Lenstra's elliptic-curve method; here it settles every prime factor at once. Multi-limb Montgomery arithmetic is in `numtheory.hpp`.
 
+**2.6 Howell forms over Z/m (`howell.hpp`).** A strong echelon form for submodules of (Z/m)^n, m composite: one basis vector per leading row, whose leading entry generates an ideal (d) with d | m, closed under the annihilator multiples (m/d)·u. Over Z/m = ∏ Z/p^k it is the product of the forms over the factors, and the span has ∏ |(d_r)| elements. Howell, *Spans in the module (Z_m)^s*, Linear and Multilinear Algebra 19 (1986); Storjohann, *Algorithms for matrix canonical forms*, PhD thesis, ETH Zürich 2000, ch. 4. Perseus keeps one incrementally as the columns of a boundary matrix arrive, with leading row = the latest-born row (as in a column reduction), extended gcds where a new entry does not lie in the row's ideal, in one word (m < 2^63, 128-bit products) or in big integers.
+
 ## 3. Field dependence: the mathematics we rely on
 
 **3.1 Bad primes and relative torsion.** The F_p barcode differs from the Q barcode exactly when some relative homology group H_q(X_n, X_m; Z) has p-torsion.
-Obayashi, Yoshiwaki, *Field choice problem in persistent homology*, DCG 2023. Their algorithm decides field independence for a given complex.
+Obayashi, Yoshiwaki, *Field choice problem in persistent homology*, DCG 2023. Their algorithm decides field independence for a given complex. Luo, Henselman-Petrusek, *Interval decomposition of persistence modules over a principal ideal domain* (arXiv:2310.07971) and its sequel (arXiv:2511.07614): splitting over a PID iff free cokernels, and field independence. The per-prime, per-degree form that Perseus uses is Theorem 4 of `docs/CERTIFICATE.md` §7, proved by localising at p.
 
 **3.2 Torsion in random complexes.** Context for the experiments, not used by the code:
 Kahle, Lutz, Newman, Parsons, *Cohen–Lenstra heuristics for torsion in homology of random complexes*, Exp. Math. 2020; Linial, Peled, *On the phase transition in random simplicial complexes*, Ann. Math. 2016; Aronshtam, Linial, Łuczak, Meshulam, *Collapsibility and vanishing of top homology in random simplicial complexes*, DCG 2013; Kahle, *Topology of random clique complexes*, Discrete Math. 2009.
@@ -183,6 +185,11 @@ The output is the Q barcode, a complete description of the bad primes (explicitl
   * The processing loops prefetch two levels ahead: the pixel's neighbourhood, then the pointer targets.
   * The Python module passes the NumPy array to the engine without copying it.
 
+**4.8 Batched classification and torsion trajectories (`torsion.hpp`).** Two uses of the Howell sweeps of 2.6, `docs/CERTIFICATE.md` §3 and §7.
+* *Classification.* A sweep modulo a product of distinct primes gives every factor's F_p pairs at once (Lemma 5), without the splits that defeat a plain run modulo a composite (a run modulo N must stop at every zero divisor, and every candidate divides some pivot). Small candidates are packed into 62-bit moduli per degree; a reference prime dividing no pivot value supplies the Q pairs. On Linial–Meshulam processes this replaces 386 reruns by 124 sweeps (n = 90). Sweeps skip clearing, so on Rips complexes with few candidates they lose badly; `auto` decides per input from a timed sample of reruns and reference sweeps run under that budget (`bench/classify_auto.py`).
+* *Torsion trajectories.* Modulo p^k, the span lengths give Σ min(a_i, k) for the p-primary exponents a_i of tors H_q(K_t; Z), at every t in one sweep. With the theorem's Steps 2–3 this yields the invariant factors of H_q(K_t; Z) at every step of a filtration: for a Linial–Meshulam process, the transient torsion near the threshold in full, including 117-bit primes and unfactored composites. We know of no other tool that outputs this; studies of torsion in random complexes (3.2) compute Smith forms of the final complex, or at chosen times.
+* *What did not work.* Classifying through relative torsion orders directly (one Smith form per value quadrant) is hopeless off ties: on inputs with distinct values almost every candidate is bad and the quadrant family has up to 10^10 members (`docs/ROADMAP.md`, step 4).
+
 ## 5. Chain complexes over Z, simplicial sets, magnitude homology, Laurent coefficients
 
 **5.1 Filtered based chain complexes over Z (`chain.hpp`).** Cells with integer boundary coefficients and births. Validation checks that faces are earlier cells of one dimension less, born no later, and that d∘d = 0 exactly (128-bit accumulation, bigints when that overflows).
@@ -217,6 +224,6 @@ Pseudo-remainder sequences: Collins, *Subresultants and reduced polynomial remai
 
 ## 6. Not used yet, but planned
 
-* Classifying candidate primes cheaply (2.5): restart each prime from the first column whose pivot it divides, from checkpoints of the Q reduction. Batching by a composite modulus helps only up to the first split, because every candidate divides some pivot. Classification dominates on torsion-heavy complexes such as Linial–Meshulam near c_2. `docs/ROADMAP.md`, step 2.
+* Classifying candidate primes still more cheaply: the batched sweeps of 4.8 cover small candidates on explicit complexes; candidates of at least 2^63 are still one run each modulo N, and Rips and cubical inputs still rerun every candidate. `docs/ROADMAP.md`, step 4.
 * Discrete Morse pre-reduction (1.11) for simplicial and Rips inputs; finite twisted coefficients Z[t]/(t^n − 1) for Milnor fibres.
 * Parallel column reduction: Morozov, Nigmetov, *Towards lockfree persistent homology*, SPAA 2020; giotto-ph (Burella Pérez et al., 2021).

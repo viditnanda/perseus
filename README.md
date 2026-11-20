@@ -8,9 +8,9 @@ One run gives you:
 * the complete list of *bad primes* — the p for which F_p coefficients give a different barcode — and, for each, exactly which intervals change,
 * the exact rational values of all non-unit pivots, which explain where the torsion lives.
 
-Beyond simplicial and cubical complexes, Perseus 6 takes filtered simplicial sets, nerves of finite categories and arbitrary filtered chain complexes over Z, and returns integral information: the torsion of the homology, the image of H_*(K_s; Z) → H_*(K_t; Z), and the F_p barcode of every bad prime. It computes magnitude homology of graphs over Z, torsion included, and handles chain complexes over the Laurent ring Z[t, t^-1] (infinite cyclic covers, Novikov homology). See [Chain complexes over Z and beyond](#chain-complexes-over-z-and-beyond).
+Beyond simplicial and cubical complexes, Perseus 6 takes filtered simplicial sets, nerves of finite categories and arbitrary filtered chain complexes over Z, and returns integral information: the torsion of the homology, the image of H_*(K_s; Z) → H_*(K_t; Z), the F_p barcode of every bad prime, and the torsion of H_q(K_t; Z) at every step of a filtration (for instance along a Linial–Meshulam process; see [Torsion along a filtration](#torsion-along-a-filtration)). It computes magnitude homology of graphs over Z, torsion included, and handles chain complexes over the Laurent ring Z[t, t^-1] (infinite cyclic covers, Novikov homology). See [Chain complexes over Z and beyond](#chain-complexes-over-z-and-beyond).
 
-By default the Q reduction runs in exact int64 arithmetic. Then the certificate is a proof, at about the cost of an F_p run. When the numbers outgrow int64, as on torsion-heavy inputs, Perseus switches to a run modulo random 62-bit primes and reports a rigorous bound on the probability of error. `--proved` insists on exact arithmetic throughout. See [docs/CERTIFICATE.md](docs/CERTIFICATE.md).
+The Q reduction is exact, so the certificate is a proof: int64 arithmetic while it fits, at about the cost of an F_p run, and exact big rationals in degrees where it overflows, as on torsion-heavy inputs. `--mode fast` runs modulo random 62-bit primes instead and reports a rigorous bound on the probability of error; it is not a proof, and says so. See [docs/CERTIFICATE.md](docs/CERTIFICATE.md).
 
 Perseus 6 is a rewrite from scratch. It does not read the old Perseus 4/5 input formats directly; `tools/convert_legacy.py` turns old files into new ones (see [Old Perseus files](#old-perseus-files)).
 
@@ -56,9 +56,24 @@ Run the reduction over Q and look at the pivots. If a prime p divides no numerat
 1. **Reduces over Q, exactly.** By default (`--mode proved`; `--mode auto` is the same) the reduction runs in exact rational arithmetic: int64 numerators and denominators with every operation overflow-checked, and, in a degree where they overflow, rationals that stay in int64 while they fit and become big integers only where they must. The barcode and the pivot values are exact, so the certificate is a proof. `--mode fast` reduces modulo K random primes from [2^61, 2^62) instead and reports a bound on the probability of error that holds for every input (default below 2^-64; `--target`). It is not a proof, and every output says so: a warning on stderr, `"proof": false` and a `"warning"` entry in the JSON, and a Python warning. The bound is over a fresh 256-bit seed; `--seed` reproduces a run but does not certify it.
 2. **Reconstructs** non-unit pivot values in fast mode, by Wang reconstruction checked against two independent primes.
 3. **Factors** the pivot values: trial division, division by primes already found, Pollard–Brent rho, and gcds between leftovers. Large primes and unsplit composites N are not factored further.
-4. **Settles every candidate.** Primes below 2^63 are settled by reruns over F_p, in parallel. Each remaining N is settled by one run modulo N. Either the run splits N, or every prime factor of N gives the same barcode. Then the certificate states the answer for all of them at once, e.g. "every prime factor of N is bad", without knowing the factors.
+4. **Settles every candidate.** Primes below 2^63 are rerun over F_p, in parallel. On explicit complexes (simplices, cells, simplicial sets) they can instead be packed into 62-bit moduli and settled by one sweep per modulus over Z/m in Howell form, which gives every packed prime's F_p barcode at once. By default a timed sample of reruns decides which is cheaper for the input at hand (`--classify-by auto|sweep|rerun`). Each remaining N is settled by one run modulo N. Either the run splits N, or every prime factor of N gives the same barcode. Then the certificate states the answer for all of them at once, e.g. "every prime factor of N is bad", without knowing the factors.
 
-The output states what is guaranteed about the barcode (`proved`, or `probabilistic` with the bound), and whether the description of the bad primes is complete. Field dependence of persistence is governed by torsion in the relative homology H_q(X_n, X_m; Z) (Obayashi–Yoshiwaki). The pivots above are where that torsion is detected.
+The output states what is guaranteed about the barcode (`proved`, or `probabilistic` with the bound), and whether the description of the bad primes is complete. Field dependence of persistence is governed by torsion in the relative homology H_q(X_n, X_m; Z) (Obayashi–Yoshiwaki): p is bad in degree q exactly when some H_q(K_j, K_i; Z) or H_{q−1}(K_i; Z) has p-torsion (`docs/CERTIFICATE.md` §7, Theorem 4). The pivots above are where that torsion is detected.
+
+## Torsion along a filtration
+
+For explicit complexes, `--torsion` (Python: `torsion=True`) adds the torsion of H_q(K_t; Z) at every value t where it changes: its invariant factors and, for each prime, the exponents of its p-primary part. Nothing is sampled. The trajectory comes from sweeps of the boundary matrices modulo p, p^2, … for the bad primes, batched into 62-bit words, with big integers for larger primes and for composites that could not be factored (`docs/CERTIFICATE.md` §7). This is what studies of torsion in random complexes look at (Kahle–Lutz–Newman–Parsons), at every step of the process. On a Linial–Meshulam process near the threshold (`bench/certify_lm.py`, n = 90; all edges at time 1, then triangles one by one):
+
+```
+$ perseus simplices lm90_4000.txt --torsion --print none
+...
+torsion of H_1(K_t; Z), where it changes:
+  t = 3564: Z/2
+  t = 3565: Z/109384485698954982065478566306368771057679577324100
+  t = 3568: 0
+```
+
+The big cyclic group is 2^2 · 5^2 · 479 · 22303 · 1157339 · p with p a 117-bit prime. These are exactly the bad primes, as Theorem 4 predicts when the whole 1-skeleton comes first. d-dimensional processes work the same way (complete (d−1)-skeleton, then d-simplices; torsion in H_{d−1}), as does any filtration of a simplicial complex, simplicial set or chain complex over Z, with ties or without. The results were checked against FLINT Smith forms at every t on small processes and random chain complexes, and at 194 values in the torsion windows of the two benchmark processes.
 
 ## Inputs
 
@@ -94,7 +109,7 @@ The output states what is guaranteed about the barcode (`proved`, or `probabilis
   * `unresolved_factors`
   * timings
 
-For `cells`, `sset` and `simplices`, `--integral` adds `integral_homology` (free rank and torsion of H_k of the whole complex, by degree) and, in Q mode, `bad_prime_barcodes` (the full F_p barcode of each bad prime below 2^64); `--image s,t` adds `integral_image`, the image of H_k(K_s; Z) → H_k(K_t; Z). The text forms go to stderr.
+For `cells`, `sset` and `simplices`, `--integral` adds `integral_homology` (free rank and torsion of H_k of the whole complex, by degree) and, in Q mode, `bad_prime_barcodes` (the full F_p barcode of each bad prime below 2^64); `--image s,t` adds `integral_image`, the image of H_k(K_s; Z) → H_k(K_t; Z); `--torsion` adds `torsion`: per degree, the steps `{"value", "invariant_factors", "primary": {p: exponents}}` where tors H_q(K_t; Z) changes, `groups` (composites standing for all their prime factors) and `proof`. The text forms go to stderr.
 
 `--print ripser|perseus|json|none` controls stdout.
 
@@ -119,6 +134,7 @@ Chain complexes over Z, simplicial sets, nerves, magnitude homology and Laurent 
 
 ```python
 perseus.cells(cells, integral=True, image=(0, 1))     # r["integral"]: homology, image, bad_prime_barcodes
+perseus.simplices(S, torsion=True)                    # r["torsion"]["degrees"][q]: steps of tors H_q(K_t; Z)
 perseus.simplicial_set([(0, 0, []), (1, 0, [0, 0]), (2, 1, [1, (0, [0]), 1])], integral=True, image=(0, 1))   # RP^2
 perseus.nerve(src, tgt, identities, composition, weights=w, maxdim=3, integral=True)
 perseus.bar_construction(mult, identity=0, maxdim=5)   # H_k(G; Z) for a finite group G
@@ -126,7 +142,7 @@ perseus.magnitude(edges, lmax=6)                       # r["table"][(k, l)] = {"
 perseus.laurent([(0, 0, []), (1, 0, [(0, "t - 1")])])  # barcode over Q(t), bad irreducibles, homology over Q[t^±1]
 ```
 
-Every function takes `coeff`, `mode`, `seed`, `target`, `classify`, `threads` and `fp`, as on the command line; `rips` and `flag` also take `engine` (`auto`, `implicit`, `sparse`) and `collapse`, and `cubical` takes `engine` (`auto`, `planar`, `morse`, `classic`, `explicit`). For the planar engine (the 2D default) the array is read in place, without a copy. A key of `certificate["bad_primes"]` whose entry has `every_prime_factor_of` set is a number all of whose prime factors are bad; `probable_prime` marks a prime above 2^64 known only by Miller–Rabin. `tests/test_python.py` checks the module against the command line.
+Every function takes `coeff`, `mode`, `seed`, `target`, `classify`, `threads` and `fp`, as on the command line; `simplices`, `cells` and `simplicial_set` also take `torsion` and `classify_by` (`auto`, `sweep`, `rerun`); `rips` and `flag` also take `engine` (`auto`, `implicit`, `sparse`) and `collapse`, and `cubical` takes `engine` (`auto`, `planar`, `morse`, `classic`, `explicit`). For the planar engine (the 2D default) the array is read in place, without a copy. A key of `certificate["bad_primes"]` whose entry has `every_prime_factor_of` set is a number all of whose prime factors are bad; `probable_prime` marks a prime above 2^64 known only by Miller–Rabin. `tests/test_python.py` checks the module against the command line.
 
 ## Engines
 
@@ -204,14 +220,26 @@ On geometric data a proof costs nothing extra; time beyond F_2 is classification
 * gcds finish as binary gcds on 128-bit words;
 * sums and products cancel common factors before multiplying (Henrici).
 
-On the reproducible instances of `bench/certify_lm.py` (2 cores, raw results in `bench/certify_lm.json`):
+On the reproducible instances of `bench/certify_lm.py` (measured 19 Nov 2026, 2 cores, raw results in `bench/certify_lm.json`). Since 19 Nov the small candidates of explicit complexes can be classified by batched Howell sweeps. The table compares forced sweeps with `--classify-by rerun`, which gives identical results:
 
-| instance | default, proved | `--mode fast` | exact Q run alone |
-|---|---|---|---|
-| n = 70 | 6.9 s | 5.1 s | 1.8 s |
-| n = 90 | 126.7 s | 103.7 s | 23.8 s (it was 202 s with plain big rationals) |
+| instance | default, proved | `--classify-by rerun` | small candidates: sweeps | small candidates: reruns | `--torsion` adds | `--mode fast` |
+|---|---|---|---|---|---|---|
+| n = 70 | 4.3 s | 7.0 s | 2.1 s (61 sweeps) | 4.8 s (202 reruns) | 0.3 s | 2.9 s |
+| n = 90 | 93.8 s | 125.5 s | 24.4 s (124 sweeps) | 56.4 s (386 reruns) | 19.9 s | 74.8 s |
+| n = 70, distinct values | 18.7 s | 31.4 s | 7.3 s (114 sweeps) | 20.1 s (326 reruns) | 21.7 s | 11.2 s |
 
-Both modes find the same bad primes. On both instances most of the time goes to classifying candidate primes, which both modes do the same way.
+The exact Q run alone takes 1.8 s and 23.9 s on the two tied instances (it took 202 s at n = 90 with plain big rationals). What remains at n = 90 is mostly the 110 candidates of at least 2^63 (39 s), still one run each. In the third instance edges and triangles have distinct interleaved values; there all 347 candidates are bad. Both modes and both classifications find the same bad primes.
+
+The default, `--classify-by auto`, chooses between the two per input. It reruns a timed sample of candidates first, and sweeps only if reference sweeps run under that budget predict a saving. On `bench/classify_auto.py` (20 Nov 2026, 2 cores; seconds spent classifying the small candidates; identical bad primes in all three columns):
+
+| instance | candidates | reruns | sweeps | auto |
+|---|---|---|---|---|
+| LM n = 90, tied | 496 | 54.2 | 24.2 | 24.0 (sweeps) |
+| LM n = 70, distinct values | 347 | 18.8 | 6.8 | 6.9 (sweeps) |
+| LM d = 3, n = 25 | 333 | 74.5 | 29.8 | 31.7 (sweeps) |
+| RP² Rips, 300 points, sparse route | 1 | 0.5 | 44.9 | 0.3 (reruns) |
+| Rips with 0.9M tetrahedra + LM n = 40 | 6 | 0.17 | 1.69 | 0.34 (reruns, sweeps cut off) |
+| Rips with 0.9M tetrahedra + LM n = 70 | 347 | 111.0 | 18.4 | 18.3 (sweeps) |
 
 ### Cubical (F_2, measured 19 Nov 2026 in one sitting, 2-core Xeon, 7.8 GB)
 
@@ -374,7 +402,7 @@ Two things differ from the old programs:
 * **Python:** `tests/test_python.py` runs every entry point of the module against the command line, in every certificate mode.
 * **G:** the implicit cubical engines against the explicit complex and against each other (1–4 dimensions, periodic axes, absent cells, zero-length bars, 4D white noise and quantised fields), and the sparse Rips route against the dense engine.
 * **Cubical engines:** `make test-cubical` (`tests/t_cubical_morse.cpp`) runs the discrete-gradient engine against the classic one on random grids with heavy ties, absent cells and nearly distinct values. It compares barcodes over F_2, F_3, F_5 and Q (int64 and multi-modular), with and without zero-length bars, and from every degree with clearing data. It also compares certificates in auto and fast mode. It checks the Morse complex itself: every column is recomputed by recursion over gradient paths, along with the filtration order, δδ = 0, and the apparent pairs. It also covers degenerate shapes (axes of length 0, 1 and 2, very elongated grids, a single cube, grids entirely absent or constant) and the int64 guard: with the bound on path sums lowered, the engine must refuse, and the default must fall back to the classic engine.
-* **Chain complexes, simplicial sets, magnitude, Laurent:** `make test-chain`. `tests/t_chain.cpp`: Smith forms (with the bigint fallback), integral homology and images on RP^2 and two-stage filtrations, minimal spheres, torus, Klein bottle, RP^2 as simplicial sets, BZ/2, BZ/3, BS_3 (H_3 = Z/6), nerves with non-identity endomorphisms, suspensions, weighted poset nerves against order complexes, and on random complexes that the algebraic Morse reduction preserves barcodes over F_2, F_3, F_5 and Q, bad primes, integral homology and every image. `tests/t_magnitude.cpp`: the integral answer reduced by universal coefficients against field reductions of the unreduced complexes (trees, cycles, random graphs, directed and not), and the Z/2 of the Kaneta–Yoshinaga graph of RP^2. `tests/t_laurent.cpp`: Alexander polynomials of knots by Fox calculus, Z[t, t^-1]/(2, t + 1), the cylinder covering the torus, and on random complexes the Q(t) and F_p(t) barcodes against the rank function, the bad irreducibles against evaluation at t = t0 through the explicit engine, and the homology over Q[t, t^-1] and F_p[t, t^-1] against evaluation.
+* **Chain complexes, simplicial sets, magnitude, Laurent:** `make test-chain`. `tests/t_chain.cpp`: Smith forms (with the bigint fallback), integral homology and images on RP^2 and two-stage filtrations, minimal spheres, torus, Klein bottle, RP^2 as simplicial sets, BZ/2, BZ/3, BS_3 (H_3 = Z/6), nerves with non-identity endomorphisms, suspensions, weighted poset nerves against order complexes, and on random complexes that the algebraic Morse reduction preserves barcodes over F_2, F_3, F_5 and Q, bad primes, integral homology and every image. `tests/t_magnitude.cpp`: the integral answer reduced by universal coefficients against field reductions of the unreduced complexes (trees, cycles, random graphs, directed and not), and the Z/2 of the Kaneta–Yoshinaga graph of RP^2. `tests/t_laurent.cpp`: Alexander polynomials of knots by Fox calculus, Z[t, t^-1]/(2, t + 1), the cylinder covering the torus, and on random complexes the Q(t) and F_p(t) barcodes against the rank function, the bad irreducibles against evaluation at t = t0 through the explicit engine, and the homology over Q[t, t^-1] and F_p[t, t^-1] against evaluation. `tests/t_howell.cpp`: the Howell sweeps against plain F_p reductions (pairs) and brute-force enumeration of spans modulo p^k (lengths), in one-word and BigInt arithmetic. The Python suite checks torsion trajectories against a Smith form at every t on random chain complexes, and that sweeps and reruns classify alike.
 * **Fuzzing:** `tests/fuzz_cubical.py` drives the Python module against the explicit complex (F_2, F_3, and Q with bad primes, with absent cells) and against CubicalRipser (F_2). It uses value distributions built for ties: few integer levels, quantised smooth fields, step functions, ±0, extreme magnitudes, plus degenerate shapes.
 
 The current tree passes all of them.
@@ -382,10 +410,9 @@ The current tree passes all of them.
 ## Limitations and roadmap
 
 * Dense Rips inputs (distance matrices) are still n × n; point clouds and graphs go through the sparse route when it pays.
-* Classifying many candidate primes dominates on torsion-heavy inputs (Linial–Meshulam at the threshold: about 100 s for 359 candidates at n = 90). Settling groups of primes in one run modulo their product is the obvious next step.
+* Classifying many candidate primes dominates on torsion-heavy inputs. On explicit complexes the small candidates are settled in batches by Howell sweeps when that is cheaper (2.2–6× faster on the benchmarks above). Candidates of at least 2^63 are still one run each, and implicit Rips and cubical inputs still rerun every candidate.
 * Laurent coefficients cover Q(t), Q[t, t^-1], its residue fields and F_p(t), F_p[t, t^-1], not Z[t, t^-1] itself; images over Q[t, t^-1] are not computed yet. Finite twisted coefficients (Z[t]/(t^n − 1), for Milnor fibres) are planned.
 * Integral homology and images use dense Smith forms on the residual complex; inputs that do not reduce well are limited to residual blocks of about 40 million entries.
-* Checkpointed reruns for candidate primes.
 
 ## Techniques and credits
 

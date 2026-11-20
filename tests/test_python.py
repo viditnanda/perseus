@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """The Python module against the command line on the same inputs: barcodes, bad primes and certificate
 fields, in every certificate mode. Needs the module installed (cd python && pip install .) and ./perseus."""
-import itertools, json, os, subprocess, sys, tempfile, random
+import itertools, random, json, os, subprocess, sys, tempfile
 from collections import Counter
 import numpy as np
 import perseus
@@ -274,6 +274,89 @@ check("laurent: command line agrees with the module",
       inf(j["barcode"]) == [[list(map(float, b)) for b in np.asarray(x).reshape(-1, 2)] for x in r["barcode"]]
       and [b["polynomial"] for b in j["bad_irreducibles"]] == [b["polynomial"] for b in r["bad_irreducibles"]]
       and j["homology"] == r["homology"] and sorted(map(int, j["bad_primes"])) == sorted(r["bad_primes"]), j)
+
+# ---- torsion trajectories and classification by Howell sweeps (torsion.hpp) ---------------------------------
+def smith_torsion(cols, nrows):
+    """invariant factors > 1 of the integer matrix with these columns (lists of (row, coef)), by elimination"""
+    A = [[0] * len(cols) for _ in range(nrows)]
+    for j, c in enumerate(cols):
+        for r, v in c: A[r][j] += v
+    out = []
+    while A and A[0]:
+        nz = [(abs(A[i][j]), i, j) for i in range(len(A)) for j in range(len(A[0])) if A[i][j]]
+        if not nz: break
+        _, i, j = min(nz)
+        A[0], A[i] = A[i], A[0]
+        for row in A: row[0], row[j] = row[j], row[0]
+        done = False
+        while not done:
+            done = True
+            p = A[0][0]
+            for i in range(1, len(A)):
+                q = A[i][0] // p
+                if q: A[i] = [a - q * b for a, b in zip(A[i], A[0])]
+                if A[i][0]: done = False
+            for j in range(1, len(A[0])):
+                q = A[0][j] // p
+                if q:
+                    for row in A: row[j] -= q * row[0]
+                if A[0][j]: done = False
+            if not done:
+                nz = [(abs(A[i][0]), i, 0) for i in range(len(A)) if A[i][0]] + [(abs(A[0][j]), 0, j) for j in range(len(A[0])) if A[0][j]]
+                _, i, j = min(nz)
+                A[0], A[i] = A[i], A[0]
+                for row in A: row[0], row[j] = row[j], row[0]
+            elif any(A[i][j] % p for i in range(1, len(A)) for j in range(1, len(A[0]))):
+                i = next(i for i in range(1, len(A)) if any(x % p for x in A[i][1:]))
+                A[0] = [a + b for a, b in zip(A[0], A[i])]; done = False
+        out.append(abs(A[0][0]))
+        A = [row[1:] for row in A[1:]]
+    return sorted(x for x in out if x > 1)
+
+# a hand example: e1, e2 at 0; 4 e1 at 1; 6 e2 at 2; 2 e1 + 3 e2 at 3; e1 at 4
+_hand = [(1, 0.0, []), (1, 0.0, []), (2, 1.0, [(0, 4)]), (2, 2.0, [(1, 6)]), (2, 3.0, [(0, 2), (1, 3)]), (2, 4.0, [(0, 1)])]
+_t = perseus.cells(_hand, torsion=True)["torsion"]
+check("torsion: hand example Z/4, Z/2 + Z/12, Z/12, Z/3",
+      [(s["value"], s["invariant_factors"]) for s in _t["degrees"][1]] == [(1.0, [4]), (2.0, [2, 12]), (3.0, [12]), (4.0, [3])] and _t["proof"], _t)
+_t2 = perseus.cells(_hand, torsion=True, reduce=False)["torsion"]
+check("torsion: the same without the algebraic Morse reduction", _t2["degrees"] == _t["degrees"])
+# random filtered chain complexes (n 1-cells, m 2-cells), tied and distinct values, against a Smith form at every t
+_rng = random.Random(7); _bad = 0; _seen = 0
+for _it in range(12):
+    _n, _m, _tied = 8, 16, _it % 2 == 0
+    _b1 = [0.0 if _tied else round(_rng.random(), 6) for _ in range(_n)]
+    _cells = [(1, b, []) for b in _b1]; _cols = []
+    for _j in range(_m):
+        _bd = [(f, _rng.choice([1, -1, 2, -2, 3, 4, 6, 8, 9, 12])) for f in _rng.sample(range(_n), _rng.choice([1, 2, 2, 3]))]
+        _v = float(_j + 1) if _tied else round(max(_b1[f] for f, _ in _bd) + _rng.random() + 1e-6, 6)
+        _cells.append((2, _v, _bd)); _cols.append((_v, _bd))
+    _r = perseus.cells(_cells, torsion=True)
+    _st = _r["torsion"]["degrees"].get(1, [])
+    for _v in sorted({v for v, _ in _cols}):
+        _want = smith_torsion([bd for v, bd in _cols if v <= _v], _n)
+        _got = []
+        for s in _st:
+            if s["value"] <= _v: _got = s["invariant_factors"]
+        _seen += bool(_want); _bad += _got != _want
+check("torsion: random chain complexes, every t against a Smith form", _bad == 0 and _seen > 20, (_bad, _seen))
+# Linial-Meshulam n = 60 (above): sweeps and reruns agree, and the torsion's primes are exactly the bad primes
+_rs = perseus.simplices(_lm, classify_by="sweep", torsion=True); _rr = perseus.simplices(_lm, classify_by="rerun")
+_same = sorted(_rs["certificate"]["bad_primes"]) == sorted(_rr["certificate"]["bad_primes"]) and all(
+    all(len(_rs["certificate"]["bad_primes"][p][k]) == len(_rr["certificate"]["bad_primes"][p][k]) and
+        all(np.array_equal(x, y) for x, y in zip(_rs["certificate"]["bad_primes"][p][k], _rr["certificate"]["bad_primes"][p][k]))
+        for k in ("only_over_Fp", "only_over_Q")) for p in _rr["certificate"]["bad_primes"])
+check("classification: sweeps and reruns give the same bad primes and intervals (LM n = 60)", _same)
+_tp = sorted({p for s in _rs["torsion"]["degrees"][1] for p in s["primary"]})
+check("torsion: on a Linial-Meshulam process its primes are the bad primes (Theorem 4)", _tp == sorted(_rr["certificate"]["bad_primes"]), (_tp, sorted(_rr["certificate"]["bad_primes"])))
+_p = subprocess.run([PERSEUS, "simplices", _path, "--print", "json", "--torsion"], capture_output=True, text=True, timeout=600); _j = json.loads(_p.stdout)
+check("torsion: command line agrees with the module",
+      [(s["value"], [int(x) for x in s["invariant_factors"]]) for s in _j["torsion"]["degrees"][0]["steps"]] ==
+      [(s["value"], s["invariant_factors"]) for s in _rs["torsion"]["degrees"][1]] and _j["torsion"]["proof"] is True)
+_rb = perseus.cells(read_cells(os.path.join(FIX, "crt_alias_1.cells")), torsion=True)["torsion"]["degrees"][1]
+check("torsion: 98-bit prime with its exponent", _rb[-1]["primary"].get(294719631262177595678027596519) == [1] and
+      _rb[-1]["invariant_factors"] == [2**2 * 3 * 5**2 * 7**2 * 4909 * 294719631262177595678027596519], _rb)
+_rg = perseus.cells(read_cells(os.path.join(FIX, "crt_group.cells")), torsion=True)["torsion"]
+check("torsion: unfactored composite reported as a group", _rg["groups"] == [36028797018976327 * 1152921504606848017] and _rg["complete"], _rg)
 
 print(f"\n{results['pass']} passed, {results['fail']} failed")
 for f in failures[:30]: print("  ", f)

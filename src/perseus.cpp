@@ -9,6 +9,7 @@
 #include "perseus/cubical_engine.hpp"
 #include "perseus/chain.hpp"
 #include "perseus/simplicial_set.hpp"
+#include "perseus/torsion.hpp"
 #include "perseus/magnitude.hpp"
 #include "perseus/laurent.hpp"
 #include <cstdio>
@@ -63,6 +64,10 @@ static const char* USAGE =
 "  --integral       explicit complexes: also the integral homology of the whole complex (torsion\n"
 "                   by Smith forms) and, in Q mode, the F_p barcode of every bad prime\n"
 "  --image s,t      explicit complexes: the image of H_*(K_s; Z) -> H_*(K_t; Z)\n"
+"  --torsion        explicit complexes, Q mode: the torsion of H_q(K_t; Z) at every t where it changes,\n"
+"                   with its invariant factors and p-primary exponents (Howell sweeps over Z/p^k)\n"
+"  --classify-by m  explicit complexes: auto (sweeps when a sample of reruns predicts they are cheaper)\n                   | sweep (always batched Howell sweeps over Z/m) | rerun (one\n"
+"                   rerun per candidate prime); big candidates (>= 2^63) are always rerun\n"
 "  --no-reduce      cells/sset: skip the algebraic Morse reduction (unit pairs with equal births)\n"
 "  --lmax l         magnitude: lengths 0..l (default 4)\n"
 "  --directed       magnitude: the edges are directed\n"
@@ -81,7 +86,8 @@ struct Opts {
     double threshold = -1, target = 64;
     std::string mode = "proved"; std::string seed;
     bool classify = true, zero = false, stats = false;
-    bool integral = false, image = false, reduce = true, directed = false;
+    bool integral = false, image = false, reduce = true, directed = false, torsion = false;
+    std::string classify_by = "auto";
     double img_s = 0, img_t = 0; int lmax = 4;
     std::vector<std::pair<int, int>> pairs;
 };
@@ -184,14 +190,67 @@ static int choose_direction(const Prepared& P, const std::string& d0, int maxdim
     return auto_direction(P, maxdim);
 }
 
+
+static std::string json_torsion(const torsion::TorsionResult& T) {
+    std::string s = "{\"degrees\": [";
+    for (size_t i = 0; i < T.degrees.size(); ++i) {
+        auto& tr = T.degrees[i];
+        s += std::string(i ? ", " : "") + "{\"degree\": " + std::to_string(tr.degree) + ", \"steps\": [";
+        for (size_t j = 0; j < tr.steps.size(); ++j) {
+            auto& st = tr.steps[j];
+            s += std::string(j ? ", " : "") + "\n      {\"value\": " + fmt_num(st.value) + ", \"invariant_factors\": [";
+            auto d = torsion::invariant_factors(T, st);
+            for (size_t t = 0; t < d.size(); ++t) s += std::string(t ? ", " : "") + "\"" + d[t].str() + "\"";
+            s += "], \"primary\": {";
+            for (size_t t = 0; t < st.primary.size(); ++t) {
+                s += std::string(t ? ", " : "") + "\"" + T.factors[st.primary[t].first].p.str() + "\": [";
+                for (size_t e = 0; e < st.primary[t].second.size(); ++e) s += std::string(e ? ", " : "") + std::to_string(st.primary[t].second[e]);
+                s += "]";
+            }
+            s += "}}";
+        }
+        s += "]}";
+    }
+    s += "], \"groups\": [";
+    bool f = true; for (auto& F : T.factors) if (F.group) { s += std::string(f ? "" : ", ") + "\"" + F.p.str() + "\""; f = false; }
+    char b[200]; snprintf(b, sizeof b, "], \"complete\": %s, \"sweeps\": %d, \"seconds\": %.4f", T.complete ? "true" : "false", T.sweeps, T.seconds);
+    s += b;
+    if (!T.note.empty()) s += ", \"note\": \"" + T.note + "\"";
+    return s + "}";
+}
+static std::string text_torsion(const torsion::TorsionResult& T) {
+    std::string s;
+    for (auto& tr : T.degrees) {
+        s += "torsion of H_" + std::to_string(tr.degree) + "(K_t; Z), where it changes:" + (tr.steps.empty() ? " always 0\n" : "\n");
+        for (auto& st : tr.steps) {
+            auto d = torsion::invariant_factors(T, st);
+            s += "  t = " + fmt_num(st.value) + ": ";
+            if (d.empty()) s += "0";
+            for (size_t t = 0; t < d.size(); ++t) s += std::string(t ? " + " : "") + "Z/" + d[t].str();
+            s += "\n";
+        }
+    }
+    for (auto& F : T.factors) if (F.group) s += "  (" + F.p.str() + " is a composite whose prime factors all behave alike)\n";
+    if (!T.complete) s += "  INCOMPLETE: " + T.note + "\n";
+    return s;
+}
+
 template <class B>
 static int solve(const B& be, const Opts& o, const IntegralSpec& ispec = IntegralSpec()) {
     auto T0 = std::chrono::steady_clock::now();
     std::string coeff = o.coeff.empty() ? "Q" : o.coeff;
     Barcode main_bars; Certificate cert; bool qmode = (coeff == "Q" || coeff == "q" || coeff == "0");
+    const Prepared* prep = prepared_of(be);
+    torsion::Cache tcache;
     if (qmode) {
         CertifyOptions co; co.threads = o.threads; co.classify = o.classify;
         co.mode = o.mode; co.seed = o.seed; co.target_log2 = -o.target;
+        if (prep && o.classify_by != "rerun") {
+            int nt = o.threads > 0 ? o.threads : (int)std::max(1u, std::thread::hardware_concurrency());
+            co.sweep_policy = o.classify_by == "sweep" ? "sweep" : "auto";
+            co.sweep = [&, nt](const Certificate& c, const Barcode& qb, int kmax, double budget, const std::set<uint64_t>& skip, std::vector<BadPrime>& bad, std::string& diag) {
+                return torsion::classify(*prep, c, qb, kmax, nt, be.keep_zero_length, bad, tcache, &diag, budget, skip); };
+        }
         auto res = certify(be, co);
         main_bars = res.first.bars; cert = res.second;
     } else {
@@ -228,6 +287,22 @@ static int solve(const B& be, const Opts& o, const IntegralSpec& ispec = Integra
                 ijson += ",\n  \"bad_prime_barcodes\": {" + fj + "}";
             }
         } catch (std::exception& e) { itext += std::string("integral output: ") + e.what() + "\n"; ijson += std::string(",\n  \"integral_error\": \"") + e.what() + "\""; }
+    }
+    if (o.torsion) {
+        if (!qmode) itext += "--torsion: needs Q coefficients\n";
+        else if (!prep) itext += "--torsion: explicit complexes only (simplices, cells, sset, explicit cubical, sparse Rips)\n";
+        else if (!cert.barcode_ok || !cert.candidates_complete()) itext += "--torsion: the candidate primes are not completely known\n";
+        else {
+            std::vector<std::pair<BigInt, bool>> pr = torsion::primes_to_follow(cert);
+            int nt = o.threads > 0 ? o.threads : (int)std::max(1u, std::thread::hardware_concurrency());
+            int md = std::min(o.maxdim >= 0 ? o.maxdim : prep->D, be.maxdim());
+            torsion::TorsionResult T = torsion::trajectory(*prep, cert, md, nt, tcache, pr);
+            std::string tj = json_torsion(T);
+            tj.insert(1, std::string("\"proof\": ") + (cert.mode != "fast" && cert.certified() ? "true" : "false") + ", ");
+            ijson += ",\n  \"torsion\": " + tj;
+            if (cert.mode == "fast") itext += "  (--mode fast: the primes followed come from a probabilistic certificate; not a proof)\n";
+            itext += text_torsion(T);
+        }
     }
     std::string pr = o.print.empty() ? (o.prefix.empty() ? "ripser" : "none") : o.print;
     if (pr == "ripser") print_ripser(stdout, main_bars);
@@ -293,6 +368,8 @@ int main(int argc, char** argv) {
         else if (a == "--print") o.print = val();
         else if (a == "--stats") o.stats = true;
         else if (a == "--integral") o.integral = true;
+        else if (a == "--torsion") o.torsion = true;
+        else if (a == "--classify-by") { o.classify_by = val(); if (o.classify_by != "auto" && o.classify_by != "sweep" && o.classify_by != "rerun") { fprintf(stderr, "--classify-by: auto, sweep or rerun\n"); return 1; } }
         else if (a == "--image") { std::string v = val(); for (char& ch : v) if (ch == ',') ch = ' '; auto t = split_ws(v); if (t.size() != 2) { fprintf(stderr, "--image s,t\n"); return 1; } o.image = true; o.img_s = std::stod(t[0]); o.img_t = std::stod(t[1]); }
         else if (a == "--no-reduce") o.reduce = false;
         else if (a == "--lmax") o.lmax = std::stoi(val());
