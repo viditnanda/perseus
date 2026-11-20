@@ -5,131 +5,236 @@
    "group": "SmallGroup(16, 14)",
    "task": "H_n(G; Z), n <= 6",
    "perseus_s": 0.0012,
-   "hap_times_s": {
-    "GroupHomology": 1.627,
-    "ResolutionNilpotentGroup": 0.044
+   "hap": {
+    "GroupHomology": {
+     "status": "ok",
+     "runtime_s": 0.766,
+     "wall_s": 4.547,
+     "runs": 3
+    },
+    "ResolutionNilpotentGroup": {
+     "status": "ok",
+     "runtime_s": 0.046,
+     "wall_s": 2.935,
+     "runs": 3
+    }
    },
-   "hap_best_s": 0.044,
+   "hap_best_s": 0.046,
    "hap_best": "ResolutionNilpotentGroup",
    "anick_chains_top": 120
   },
   {
    "group": "SmallGroup(16, 9)",
    "task": "H_n(G; Z), n <= 8",
-   "perseus_s": 0.0134,
-   "hap_times_s": {
-    "GroupHomology": 2.11,
-    "ResolutionNilpotentGroup": 6.631
+   "perseus_s": 0.011,
+   "hap": {
+    "GroupHomology": {
+     "status": "ok",
+     "runtime_s": 0.846,
+     "wall_s": 5.028,
+     "runs": 3
+    },
+    "ResolutionNilpotentGroup": {
+     "status": "ok",
+     "runtime_s": 5.711,
+     "wall_s": 8.543,
+     "runs": 3
+    }
    },
-   "hap_best_s": 2.11,
+   "hap_best_s": 0.846,
    "hap_best": "GroupHomology",
    "anick_chains_top": 220
   },
   {
    "group": "SmallGroup(24, 12)",
    "task": "H_n(G; Z), n <= 6",
-   "perseus_s": 0.0069,
-   "hap_times_s": {
-    "GroupHomology": 0.385,
-    "ResolutionNilpotentGroup": null
+   "perseus_s": 0.007,
+   "hap": {
+    "GroupHomology": {
+     "status": "ok",
+     "runtime_s": 0.104,
+     "wall_s": 3.433,
+     "runs": 3
+    },
+    "ResolutionNilpotentGroup": {
+     "status": "not applicable"
+    }
    },
-   "hap_best_s": 0.385,
+   "hap_best_s": 0.104,
    "hap_best": "GroupHomology",
    "anick_chains_top": 120
   },
   {
    "group": "SmallGroup(27, 3)",
    "task": "H_n(G; Z), n <= 6",
-   "perseus_s": 0.0006,
-   "hap_times_s": {
-    "GroupHomology": 0.685,
-    "ResolutionNilpotentGroup": 0.058
+   "perseus_s": 0.0007,
+   "hap": {
+    "GroupHomology": {
+     "status": "ok",
+     "runtime_s": 0.183,
+     "wall_s": 4.013,
+     "runs": 3
+    },
+    "ResolutionNilpotentGroup": {
+     "status": "ok",
+     "runtime_s": 0.056,
+     "wall_s": 2.891,
+     "runs": 3
+    }
    },
-   "hap_best_s": 0.058,
+   "hap_best_s": 0.056,
    "hap_best": "ResolutionNilpotentGroup",
    "anick_chains_top": 36
   },
   {
    "group": "SmallGroup(32, 51)",
    "task": "H_n(G; Z), n <= 6",
-   "perseus_s": 0.0023,
-   "hap_times_s": {
-    "GroupHomology": 9.722,
-    "ResolutionNilpotentGroup": 0.18
+   "perseus_s": 0.0021,
+   "hap": {
+    "GroupHomology": {
+     "status": "ok",
+     "runtime_s": 5.88,
+     "wall_s": 13.124,
+     "runs": 3
+    },
+    "ResolutionNilpotentGroup": {
+     "status": "ok",
+     "runtime_s": 0.204,
+     "wall_s": 3.935,
+     "runs": 3
+    }
    },
-   "hap_best_s": 0.18,
+   "hap_best_s": 0.204,
    "hap_best": "ResolutionNilpotentGroup",
    "anick_chains_top": 330
   },
   {
    "group": "SmallGroup(32, 49)",
    "task": "H_n(G; Z), n <= 6",
-   "perseus_s": 0.0045,
-   "hap_times_s": {
-    "GroupHomology": 3.302,
-    "ResolutionNilpotentGroup": 0.591
+   "perseus_s": 0.0039,
+   "hap": {
+    "GroupHomology": {
+     "status": "ok",
+     "runtime_s": 2.172,
+     "wall_s": 6.971,
+     "runs": 3
+    },
+    "ResolutionNilpotentGroup": {
+     "status": "ok",
+     "runtime_s": 0.582,
+     "wall_s": 3.464,
+     "runs": 3
+    }
    },
-   "hap_best_s": 0.591,
+   "hap_best_s": 0.582,
    "hap_best": "ResolutionNilpotentGroup",
    "anick_chains_top": 330
   },
   {
    "group": "SmallGroup(64, 138)",
    "task": "H_n(G; Z), n <= 6",
-   "perseus_s": 0.0146,
-   "hap_times_s": {
-    "GroupHomology": 5.039,
-    "ResolutionNilpotentGroup": 3.955
+   "perseus_s": 0.0225,
+   "hap": {
+    "GroupHomology": {
+     "status": "ok",
+     "runtime_s": 3.584,
+     "wall_s": 8.349,
+     "runs": 3
+    },
+    "ResolutionNilpotentGroup": {
+     "status": "ok",
+     "runtime_s": 3.891,
+     "wall_s": 7.006,
+     "runs": 3
+    }
    },
-   "hap_best_s": 3.955,
-   "hap_best": "ResolutionNilpotentGroup",
+   "hap_best_s": 3.584,
+   "hap_best": "GroupHomology",
    "anick_chains_top": 792
   },
   {
    "group": "SmallGroup(64, 138)",
    "task": "H_n(G; Z), n <= 8",
-   "perseus_s": 0.1452,
-   "hap_times_s": {
-    "GroupHomology": 203.395,
-    "ResolutionNilpotentGroup": 159.582
+   "perseus_s": 0.118,
+   "hap": {
+    "GroupHomology": {
+     "status": "ok",
+     "runtime_s": 173.47,
+     "wall_s": 209.516,
+     "runs": 1
+    },
+    "ResolutionNilpotentGroup": {
+     "status": "ok",
+     "runtime_s": 175.236,
+     "wall_s": 180.115,
+     "runs": 1
+    }
    },
-   "hap_best_s": 159.582,
-   "hap_best": "ResolutionNilpotentGroup",
+   "hap_best_s": 173.47,
+   "hap_best": "GroupHomology",
    "anick_chains_top": 2002
   },
   {
    "group": "SmallGroup(128, 1000)",
    "task": "H_n(G; Z), n <= 6",
-   "perseus_s": 0.0162,
-   "hap_times_s": {
-    "GroupHomology": 11.462,
-    "ResolutionNilpotentGroup": 4.647
+   "perseus_s": 0.013,
+   "hap": {
+    "GroupHomology": {
+     "status": "ok",
+     "runtime_s": 6.036,
+     "wall_s": 13.057,
+     "runs": 3
+    },
+    "ResolutionNilpotentGroup": {
+     "status": "ok",
+     "runtime_s": 3.527,
+     "wall_s": 6.309,
+     "runs": 3
+    }
    },
-   "hap_best_s": 4.647,
+   "hap_best_s": 3.527,
    "hap_best": "ResolutionNilpotentGroup",
    "anick_chains_top": 1716
   },
   {
    "group": "SmallGroup(128, 2000)",
    "task": "H_n(G; Z), n <= 6",
-   "perseus_s": 0.0617,
-   "hap_times_s": {
-    "GroupHomology": null,
-    "ResolutionNilpotentGroup": 50.286
+   "perseus_s": 0.0404,
+   "hap": {
+    "GroupHomology": {
+     "status": "timeout",
+     "wall_s": 300.0
+    },
+    "ResolutionNilpotentGroup": {
+     "status": "ok",
+     "runtime_s": 46.992,
+     "wall_s": 50.064,
+     "runs": 1
+    }
    },
-   "hap_best_s": 50.286,
+   "hap_best_s": 46.992,
    "hap_best": "ResolutionNilpotentGroup",
    "anick_chains_top": 1716
   },
   {
    "group": "SmallGroup(243, 2)",
    "task": "H_n(G; Z), n <= 6",
-   "perseus_s": 0.004,
-   "hap_times_s": {
-    "GroupHomology": 9.065,
-    "ResolutionNilpotentGroup": 0.86
+   "perseus_s": 0.0042,
+   "hap": {
+    "GroupHomology": {
+     "status": "ok",
+     "runtime_s": 6.027,
+     "wall_s": 10.29,
+     "runs": 3
+    },
+    "ResolutionNilpotentGroup": {
+     "status": "ok",
+     "runtime_s": 0.543,
+     "wall_s": 2.977,
+     "runs": 3
+    }
    },
-   "hap_best_s": 0.86,
+   "hap_best_s": 0.543,
    "hap_best": "ResolutionNilpotentGroup",
    "anick_chains_top": 330
   },
@@ -137,7 +242,15 @@
    "group": "SmallGroup(32, 49)",
    "task": "mod-2 ring, degrees <= 4",
    "perseus_s": 0.0014,
-   "hap_best_s": 0.135,
+   "hap": {
+    "ModPCohomologyRing + ModPRingGenerators": {
+     "status": "ok",
+     "runtime_s": 0.118,
+     "wall_s": 2.795,
+     "runs": 3
+    }
+   },
+   "hap_best_s": 0.118,
    "hap_best": "ModPCohomologyRing + ModPRingGenerators",
    "generators_by_degree": [
     4,
@@ -149,8 +262,16 @@
   {
    "group": "SmallGroup(64, 138)",
    "task": "mod-2 ring, degrees <= 4",
-   "perseus_s": 0.0036,
-   "hap_best_s": 0.211,
+   "perseus_s": 0.0024,
+   "hap": {
+    "ModPCohomologyRing + ModPRingGenerators": {
+     "status": "ok",
+     "runtime_s": 0.189,
+     "wall_s": 2.763,
+     "runs": 3
+    }
+   },
+   "hap_best_s": 0.189,
    "hap_best": "ModPCohomologyRing + ModPRingGenerators",
    "generators_by_degree": [
     3,
@@ -162,8 +283,16 @@
   {
    "group": "SmallGroup(128, 1000)",
    "task": "mod-2 ring, degrees <= 4",
-   "perseus_s": 0.0039,
-   "hap_best_s": 2.547,
+   "perseus_s": 0.0033,
+   "hap": {
+    "ModPCohomologyRing + ModPRingGenerators": {
+     "status": "ok",
+     "runtime_s": 2.222,
+     "wall_s": 5.182,
+     "runs": 3
+    }
+   },
+   "hap_best_s": 2.222,
    "hap_best": "ModPCohomologyRing + ModPRingGenerators",
    "generators_by_degree": [
     4,
@@ -175,8 +304,16 @@
   {
    "group": "SmallGroup(64, 138)",
    "task": "mod-2 ring, degrees <= 8",
-   "perseus_s": 0.8283,
-   "hap_best_s": 21.658,
+   "perseus_s": 0.8983,
+   "hap": {
+    "ModPCohomologyRing + ModPRingGenerators": {
+     "status": "ok",
+     "runtime_s": 17.998,
+     "wall_s": 20.956,
+     "runs": 1
+    }
+   },
+   "hap_best_s": 17.998,
    "hap_best": "ModPCohomologyRing + ModPRingGenerators",
    "generators_by_degree": [
     3,
@@ -192,9 +329,15 @@
   {
    "group": "SmallGroup(128, 1000)",
    "task": "mod-2 ring, degrees <= 8",
-   "perseus_s": 0.4697,
+   "perseus_s": 0.4375,
+   "hap": {
+    "ModPCohomologyRing + ModPRingGenerators": {
+     "status": "timeout",
+     "wall_s": 300.1
+    }
+   },
    "hap_best_s": null,
-   "hap_best": "ModPCohomologyRing + ModPRingGenerators",
+   "hap_best": null,
    "generators_by_degree": [
     4,
     4,

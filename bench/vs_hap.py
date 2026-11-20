@@ -1,6 +1,6 @@
 """Group homology and mod-p cohomology rings: perseus pcgroup against HAP's best routines (GAP).
 
-Integral homology H_n(G; Z), n <= D: HAP is timed with GroupHomology(G, k) for k = 1..D (HAP chooses the method)
+Integral homology H_n(G; Z), n <= D: HAP is timed with GroupHomology(G, D) (HAP chooses the method)
 and, for nilpotent groups, with ResolutionNilpotentGroup(G, D + 1) followed by Homology(TensorWithIntegers(R), k);
 the faster of the two is reported. ResolutionNilpotentGroup builds a resolution of the same size as Perseus's
 Anick resolution (C(n+k-1, k-1) generators in degree n for k cyclic factors; HAP may use fewer, larger cyclic
@@ -9,8 +9,13 @@ Mod-2 rings, degrees <= D: HAP's ModPCohomologyRing(G, D) and ModPRingGenerators
 generators, no relations), against perseus --ring 2 --no-homology (dims, all products, minimal generators).
 The answers must agree (homology groups; degrees of the minimal generators); the script fails otherwise.
 
-Times: HAP's Runtime() around the computation (GAP's start-up and package loading excluded); Perseus's own
-"seconds" (reading the table excluded), best of three. Each HAP run is limited to LIMIT seconds (default 300).
+Times: HAP's Runtime() around the computation (GAP's start-up, package loading and SmallGroup excluded); Perseus's
+own "seconds" (reading and validating the table excluded). Both are the best of three runs, except HAP runs over
+REPEAT_BELOW = 10 s, which are run once. GroupHomology is timed as one call at the top degree, GroupHomology(G, D);
+the lower degrees are computed afterwards, untimed, for the cross-check (each call builds its own resolution, and the
+single call omits the lower-degree Smith forms, which favours HAP slightly). Each HAP process is limited to LIMIT
+seconds of wall clock (default 300); a run is recorded as "timeout" only when that limit stops it, and as "error",
+with the tail of GAP's output, when GAP fails.
 
     python3 bench/vs_hap.py [--quick] [--out bench/vs_hap.json]
 
@@ -18,7 +23,7 @@ Needs: ./perseus (make), GAP with HAP on the PATH (run with GAP 4.12.1, HAP 1.62
 written for perseus by tools/export_pcgroup.g. Not compared: the Green-King package for SageMath, the reference
 for mod-p cohomology rings of p-groups.
 """
-import json, os, re, subprocess, sys, tempfile, collections
+import json, os, re, subprocess, sys, tempfile, collections, time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.join(HERE, "..")
@@ -26,6 +31,7 @@ PERSEUS = os.environ.get("PERSEUS", os.path.join(ROOT, "perseus"))
 EXPORT = os.path.join(ROOT, "tools", "export_pcgroup.g")
 TMP = tempfile.mkdtemp()
 LIMIT = int(os.environ.get("LIMIT", "300"))
+REPEAT_BELOW = 10.0
 
 HOMOLOGY = [((16, 14), 6), ((16, 9), 8), ((24, 12), 6), ((27, 3), 6), ((32, 51), 6), ((32, 49), 6), ((64, 138), 6),
             ((64, 138), 8), ((128, 1000), 6), ((128, 2000), 6), ((243, 2), 6)]
@@ -34,18 +40,35 @@ QUICK_H = [((16, 14), 6), ((27, 3), 6), ((64, 138), 6)]
 QUICK_R = [((32, 49), 4)]
 
 
-def gap(body):
+def gap_once(body):
+    """One GAP run. Returns {"status": "ok" | "timeout" | "error", "runtime_s": HAP's Runtime() around the timed part
+    (ok only), "wall_s": wall clock of the whole process, "result": the printed result (ok only), "stderr": tail}."""
     path = os.path.join(TMP, "s.g")
     open(path, "w").write('LoadPackage("hap");; SizeScreen([4096, 24]);;\n' + body + "\nQUIT;\n")
+    t0 = time.time()
     try:
-        p = subprocess.run(["gap", "-q", "-o", "16g", path], capture_output=True, text=True, timeout=LIMIT + 60)
+        p = subprocess.run(["gap", "-q", "-o", "16g", path], capture_output=True, text=True, timeout=LIMIT)
     except subprocess.TimeoutExpired:
-        return None, None
+        return {"status": "timeout", "wall_s": round(time.time() - t0, 1)}
+    wall = round(time.time() - t0, 3)
     out = p.stdout.replace("\\\n", "").replace("\n", " ")
     m = re.search(r"MS (\d+) RES (.*?) END", out)
-    if not m: return None, None
-    t = int(m.group(1)) / 1000
-    return (t if t <= LIMIT else None), json.loads(m.group(2).replace(" ", ""))
+    if not m:
+        return {"status": "error", "wall_s": wall, "stderr": (p.stderr + p.stdout)[-400:]}
+    return {"status": "ok", "runtime_s": int(m.group(1)) / 1000, "wall_s": wall, "result": json.loads(m.group(2).replace(" ", ""))}
+
+
+def gap(body):
+    """Best of three runs when the first takes under REPEAT_BELOW seconds of HAP's time; one run otherwise."""
+    r = gap_once(body)
+    if r["status"] == "ok" and r["runtime_s"] < REPEAT_BELOW:
+        for _ in range(2):
+            r2 = gap_once(body)
+            if r2["status"] == "ok" and r2["runtime_s"] < r["runtime_s"]: r = r2
+        r["runs"] = 3
+    elif r["status"] == "ok":
+        r["runs"] = 1
+    return r
 
 
 def export(g):
@@ -90,28 +113,35 @@ def main():
         f = export(g); pj, pt = perseus(f, D)
         ours = [prime_powers(h["torsion"]) for h in pj["homology"][1:]]
         G = "G := SmallGroup(%d, %d);;" % g
-        times = {}
-        t, H = gap(G + ' t := Runtime();; H := List([1..%d], k -> GroupHomology(G, k));; Print("MS ", Runtime() - t, " RES ", H, " END\\n");' % D)
-        times["GroupHomology"] = t
-        if t is not None and [prime_powers(x) for x in H] != ours: raise SystemExit("MISMATCH (GroupHomology) on SmallGroup%s" % (g,))
-        t, H = gap(G + ' if IsNilpotentGroup(G) then t := Runtime();; R := ResolutionNilpotentGroup(G, %d);; H := List([1..%d], k -> Homology(TensorWithIntegers(R), k));; '
-                   'Print("MS ", Runtime() - t, " RES ", H, " END\\n"); fi;' % (D + 1, D))
-        times["ResolutionNilpotentGroup"] = t
-        if t is not None and [prime_powers(x) for x in H] != ours: raise SystemExit("MISMATCH (ResolutionNilpotentGroup) on SmallGroup%s" % (g,))
-        done = {k: v for k, v in times.items() if v is not None}
-        save({"group": "SmallGroup(%d, %d)" % g, "task": "H_n(G; Z), n <= %d" % D, "perseus_s": round(pt, 4), "hap_times_s": times,
-              "hap_best_s": min(done.values()) if done else None, "hap_best": min(done, key=done.get) if done else None,
+        runs = {}
+        # GroupHomology: one call at the top degree is timed; the lower degrees are computed afterwards, untimed,
+        # only for the cross-check (each GroupHomology call builds its own resolution)
+        r = gap(G + ' t := Runtime();; top := GroupHomology(G, %d);; ms := Runtime() - t;; H := Concatenation(List([1..%d], k -> GroupHomology(G, k)), [top]);; '
+                'Print("MS ", ms, " RES ", H, " END\\n");' % (D, D - 1))
+        runs["GroupHomology"] = r
+        if r["status"] == "ok" and [prime_powers(x) for x in r["result"]] != ours: raise SystemExit("MISMATCH (GroupHomology) on SmallGroup%s" % (g,))
+        r = gap(G + ' if IsNilpotentGroup(G) then t := Runtime();; R := ResolutionNilpotentGroup(G, %d);; H := List([1..%d], k -> Homology(TensorWithIntegers(R), k));; '
+                'Print("MS ", Runtime() - t, " RES ", H, " END\\n"); else Print("MS 0 RES \\"not_nilpotent\\" END\\n"); fi;' % (D + 1, D))
+        if r["status"] == "ok" and r["result"] == "not_nilpotent": r = {"status": "not applicable"}
+        runs["ResolutionNilpotentGroup"] = r
+        if r["status"] == "ok" and [prime_powers(x) for x in r["result"]] != ours: raise SystemExit("MISMATCH (ResolutionNilpotentGroup) on SmallGroup%s" % (g,))
+        ok = {k: v["runtime_s"] for k, v in runs.items() if v["status"] == "ok"}
+        save({"group": "SmallGroup(%d, %d)" % g, "task": "H_n(G; Z), n <= %d" % D, "perseus_s": round(pt, 4),
+              "hap": {k: {kk: vv for kk, vv in v.items() if kk != "result"} for k, v in runs.items()},
+              "hap_best_s": min(ok.values()) if ok else None, "hap_best": min(ok, key=ok.get) if ok else None,
               "anick_chains_top": pj["chains"][-1]})
     for g, D in (QUICK_R if quick else RING):
         f = export(g); pj, pt = perseus(f, D, ring=2)
-        t, degs = gap('G := SmallGroup(%d, %d);; t := Runtime();; A := ModPCohomologyRing(G, %d);; gens := ModPRingGenerators(A);; '
-                      'Print("MS ", Runtime() - t, " RES ", List(gens, x -> A!.degree(x)), " END\\n");' % (g[0], g[1], D))
+        r = gap('G := SmallGroup(%d, %d);; t := Runtime();; A := ModPCohomologyRing(G, %d);; gens := ModPRingGenerators(A);; '
+                'Print("MS ", Runtime() - t, " RES ", List(gens, x -> A!.degree(x)), " END\\n");' % (g[0], g[1], D))
         ours = pj["cohomology"]["generators_by_degree"]
-        if t is not None:
-            c = collections.Counter(d for d in degs if d > 0)
+        if r["status"] == "ok":
+            c = collections.Counter(d for d in r["result"] if d > 0)
             if [c.get(n, 0) for n in range(1, D + 1)] != ours[1:]: raise SystemExit("MISMATCH (ring generators) on SmallGroup%s" % (g,))
         save({"group": "SmallGroup(%d, %d)" % g, "task": "mod-2 ring, degrees <= %d" % D, "perseus_s": round(pt, 4),
-              "hap_best_s": t, "hap_best": "ModPCohomologyRing + ModPRingGenerators", "generators_by_degree": ours[1:]})
+              "hap": {"ModPCohomologyRing + ModPRingGenerators": {kk: vv for kk, vv in r.items() if kk != "result"}},
+              "hap_best_s": r.get("runtime_s"), "hap_best": "ModPCohomologyRing + ModPRingGenerators" if r["status"] == "ok" else None,
+              "generators_by_degree": ours[1:]})
 
 
 if __name__ == "__main__":

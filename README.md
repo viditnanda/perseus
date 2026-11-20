@@ -390,26 +390,28 @@ gramag enumerates the paths between all pairs of vertices before computing anyth
 
 ### Finite groups (measured 20 Nov 2026, 2-core Xeon)
 
-`bench/vs_hap.py`, against HAP 1.62 in GAP 4.12.1. For integral homology HAP is timed with `GroupHomology` (HAP chooses the method) and, for nilpotent groups, `ResolutionNilpotentGroup`; the faster is shown. `ResolutionNilpotentGroup` builds a resolution of the same size as Perseus's Anick resolution, so this compares implementations of the same idea, not algorithms. For mod-2 rings HAP runs `ModPCohomologyRing` with `ModPRingGenerators` (structure constants and minimal generators, no relations), which matches what Perseus computes. Times are each program's own clock: HAP's `Runtime()`, so GAP's start-up is excluded, and Perseus's best of three. Each HAP run is limited to 300 s. Every answer agrees, homology groups and generator degrees alike; the script fails otherwise. The reference for mod-p rings of p-groups, the Green–King package for SageMath, is not compared.
+`bench/vs_hap.py`, against HAP 1.62 in GAP 4.12.1. For integral homology HAP is timed with a single call `GroupHomology(G, D)` (HAP chooses the method) and, for nilpotent groups, with `ResolutionNilpotentGroup` followed by the homology of the tensored complex; the faster is shown. `ResolutionNilpotentGroup` builds a resolution of the same size as Perseus's Anick resolution, so this compares implementations of the same idea, not algorithms. For mod-2 rings HAP runs `ModPCohomologyRing` with `ModPRingGenerators` (structure constants and minimal generators, no relations), which matches what Perseus computes. Each program is timed by its own clock around the computation alone: HAP's `Runtime()`, excluding GAP's start-up, package loading and `SmallGroup`; Perseus's reported seconds, excluding reading and validating the table. Both sides take the best of three runs, except HAP runs over 10 s, which run once. Each HAP process is limited to 300 s of wall clock; "timeout" means that limit stopped it (a GAP failure would be reported as an error, and none occurred). Every answer agrees, homology groups and generator degrees alike; the script fails otherwise. The reference for mod-p rings of p-groups, the Green–King package for SageMath, is not compared.
 
 | group | task | Perseus | HAP (best routine) | ratio |
 |---|---|---|---|---|
-| SmallGroup(16, 14) | H_n(G; Z), n <= 6 | 0.0012 s | 0.044 s (`ResolutionNilpotentGroup`) | 37× |
-| SmallGroup(16, 9) | H_n(G; Z), n <= 8 | 0.0134 s | 2.11 s (`GroupHomology`) | 157× |
-| SmallGroup(24, 12) | H_n(G; Z), n <= 6 | 0.0069 s | 0.385 s (`GroupHomology`) | 56× |
-| SmallGroup(27, 3) | H_n(G; Z), n <= 6 | 0.0006 s | 0.058 s (`ResolutionNilpotentGroup`) | 97× |
-| SmallGroup(32, 51) | H_n(G; Z), n <= 6 | 0.0023 s | 0.18 s (`ResolutionNilpotentGroup`) | 78× |
-| SmallGroup(32, 49) | H_n(G; Z), n <= 6 | 0.0045 s | 0.591 s (`ResolutionNilpotentGroup`) | 131× |
-| SmallGroup(64, 138) | H_n(G; Z), n <= 6 | 0.0146 s | 3.96 s (`ResolutionNilpotentGroup`) | 271× |
-| SmallGroup(64, 138) | H_n(G; Z), n <= 8 | 0.145 s | 160 s (`ResolutionNilpotentGroup`) | 1099× |
-| SmallGroup(128, 1000) | H_n(G; Z), n <= 6 | 0.0162 s | 4.65 s (`ResolutionNilpotentGroup`) | 287× |
-| SmallGroup(128, 2000) | H_n(G; Z), n <= 6 | 0.0617 s | 50.3 s (`ResolutionNilpotentGroup`) | 815× |
-| SmallGroup(243, 2) | H_n(G; Z), n <= 6 | 0.004 s | 0.86 s (`ResolutionNilpotentGroup`) | 215× |
-| SmallGroup(32, 49) | mod-2 ring, degrees <= 4 | 0.0014 s | 0.135 s (`ModPCohomologyRing`) | 96× |
-| SmallGroup(64, 138) | mod-2 ring, degrees <= 4 | 0.0036 s | 0.211 s (`ModPCohomologyRing`) | 59× |
-| SmallGroup(128, 1000) | mod-2 ring, degrees <= 4 | 0.0039 s | 2.55 s (`ModPCohomologyRing`) | 653× |
-| SmallGroup(64, 138) | mod-2 ring, degrees <= 8 | 0.828 s | 21.7 s (`ModPCohomologyRing`) | 26× |
-| SmallGroup(128, 1000) | mod-2 ring, degrees <= 8 | 0.47 s | > 300 s |  |
+| SmallGroup(16, 14) | H_n(G; Z), n <= 6 | 0.0012 s | 0.046 s (`ResolutionNilpotentGroup`) | 38× * |
+| SmallGroup(16, 9) | H_n(G; Z), n <= 8 | 0.011 s | 0.846 s (`GroupHomology`) | 77× |
+| SmallGroup(24, 12) | H_n(G; Z), n <= 6 | 0.007 s | 0.104 s (`GroupHomology`) | 15× |
+| SmallGroup(27, 3) | H_n(G; Z), n <= 6 | 0.0007 s | 0.056 s (`ResolutionNilpotentGroup`) | 80× * |
+| SmallGroup(32, 51) | H_n(G; Z), n <= 6 | 0.0021 s | 0.204 s (`ResolutionNilpotentGroup`) | 97× |
+| SmallGroup(32, 49) | H_n(G; Z), n <= 6 | 0.0039 s | 0.582 s (`ResolutionNilpotentGroup`) | 149× |
+| SmallGroup(64, 138) | H_n(G; Z), n <= 6 | 0.0225 s | 3.58 s (`GroupHomology`) | 159× |
+| SmallGroup(64, 138) | H_n(G; Z), n <= 8 | 0.118 s | 173 s (`GroupHomology`) | 1470× |
+| SmallGroup(128, 1000) | H_n(G; Z), n <= 6 | 0.013 s | 3.53 s (`ResolutionNilpotentGroup`) | 271× |
+| SmallGroup(128, 2000) | H_n(G; Z), n <= 6 | 0.0404 s | 47 s (`ResolutionNilpotentGroup`; `GroupHomology` timed out) | 1163× |
+| SmallGroup(243, 2) | H_n(G; Z), n <= 6 | 0.0042 s | 0.543 s (`ResolutionNilpotentGroup`) | 129× |
+| SmallGroup(32, 49) | mod-2 ring, degrees <= 4 | 0.0014 s | 0.118 s (`ModPCohomologyRing`) | 84× * |
+| SmallGroup(64, 138) | mod-2 ring, degrees <= 4 | 0.0024 s | 0.189 s (`ModPCohomologyRing`) | 79× |
+| SmallGroup(128, 1000) | mod-2 ring, degrees <= 4 | 0.0033 s | 2.22 s (`ModPCohomologyRing`) | 673× |
+| SmallGroup(64, 138) | mod-2 ring, degrees <= 8 | 0.898 s | 18 s (`ModPCohomologyRing`) | 20× |
+| SmallGroup(128, 1000) | mod-2 ring, degrees <= 8 | 0.438 s | timeout at 300 s |  |
+
+\* Perseus times under 2 ms are close to the resolution of its clock, so these ratios are indicative only.
 
 Perseus alone, further out (one run each):
 
