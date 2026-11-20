@@ -356,6 +356,272 @@
     0,
     0
    ]
+  },
+  {
+   "group": "GL(2,3)",
+   "task": "H_n(G; Z), n <= 6, via Sylow subgroups",
+   "perseus_s": 0.0058,
+   "hap": {
+    "GroupHomology": {
+     "status": "ok",
+     "runtime_s": 0.327,
+     "wall_s": 3.156,
+     "runs": 3
+    }
+   },
+   "hap_best_s": 0.327,
+   "hap_best": "GroupHomology",
+   "answer": [
+    "2",
+    "",
+    "2,3,8",
+    "2",
+    "2,2",
+    "2"
+   ]
+  },
+  {
+   "group": "(S3 x S3) : C2",
+   "task": "H_n(G; Z), n <= 6, via Sylow subgroups",
+   "perseus_s": 0.0021,
+   "hap": {
+    "GroupHomology": {
+     "status": "ok",
+     "runtime_s": 0.1,
+     "wall_s": 2.995,
+     "runs": 3
+    }
+   },
+   "hap_best_s": 0.1,
+   "hap_best": "GroupHomology",
+   "answer": [
+    "2,2",
+    "2",
+    "2,2,3,4",
+    "2,2",
+    "2,2,2,2",
+    "2,2,2"
+   ]
+  },
+  {
+   "group": "(C4 x C4) : S3",
+   "task": "H_n(G; Z), n <= 6, via Sylow subgroups",
+   "perseus_s": 0.0197,
+   "hap": {
+    "GroupHomology": {
+     "status": "ok",
+     "runtime_s": 0.529,
+     "wall_s": 3.625,
+     "runs": 3
+    }
+   },
+   "hap_best_s": 0.529,
+   "hap_best": "GroupHomology",
+   "answer": [
+    "2",
+    "2",
+    "2,3,8",
+    "2",
+    "2,2,4",
+    "2,2"
+   ]
+  },
+  {
+   "group": "(C4 x C4) : S3",
+   "task": "H_n(G; Z), n <= 10, via Sylow subgroups",
+   "perseus_s": 0.2469,
+   "hap": {
+    "GroupHomology": {
+     "status": "timeout",
+     "wall_s": 300.1,
+     "stage": "timed computation"
+    }
+   },
+   "hap_best_s": null,
+   "hap_best": null,
+   "answer": [
+    "2",
+    "2",
+    "2,3,8",
+    "2",
+    "2,2,4",
+    "2,2",
+    "2,2,3,8",
+    "2,2,4",
+    "2,2,2,4",
+    "2,2,2"
+   ]
+  },
+  {
+   "group": "A5",
+   "task": "H_n(G; Z), n <= 8, via Sylow subgroups",
+   "perseus_s": 0.0011,
+   "hap": {
+    "GroupHomology": {
+     "status": "ok",
+     "runtime_s": 0.069,
+     "wall_s": 3.289,
+     "runs": 3
+    }
+   },
+   "hap_best_s": 0.069,
+   "hap_best": "GroupHomology",
+   "answer": [
+    "",
+    "2",
+    "2,3,5",
+    "",
+    "2,2",
+    "2",
+    "2,3,5",
+    "2,2"
+   ]
+  },
+  {
+   "group": "PSL(2,7)",
+   "task": "H_n(G; Z), n <= 8, via Sylow subgroups",
+   "perseus_s": 0.0024,
+   "hap": {
+    "GroupHomology": {
+     "status": "ok",
+     "runtime_s": 0.199,
+     "wall_s": 3.798,
+     "runs": 3
+    }
+   },
+   "hap_best_s": 0.199,
+   "hap_best": "GroupHomology",
+   "answer": [
+    "",
+    "2",
+    "3,4",
+    "",
+    "2,2,7",
+    "2",
+    "3,4",
+    "2,2"
+   ]
+  },
+  {
+   "group": "A6",
+   "task": "H_n(G; Z), n <= 8, via Sylow subgroups",
+   "perseus_s": 0.0032,
+   "hap": {
+    "GroupHomology": {
+     "status": "ok",
+     "runtime_s": 0.254,
+     "wall_s": 3.916,
+     "runs": 3
+    }
+   },
+   "hap_best_s": 0.254,
+   "hap_best": "GroupHomology",
+   "answer": [
+    "",
+    "2,3",
+    "3,4,5",
+    "",
+    "2,2",
+    "2,3",
+    "3,3,3,4,5",
+    "2,2"
+   ]
+  },
+  {
+   "group": "A7",
+   "task": "H_n(G; Z), n <= 8, via Sylow subgroups",
+   "perseus_s": 0.0049,
+   "hap": {
+    "GroupHomology": {
+     "status": "ok",
+     "runtime_s": 0.275,
+     "wall_s": 4.768,
+     "runs": 3
+    }
+   },
+   "hap_best_s": 0.275,
+   "hap_best": "GroupHomology",
+   "answer": [
+    "",
+    "2,3",
+    "3,4",
+    "",
+    "2,2,7",
+    "2,3",
+    "3,3,3,4,5",
+    "2,2"
+   ]
+  },
+  {
+   "group": "M11",
+   "task": "H_n(G; Z), n <= 8, via Sylow subgroups",
+   "perseus_s": 0.0279,
+   "hap": {
+    "GroupHomology": {
+     "status": "ok",
+     "runtime_s": 4.683,
+     "wall_s": 10.497,
+     "runs": 3
+    }
+   },
+   "hap_best_s": 4.683,
+   "hap_best": "GroupHomology",
+   "answer": [
+    "",
+    "",
+    "8",
+    "",
+    "2",
+    "",
+    "3,5,8",
+    "2"
+   ]
+  },
+  {
+   "group": "M12",
+   "task": "H_n(G; Z), n <= 6, via Sylow subgroups",
+   "perseus_s": 0.1458,
+   "hap": {
+    "GroupHomology": {
+     "status": "ok",
+     "runtime_s": 60.849,
+     "wall_s": 79.548,
+     "runs": 1
+    }
+   },
+   "hap_best_s": 60.849,
+   "hap_best": "GroupHomology",
+   "answer": [
+    "",
+    "2",
+    "2,3,8",
+    "3",
+    "2,2,2",
+    "2,2,2"
+   ]
+  },
+  {
+   "group": "PSL(3,4)",
+   "task": "H_n(G; Z), n <= 6, via Sylow subgroups",
+   "perseus_s": 0.2158,
+   "hap": {
+    "GroupHomology": {
+     "status": "ok",
+     "runtime_s": 115.738,
+     "wall_s": 150.923,
+     "runs": 1
+    }
+   },
+   "hap_best_s": 115.738,
+   "hap_best": "GroupHomology",
+   "answer": [
+    "",
+    "3,4,4",
+    "5",
+    "",
+    "2,2,2,2,4,7",
+    "2"
+   ]
   }
  ]
 }

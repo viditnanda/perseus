@@ -24,7 +24,7 @@ Executables for Linux, macOS and Windows are attached to each [GitHub release](h
 make                 # builds ./perseus (C++17 with 128-bit integers: g++ or clang; MinGW-w64 on Windows)
 make test            # differential tests (needs Ripser / Perseus 5 / p2ref; skips what is missing)
 make test-chain      # chain complexes over Z, simplicial sets, magnitude homology, Laurent coefficients
-make test-pcgroup    # finite solvable groups: integral homology and mod-p cohomology rings
+make test-pcgroup    # finite groups: integral homology and mod-p cohomology rings (pc groups and the Sylow route)
 cd python && pip install --no-build-isolation .   # Python module `perseus` (needs pybind11, numpy)
 ```
 
@@ -94,6 +94,7 @@ The big cyclic group is 2^2 · 5^2 · 479 · 22303 · 1157339 · p with p a 117-
 | `laurent` | filtered based chain complex over Z[t, t^-1]: one cell per line `dim birth face:poly ...`, e.g. `2 0 1:t^2-t+1 2:-1+t^-1` |
 | `magnitude` | a graph, one edge `u v` per line (vertices 0, 1, ...), for magnitude homology |
 | `pcgroup` | a finite solvable group: `n k`, the k pcgs element ids, their relative orders, the identity, then the n × n multiplication table (`tools/export_pcgroup.g` writes it from GAP); `--ring p` adds the mod-p cohomology ring |
+| `sylow` | any finite group, through its Sylow subgroups: `order N`, then for each prime p a Sylow p-subgroup P (as in `pcgroup`) and, for each double coset P g P with g outside P, the subgroup P ∩ gPg⁻¹ of P, a pcgs of it and its image under y ↦ g⁻¹yg (`tools/export_sylow.g` writes it); `--ring p` adds the mod-p cohomology ring |
 
 `#` starts a comment. Births are arbitrary real numbers. Coefficients default to Q (with the bad-prime certificate); `--coeff p` gives F_p.
 
@@ -141,6 +142,7 @@ perseus.simplicial_set([(0, 0, []), (1, 0, [0, 0]), (2, 1, [1, (0, [0]), 1])], i
 perseus.nerve(src, tgt, identities, composition, weights=w, maxdim=3, integral=True)
 perseus.bar_construction(mult, identity=0, maxdim=5)   # B M for a finite monoid M (exponential in maxdim)
 perseus.pc_group(**perseus.read_pcgroup("g.txt"), maxdim=8, ring=2)   # finite solvable G: H_*(G; Z), H^*(G; F_2) ring
+perseus.finite_group(**perseus.read_sylow("m11.txt"), maxdim=8, ring=2)   # any finite G, through its Sylow subgroups
 perseus.magnitude(edges, lmax=6)                       # r["table"][(k, l)] = {"free", "torsion": {order: multiplicity}, ...}
 perseus.laurent([(0, 0, []), (1, 0, [(0, "t - 1")])])  # barcode over Q(t), bad irreducibles, homology over Q[t^±1]
 ```
@@ -202,6 +204,15 @@ $ ./perseus pcgroup g.txt --maxdim 8 --ring 2
 ```
 
 The bar construction BG has (|G| − 1)^n nondegenerate n-simplices. Perseus never builds it. The pcgs gives a complete rewriting system (collection), and the algebraic Morse matching it induces on the bar resolution has C(n+k−1, k−1) critical cells in degree n, where |G| = r_1 ⋯ r_k (Anick's resolution). The differentials come from a memoised contracting homotopy whose work is polynomial in the degree. For n ≥ 1, |G| annihilates H_n(G; Z), so the computation runs over Z/q^(v+1) for each prime power q^v exactly dividing |G|. That is exact, with no rational arithmetic and nothing to certify. Units are cancelled across the whole complex before the Smith forms. For the ring, F_p ⊗ P is split once across degrees by Gaussian elimination, which gives dual bases of cocycles and cycles at the size of H^*; products are Yoneda composites, and only the minimal generators are lifted, since by associativity their products span the decomposables. The products are the cup products (pulled back to the bar resolution they agree with the Alexander–Whitney cup product, which the tests check). Relations, integral cup products and non-solvable groups are not covered; for those, use a Sylow subgroup with stable elements, or HAP. Details and references: `docs/TECHNIQUES.md` §5.7. `bar_construction` remains for monoids and categories.
+
+**Any finite group** (`sylow`, `perseus.finite_group`), through its Sylow subgroups. G need not be solvable: only its Sylow subgroups, which are p-groups, are resolved, and G itself is never read.
+
+```
+gap> Read("tools/export_sylow.g"); WritePerseusSylow(MathieuGroup(11), "m11.txt");
+$ ./perseus sylow m11.txt --maxdim 9 --ring 2
+```
+
+By Cartan–Eilenberg, H^n(G; F_p) is the subring of stable elements of H^n(P; F_p): the classes whose restrictions to P ∩ gPg⁻¹ along the inclusion and along y ↦ g⁻¹yg agree, for every double coset P g P. Dually, H_n(G; Z/p^k) is a cokernel of the maps from the homology of the intersections, and its lengths for k = 1..v (|P| = p^v) give the p-part of H_n(G; Z) exactly. The maps come from chain maps between Anick resolutions, built through the contracting homotopy of P's. The ring output gives each class of H^n(G; F_p) as a stable vector in the basis of H^n(P; F_p), the minimal generators, and their products with every class. For a solvable group this route is also the faster one when the pcgs mixes primes: (C4 × C4) : S3 to degree 6 takes 0.02 s this way and 0.75 s from its pcgs (HAP: 0.53 s). Details: `docs/TECHNIQUES.md` §5.8.
 
 **Laurent coefficients** (`laurent`, `perseus.laurent`). Chain complexes over Z[t, t^-1]: infinite cyclic covers, Alexander modules, Novikov homology. Z[t, t^-1] is not a principal ideal domain, so its homology has no barcode and no Smith form. Perseus computes what the principal ideal domains around it see, and says which:
 
@@ -411,6 +422,23 @@ gramag enumerates the paths between all pairs of vertices before computing anyth
 | SmallGroup(64, 138) | mod-2 ring, degrees <= 8 | 0.101 s (0.0789 s) | 15.7 s (`ModPCohomologyRing`) | 156× |
 | SmallGroup(128, 1000) | mod-2 ring, degrees <= 8 | 0.179 s (0.0905 s) | timeout at 300 s |  |
 
+
+Any finite group through its Sylow subgroups (`perseus sylow`, input from `tools/export_sylow.g`, export time excluded), against HAP's `GroupHomology(G, D)`, timed and cross-checked as above; the first three are solvable but not nilpotent, the rest are not solvable:
+
+| group | task | Perseus | HAP | ratio |
+|---|---|---|---|---|
+| GL(2,3) | H_n(G; Z), n <= 6 | 0.0058 s | 0.327 s (`GroupHomology`) | 56× |
+| (S3 x S3) : C2 | H_n(G; Z), n <= 6 | 0.0021 s | 0.1 s (`GroupHomology`) | 48× |
+| (C4 x C4) : S3 | H_n(G; Z), n <= 6 | 0.0197 s | 0.529 s (`GroupHomology`) | 27× |
+| (C4 x C4) : S3 | H_n(G; Z), n <= 10 | 0.247 s | timeout at 300 s |  |
+| A5 | H_n(G; Z), n <= 8 | 0.0011 s | 0.069 s (`GroupHomology`) | 63× * |
+| PSL(2,7) | H_n(G; Z), n <= 8 | 0.0024 s | 0.199 s (`GroupHomology`) | 83× |
+| A6 | H_n(G; Z), n <= 8 | 0.0032 s | 0.254 s (`GroupHomology`) | 79× |
+| A7 | H_n(G; Z), n <= 8 | 0.0049 s | 0.275 s (`GroupHomology`) | 56× |
+| M11 | H_n(G; Z), n <= 8 | 0.0279 s | 4.68 s (`GroupHomology`) | 168× |
+| M12 | H_n(G; Z), n <= 6 | 0.146 s | 60.8 s (`GroupHomology`) | 417× |
+| PSL(3,4) | H_n(G; Z), n <= 6 | 0.216 s | 116 s (`GroupHomology`) | 536× |
+
 \* Perseus times under 2 ms are close to the resolution of its clock, so these ratios are indicative only.
 
 For the rings, the Perseus time is with `--all-products`, which gives the same output as HAP (every product of basis classes, and the generators); in brackets, the default, which multiplies only the generators by every class. The rings were rerun on 20 Nov 2026 after the F_p splitting and generator-only lifting (`bench/vs_hap.py --rings`); the homology rows are from the earlier run, the code they time being unchanged.
@@ -463,7 +491,7 @@ Two things differ from the old programs:
 * **G:** the implicit cubical engines against the explicit complex and against each other (1–4 dimensions, periodic axes, absent cells, zero-length bars, 4D white noise and quantised fields), and the sparse Rips route against the dense engine.
 * **Cubical engines:** `make test-cubical` (`tests/t_cubical_morse.cpp`) runs the discrete-gradient engine against the classic one on random grids with heavy ties, absent cells and nearly distinct values. It compares barcodes over F_2, F_3, F_5 and Q (int64 and multi-modular), with and without zero-length bars, and from every degree with clearing data. It also compares certificates in auto and fast mode. It checks the Morse complex itself: every column is recomputed by recursion over gradient paths, along with the filtration order, δδ = 0, and the apparent pairs. It also covers degenerate shapes (axes of length 0, 1 and 2, very elongated grids, a single cube, grids entirely absent or constant) and the int64 guard: with the bound on path sums lowered, the engine must refuse, and the default must fall back to the classic engine.
 * **Chain complexes, simplicial sets, magnitude, Laurent:** `make test-chain`. `tests/t_chain.cpp`: Smith forms (with the bigint fallback), integral homology and images on RP^2 and two-stage filtrations, minimal spheres, torus, Klein bottle, RP^2 as simplicial sets, BZ/2, BZ/3, BS_3 (H_3 = Z/6), nerves with non-identity endomorphisms, suspensions, weighted poset nerves against order complexes, and on random complexes that the algebraic Morse reduction preserves barcodes over F_2, F_3, F_5 and Q, bad primes, integral homology and every image. `tests/t_magnitude.cpp`: the integral answer reduced by universal coefficients against field reductions of the unreduced complexes (trees, cycles, random graphs, directed and not), and the Z/2 of the Kaneta–Yoshinaga graph of RP^2. `tests/t_laurent.cpp`: Alexander polynomials of knots by Fox calculus, Z[t, t^-1]/(2, t + 1), the cylinder covering the torus, and on random complexes the Q(t) and F_p(t) barcodes against the rank function, the bad irreducibles against evaluation at t = t0 through the explicit engine, and the homology over Q[t, t^-1] and F_p[t, t^-1] against evaluation. `tests/t_howell.cpp`: the Howell sweeps against plain F_p reductions (pairs) and brute-force enumeration of spans modulo p^k (lengths), in one-word and BigInt arithmetic. The Python suite checks torsion trajectories against a Smith form at every t on random chain complexes, and that sweeps and reruns classify alike.
-* **Finite groups:** `make test-pcgroup`. `tests/t_pcgroup.cpp`: closed forms (cyclic groups of composite order, elementary abelian groups and their rings, generalised quaternion groups to order 64, dihedral groups against Handel's formula, S_3), the Künneth formula on direct products (mixed primes and mixed relative orders), universal coefficients between the integral and the mod-p engines for every group and every prime dividing its order, H_n(G; Z) against HAP for 12 groups of orders 8–32 (A_4, S_4 and SL(2,3) among them), mod-2 and mod-3 rings (dimensions and generator degrees) against the Green–King database through degree 10 for SmallGroup(64, 138), (128, 1000), (27, 3) and (27, 4), the F_p splitting (its cycles and cocycles are dual bases) and agreement of the two product modes, and rejection of tables that are not groups and sequences that are not pcgs.
+* **Finite groups:** `make test-pcgroup`. `tests/t_pcgroup.cpp`: closed forms (cyclic groups of composite order, elementary abelian groups and their rings, generalised quaternion groups to order 64, dihedral groups against Handel's formula, S_3), the Künneth formula on direct products (mixed primes and mixed relative orders), universal coefficients between the integral and the mod-p engines for every group and every prime dividing its order, H_n(G; Z) against HAP for 12 groups of orders 8–32 (A_4, S_4 and SL(2,3) among them), mod-2 and mod-3 rings (dimensions and generator degrees) against the Green–King database through degree 10 for SmallGroup(64, 138), (128, 1000), (27, 3) and (27, 4), the F_p splitting (its cycles and cocycles are dual bases) and agreement of the two product modes, and rejection of tables that are not groups and sequences that are not pcgs; and the Sylow route: H_n(G; Z) against HAP for A_5, PSL(2,7), A_6, A_7 and M_11, mod-p rings against the Green–King database and the literature (M_11 and M_12 mod 2, A_5 mod 2 and 5, PSL(2,7) mod 7), universal coefficients between its integral and mod-p results for every prime, agreement with the direct engine on S_4, GL(2,3) and (C4 × C4) : S3, and rejection of inconsistent inputs.
 * **Fuzzing:** `tests/fuzz_cubical.py` drives the Python module against the explicit complex (F_2, F_3, and Q with bad primes, with absent cells) and against CubicalRipser (F_2). It uses value distributions built for ties: few integer levels, quantised smooth fields, step functions, ±0, extreme magnitudes, plus degenerate shapes.
 
 The current tree passes all of them.
@@ -474,7 +502,7 @@ The current tree passes all of them.
 * Classifying many candidate primes dominates on torsion-heavy inputs. On explicit complexes the small candidates are settled in batches by Howell sweeps when that is cheaper (2.2–6× faster on the benchmarks above). Candidates of at least 2^63 are still one run each, and implicit Rips and cubical inputs still rerun every candidate.
 * Laurent coefficients cover Q(t), Q[t, t^-1], its residue fields and F_p(t), F_p[t, t^-1], not Z[t, t^-1] itself; images over Q[t, t^-1] are not computed yet. Finite twisted coefficients (Z[t]/(t^n − 1), for Milnor fibres) are planned.
 * Integral homology and images use dense Smith forms on the residual complex; inputs that do not reduce well are limited to residual blocks of about 40 million entries.
-* Finite groups: solvable groups only (given by a pcgs), no relations for the mod-p ring and no integral cup products. The work is polynomial in the degree, but the Anick resolution of a group of order p^k has C(n+k−1, k−1) generators in degree n, far more than a minimal resolution when the p-rank is small. The ring's linear algebra runs on the split complex, whose size is that of H^*, but the lifts still run over the Anick chains. A minimal resolution over F_p G, by perturbing the split, was tried and cost more than it saved (`docs/TECHNIQUES.md` §5.7). Maps induced by homomorphisms, and with them persistent homology of groups along a central series (Ellis–King), are the natural next step.
+* Finite groups: no relations for the mod-p ring and no integral cup products. Non-solvable groups only through their Sylow subgroups (`sylow`), which needs GAP (or another source) for the Sylow subgroups and double cosets. The work is polynomial in the degree, but the Anick resolution of a group of order p^k has C(n+k−1, k−1) generators in degree n, far more than a minimal resolution when the p-rank is small. The ring's linear algebra runs on the split complex, whose size is that of H^*, but the lifts still run over the Anick chains. A minimal resolution over F_p G, by perturbing the split, was tried and cost more than it saved (`docs/TECHNIQUES.md` §5.7). Maps induced by homomorphisms between pc groups exist internally (they drive the Sylow route) but are not exposed yet; with them would come persistent homology of groups along a central series (Ellis–King).
 
 ## Techniques and credits
 

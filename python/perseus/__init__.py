@@ -15,6 +15,7 @@ Integral and simplicial-set inputs (see docs/TECHNIQUES.md):
     perseus.nerve(src, tgt, identities, composition, weights), perseus.bar_construction(mult)       # B G
     perseus.magnitude(edges, lmax=5)                      # magnitude homology over Z with torsion
     perseus.pc_group(**perseus.read_pcgroup("g.txt"), maxdim=8, ring=2)   # H_*(G; Z), H^*(G; F_2) ring data
+    perseus.finite_group(**perseus.read_sylow("m11.txt"), maxdim=8, ring=2)  # any finite G, from its Sylow subgroups
     perseus.laurent([(0, 0, []), (1, 0, [(0, "t - 1")])])   # Z[t, t^-1] coefficients: Q(t) barcode, Q[t^+-1] homology
 
 Certificates: mode="proved" (the default; "auto" is the same) runs the Q reduction in exact rational
@@ -24,9 +25,9 @@ the error probability ("log2_error_bound"); it is not a proof, and it says so: "
 entry, and a Python warning. An entry of "bad_primes" with "every_prime_factor_of" set applies to every
 prime factor of its key. See docs/CERTIFICATE.md.
 """
-from ._perseus import rips, flag, cells, simplices, cubical, simplicial_set, nerve, bar_construction, magnitude, laurent, pc_group
+from ._perseus import rips, flag, cells, simplices, cubical, simplicial_set, nerve, bar_construction, magnitude, laurent, pc_group, finite_group
 
-__all__ = ["rips", "flag", "cells", "simplices", "cubical", "simplicial_set", "nerve", "bar_construction", "magnitude", "laurent", "pc_group", "read_pcgroup", "bad_primes"]
+__all__ = ["rips", "flag", "cells", "simplices", "cubical", "simplicial_set", "nerve", "bar_construction", "magnitude", "laurent", "pc_group", "read_pcgroup", "finite_group", "read_sylow", "bad_primes"]
 __version__ = "6.0.0"
 
 
@@ -49,3 +50,34 @@ def read_pcgroup(path):
     if len(flat) != n * n:
         raise ValueError("read_pcgroup: expected an %d x %d multiplication table" % (n, n))
     return {"mult": [flat[i * n:(i + 1) * n] for i in range(n)], "pcgs": pcgs, "relative_orders": rel, "identity": e}
+
+
+def read_sylow(path):
+    """Read a file written by tools/export_sylow.g; returns the keyword arguments of finite_group: order, primes."""
+    tok = []
+    with open(path) as fh:
+        for line in fh:
+            tok += line.split("#", 1)[0].split()
+    at = 0
+    def nxt():
+        nonlocal at
+        if at >= len(tok):
+            raise ValueError("read_sylow: the file ends early")
+        at += 1
+        return tok[at - 1]
+    def word(w):
+        t = nxt()
+        if t != w:
+            raise ValueError("read_sylow: expected %r, got %r" % (w, t))
+    word("order"); order = int(nxt()); primes = []
+    while at < len(tok):
+        word("prime"); p = int(nxt()); n, k = int(nxt()), int(nxt())
+        pcgs = [int(nxt()) for _ in range(k)]; rel = [int(nxt()) for _ in range(k)]; e = int(nxt())
+        mult = [[int(nxt()) for _ in range(n)] for _ in range(n)]
+        word("cosets"); cosets = []
+        for _ in range(int(nxt())):
+            q, kq = int(nxt()), int(nxt())
+            el = [int(nxt()) for _ in range(q)]; qp = [int(nxt()) for _ in range(kq)]; im = [int(nxt()) for _ in range(q)]
+            cosets.append({"elements": el, "pcgs": qp, "images": im})
+        primes.append({"p": p, "mult": mult, "pcgs": pcgs, "relative_orders": rel, "identity": e, "cosets": cosets})
+    return {"order": order, "primes": primes}

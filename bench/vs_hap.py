@@ -20,7 +20,10 @@ seconds of wall clock (default 300), start-up and cross-check included; a run is
 limit stops it during the timed computation, and as "error", with the tail of GAP's output, when GAP fails. If the
 limit falls in GroupHomology's untimed cross-check, the timed call's figure stands and only H_D is compared.
 
-    python3 bench/vs_hap.py [--quick] [--rings] [--out bench/vs_hap.json]     (--rings: rerun the ring rows only)
+    python3 bench/vs_hap.py [--quick] [--rings | --sylow] [--out bench/vs_hap.json]   (rerun only the ring / Sylow rows)
+
+Sylow rows: any finite group, perseus sylow (input from tools/export_sylow.g, export time excluded) against HAP's
+GroupHomology(G, D), timed and cross-checked as above.
 
 Needs: ./perseus (make), GAP with HAP on the PATH (run with GAP 4.12.1, HAP 1.62). Groups are SmallGroup(n, i),
 written for perseus by tools/export_pcgroup.g. Not compared: the Green-King package for SageMath, the reference
@@ -39,6 +42,11 @@ REPEAT_BELOW = 10.0
 HOMOLOGY = [((16, 14), 6), ((16, 9), 8), ((24, 12), 6), ((27, 3), 6), ((32, 51), 6), ((32, 49), 6), ((64, 138), 6),
             ((64, 138), 8), ((128, 1000), 6), ((128, 2000), 6), ((243, 2), 6)]
 RING = [((32, 49), 4), ((64, 138), 4), ((128, 1000), 4), ((64, 138), 8), ((128, 1000), 8)]
+# any finite group through its Sylow subgroups (perseus sylow): (GAP expression, name, D)
+SYLOW = [("SmallGroup(48, 29)", "GL(2,3)", 6), ("SmallGroup(72, 40)", "(S3 x S3) : C2", 6), ("SmallGroup(96, 64)", "(C4 x C4) : S3", 6),
+         ("SmallGroup(96, 64)", "(C4 x C4) : S3", 10), ("AlternatingGroup(5)", "A5", 8), ("PSL(2, 7)", "PSL(2,7)", 8),
+         ("AlternatingGroup(6)", "A6", 8), ("AlternatingGroup(7)", "A7", 8), ("MathieuGroup(11)", "M11", 8),
+         ("MathieuGroup(12)", "M12", 6), ("PSL(3, 4)", "PSL(3,4)", 6)]
 QUICK_H = [((16, 14), 6), ((27, 3), 6), ((64, 138), 6)]
 QUICK_R = [((32, 49), 4)]
 
@@ -92,6 +100,23 @@ def export(g):
     return f
 
 
+def export_sylow(expr):
+    f = os.path.join(TMP, "sy_%s.txt" % re.sub(r"[^A-Za-z0-9]", "_", expr))
+    if not os.path.exists(f):
+        subprocess.run(["gap", "-q"], input='Read("%s");; WritePerseusSylow(%s, "%s");; QUIT;\n' % (os.path.join(ROOT, "tools", "export_sylow.g"), expr, f), text=True, capture_output=True)
+        if not os.path.exists(f): raise RuntimeError("Sylow export failed for " + expr)
+    return f
+
+
+def perseus_sylow(f, D):
+    best = None
+    for _ in range(3):
+        p = subprocess.run([PERSEUS, "sylow", f, "--maxdim", str(D), "--print", "json"], capture_output=True, text=True)
+        if p.returncode: raise RuntimeError(p.stderr)
+        j = json.loads(p.stdout); best = j["seconds"] if best is None else min(best, j["seconds"])
+    return j, best
+
+
 def perseus(f, D, ring=0, extra=()):
     best, j = None, None
     for _ in range(3):
@@ -120,12 +145,28 @@ def main():
     outpath = sys.argv[sys.argv.index("--out") + 1] if "--out" in sys.argv else os.path.join(HERE, "vs_hap.json")
     rows = []
     rings_only = "--rings" in sys.argv
-    if rings_only:   # rerun the ring rows only, keeping the homology rows already in outpath
-        rows = [r for r in json.load(open(outpath))["rows"] if r["task"].startswith("H_n")]
+    sylow_only = "--sylow" in sys.argv
+    if rings_only:   # rerun the ring rows only, keeping the other rows already in outpath
+        rows = [r for r in json.load(open(outpath))["rows"] if not r["task"].startswith("mod-")]
+    if sylow_only:   # rerun the Sylow rows only
+        rows = [r for r in json.load(open(outpath))["rows"] if "Sylow" not in r["task"]]
     def save(row):
         rows.append(row); print(json.dumps(row), flush=True)
         json.dump({"limit_s": LIMIT, "rows": rows}, open(outpath, "w"), indent=1)
-    for g, D in ([] if rings_only else QUICK_H if quick else HOMOLOGY):
+    for expr, name, D in (SYLOW if sylow_only or not (quick or rings_only) else []):
+        f = export_sylow(expr); pj, pt = perseus_sylow(f, D)
+        ours = [prime_powers(h["torsion"]) for h in pj["homology"][1:]]
+        r = gap('G := %s;; t := Runtime();; top := GroupHomology(G, %d);; ms := Runtime() - t;; AppendTo("%s", "MS ", ms, " RES ", top, " END\\n");; H := Concatenation(List([1..%d], k -> GroupHomology(G, k)), [top]);; '
+                'Print("MS ", ms, " RES ", H, " END\\n");' % (expr, D, SIDE, D - 1))
+        if r.get("stage") == "cross-check":
+            if prime_powers(r["result"]) != ours[-1]: raise SystemExit("MISMATCH (GroupHomology, top degree) on " + name)
+            r = {"status": "ok", "runtime_s": r["runtime_s"], "wall_s": r["wall_s"], "runs": 1, "note": "cross-check of lower degrees stopped by the time limit; H_%d compared" % D}
+        elif r["status"] == "ok" and [prime_powers(x) for x in r["result"]] != ours: raise SystemExit("MISMATCH (GroupHomology) on " + name)
+        save({"group": name, "task": "H_n(G; Z), n <= %d, via Sylow subgroups" % D, "perseus_s": round(pt, 4),
+              "hap": {"GroupHomology": {k: v for k, v in r.items() if k != "result"}},
+              "hap_best_s": r.get("runtime_s") if r["status"] == "ok" else None, "hap_best": "GroupHomology" if r["status"] == "ok" else None,
+              "answer": [",".join(map(str, x)) for x in ours]})
+    for g, D in ([] if rings_only or sylow_only else QUICK_H if quick else HOMOLOGY):
         f = export(g); pj, pt = perseus(f, D)
         ours = [prime_powers(h["torsion"]) for h in pj["homology"][1:]]
         G = "G := SmallGroup(%d, %d);;" % g
@@ -151,7 +192,7 @@ def main():
               "hap": {k: {kk: vv for kk, vv in v.items() if kk != "result"} for k, v in runs.items()},
               "hap_best_s": min(ok.values()) if ok else None, "hap_best": min(ok, key=ok.get) if ok else None,
               "anick_chains_top": pj["chains"][-1]})
-    for g, D in (QUICK_R if quick else RING):
+    for g, D in ([] if sylow_only else QUICK_R if quick else RING):
         f = export(g); pj, pt = perseus(f, D, ring=2, extra=["--all-products"])
         pg, ptg = perseus(f, D, ring=2)
         if pg["cohomology"]["generators_by_degree"] != pj["cohomology"]["generators_by_degree"]: raise SystemExit("MISMATCH (product modes) on SmallGroup%s" % (g,))

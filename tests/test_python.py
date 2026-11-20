@@ -302,6 +302,17 @@ check("pc_group: the full product table on request, from the command line and th
       and {tuple(x[:4]): x[4] for x in ja["cohomology"]["products"]} == ma["cohomology"]["products"]
       and all(ma["cohomology"]["products"][k] == v for k, v in m["cohomology"]["products"].items() if k in ma["cohomology"]["products"]), (m["cohomology"]["products_of"], ma["cohomology"]["products_of"]))
 
+SYF = os.path.join(FIX, "sylow")
+r = perseus.finite_group(**perseus.read_sylow(os.path.join(SYF, "m11.txt")), maxdim=9, ring=2)
+check("finite_group M11 (not solvable): H_n through Sylow subgroups", [h["torsion"] for h in r["homology"]][1:6] == [[], [], [8], [], [2]] and r["complete"], r["homology"])
+c = r["cohomology"]
+check("finite_group M11: mod-2 ring as in Benson-Carlson (generators in degrees 3, 4, 5)", c["dims"] == [1, 0, 0, 1, 1, 1, 1, 1, 2, 2] and c["generators_by_degree"][1:6] == [0, 0, 1, 1, 1]
+      and all(len(v) == c["sylow_dims"][n] for n, b in enumerate(c["basis"]) for v in b), c)
+j = json.loads(subprocess.run([PERSEUS, "sylow", os.path.join(SYF, "a5.txt"), "--maxdim", "6", "--ring", "2", "--print", "json"], capture_output=True, text=True, timeout=600).stdout)
+m = perseus.finite_group(**perseus.read_sylow(os.path.join(SYF, "a5.txt")), maxdim=6, ring=2)
+check("command line sylow agrees with the module", [h["torsion"] for h in j["homology"]] == [h["torsion"] for h in m["homology"]]
+      and j["cohomology"]["dims"] == m["cohomology"]["dims"] and {tuple(x[:3]): x[3] for x in j["cohomology"]["products"]} == m["cohomology"]["products"], j)
+
 # ---- torsion trajectories and classification by Howell sweeps (torsion.hpp) ---------------------------------
 def smith_torsion(cols, nrows):
     """invariant factors > 1 of the integer matrix with these columns (lists of (row, coef)), by elimination"""
