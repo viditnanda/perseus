@@ -6,7 +6,9 @@ the faster of the two is reported. ResolutionNilpotentGroup builds a resolution 
 Anick resolution (C(n+k-1, k-1) generators in degree n for k cyclic factors; HAP may use fewer, larger cyclic
 factors), so the comparison is between implementations of the same idea.
 Mod-2 rings, degrees <= D: HAP's ModPCohomologyRing(G, D) and ModPRingGenerators (structure constants and minimal
-generators, no relations), against perseus --ring 2 --no-homology (dims, all products, minimal generators).
+generators, no relations), against perseus --ring 2 --no-homology --all-products (dims, all products of basis classes,
+minimal generators), which is the same output. Perseus's default, the products of the generators with every class
+(enough to find the generators), is timed too, as perseus_generators_only_s.
 The answers must agree (homology groups; degrees of the minimal generators); the script fails otherwise.
 
 Times: HAP's Runtime() around the computation (GAP's start-up, package loading and SmallGroup excluded); Perseus's
@@ -18,7 +20,7 @@ seconds of wall clock (default 300), start-up and cross-check included; a run is
 limit stops it during the timed computation, and as "error", with the tail of GAP's output, when GAP fails. If the
 limit falls in GroupHomology's untimed cross-check, the timed call's figure stands and only H_D is compared.
 
-    python3 bench/vs_hap.py [--quick] [--out bench/vs_hap.json]
+    python3 bench/vs_hap.py [--quick] [--rings] [--out bench/vs_hap.json]     (--rings: rerun the ring rows only)
 
 Needs: ./perseus (make), GAP with HAP on the PATH (run with GAP 4.12.1, HAP 1.62). Groups are SmallGroup(n, i),
 written for perseus by tools/export_pcgroup.g. Not compared: the Green-King package for SageMath, the reference
@@ -90,10 +92,10 @@ def export(g):
     return f
 
 
-def perseus(f, D, ring=0):
+def perseus(f, D, ring=0, extra=()):
     best, j = None, None
     for _ in range(3):
-        args = [PERSEUS, "pcgroup", f, "--maxdim", str(D), "--print", "json"] + (["--ring", str(ring), "--no-homology"] if ring else [])
+        args = [PERSEUS, "pcgroup", f, "--maxdim", str(D), "--print", "json"] + (["--ring", str(ring), "--no-homology"] if ring else []) + list(extra)
         p = subprocess.run(args, capture_output=True, text=True)
         if p.returncode: raise RuntimeError(p.stderr)
         j = json.loads(p.stdout); best = j["seconds"] if best is None else min(best, j["seconds"])
@@ -117,10 +119,13 @@ def main():
     quick = "--quick" in sys.argv
     outpath = sys.argv[sys.argv.index("--out") + 1] if "--out" in sys.argv else os.path.join(HERE, "vs_hap.json")
     rows = []
+    rings_only = "--rings" in sys.argv
+    if rings_only:   # rerun the ring rows only, keeping the homology rows already in outpath
+        rows = [r for r in json.load(open(outpath))["rows"] if r["task"].startswith("H_n")]
     def save(row):
         rows.append(row); print(json.dumps(row), flush=True)
         json.dump({"limit_s": LIMIT, "rows": rows}, open(outpath, "w"), indent=1)
-    for g, D in (QUICK_H if quick else HOMOLOGY):
+    for g, D in ([] if rings_only else QUICK_H if quick else HOMOLOGY):
         f = export(g); pj, pt = perseus(f, D)
         ours = [prime_powers(h["torsion"]) for h in pj["homology"][1:]]
         G = "G := SmallGroup(%d, %d);;" % g
@@ -147,14 +152,16 @@ def main():
               "hap_best_s": min(ok.values()) if ok else None, "hap_best": min(ok, key=ok.get) if ok else None,
               "anick_chains_top": pj["chains"][-1]})
     for g, D in (QUICK_R if quick else RING):
-        f = export(g); pj, pt = perseus(f, D, ring=2)
+        f = export(g); pj, pt = perseus(f, D, ring=2, extra=["--all-products"])
+        pg, ptg = perseus(f, D, ring=2)
+        if pg["cohomology"]["generators_by_degree"] != pj["cohomology"]["generators_by_degree"]: raise SystemExit("MISMATCH (product modes) on SmallGroup%s" % (g,))
         r = gap('G := SmallGroup(%d, %d);; t := Runtime();; A := ModPCohomologyRing(G, %d);; gens := ModPRingGenerators(A);; '
                 'Print("MS ", Runtime() - t, " RES ", List(gens, x -> A!.degree(x)), " END\\n");' % (g[0], g[1], D))
         ours = pj["cohomology"]["generators_by_degree"]
         if r["status"] == "ok":
             c = collections.Counter(d for d in r["result"] if d > 0)
             if [c.get(n, 0) for n in range(1, D + 1)] != ours[1:]: raise SystemExit("MISMATCH (ring generators) on SmallGroup%s" % (g,))
-        save({"group": "SmallGroup(%d, %d)" % g, "task": "mod-2 ring, degrees <= %d" % D, "perseus_s": round(pt, 4),
+        save({"group": "SmallGroup(%d, %d)" % g, "task": "mod-2 ring, degrees <= %d" % D, "perseus_s": round(pt, 4), "perseus_generators_only_s": round(ptg, 4),
               "hap": {"ModPCohomologyRing + ModPRingGenerators": {kk: vv for kk, vv in r.items() if kk != "result"}},
               "hap_best_s": r.get("runtime_s"), "hap_best": "ModPCohomologyRing + ModPRingGenerators" if r["status"] == "ok" else None,
               "generators_by_degree": ours[1:]})

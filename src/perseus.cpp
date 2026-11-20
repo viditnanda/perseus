@@ -77,6 +77,7 @@ static const char* USAGE =
 "  --pairs s,t,...  magnitude: only these (start, end) pairs\n"
 "  --ring p         pcgroup: also the mod-p cohomology ring through degree maxdim (default maxdim 4)\n"
 "  --no-homology    pcgroup: skip the integral homology\n"
+"  --all-products   pcgroup --ring: every product of basis classes (default: products of the generators with every class)\n"
 "  --print fmt      ripser | perseus | json | none   (stdout; default ripser unless a prefix is given)\n"
 "  --stats          timing and engine statistics on stderr\n"
 "\n"
@@ -93,7 +94,7 @@ struct Opts {
     bool classify = true, zero = false, stats = false;
     bool integral = false, image = false, reduce = true, directed = false, torsion = false;
     std::string classify_by = "auto";
-    double img_s = 0, img_t = 0; int lmax = 4; int ring = 0; bool pc_homology = true;
+    double img_s = 0, img_t = 0; int lmax = 4; int ring = 0; bool pc_homology = true; bool all_products = false;
     std::vector<std::pair<int, int>> pairs;
 };
 
@@ -380,6 +381,7 @@ int main(int argc, char** argv) {
         else if (a == "--lmax") o.lmax = std::stoi(val());
         else if (a == "--ring") o.ring = std::stoi(val());
         else if (a == "--no-homology") o.pc_homology = false;
+        else if (a == "--all-products") o.all_products = true;
         else if (a == "--directed") o.directed = true;
         else if (a == "--pairs") { std::string v = val(); for (char& ch : v) if (ch == ',') ch = ' '; auto t = split_ws(v); if (t.size() % 2) { fprintf(stderr, "--pairs s,t,...\n"); return 1; } for (size_t i = 0; i < t.size(); i += 2) o.pairs.push_back({std::stoi(t[i]), std::stoi(t[i + 1])}); }
         else if (a == "-h" || a == "--help") { fputs(USAGE, stdout); return 0; }
@@ -491,7 +493,7 @@ int main(int argc, char** argv) {
             if (at != tok.size()) throw std::runtime_error("pcgroup: trailing data after the multiplication table");
             pcg::PcGroup G(T, pcgs, rel, e);
             int md = o.maxdim >= 0 ? o.maxdim : 4;
-            pcg::PcResult R = pcg::pc_group_compute(G, md, o.pc_homology, o.ring);
+            pcg::PcResult R = pcg::pc_group_compute(G, md, o.pc_homology, o.ring, o.all_products);
             auto group_str = [](size_t fr, const std::vector<uint64_t>& tors) {
                 std::string s; if (fr) s = fr > 1 ? "Z^" + std::to_string(fr) : "Z";
                 std::map<uint64_t, size_t> c; for (auto t : tors) ++c[t];
@@ -520,7 +522,7 @@ int main(int argc, char** argv) {
                     for (size_t i = 0; i < R.R.indecomposables.size(); ++i) printf("%s%zu", i ? ", " : "", R.R.indecomposables[i]);
                     printf("], \"generators\": [");
                     for (size_t i = 0; i < R.R.generators.size(); ++i) printf("%s[%d, %d]", i ? ", " : "", R.R.generators[i].first, R.R.generators[i].second);
-                    printf("],\n    \"products\": [");
+                    printf("],\n    \"products_of\": \"%s\", \"products\": [", R.R.all_products ? "all basis classes" : "generators");
                     bool first = true;
                     for (auto& kv : R.R.products) {
                         printf("%s\n      [%d, %d, %d, %d, [", first ? "" : ",", std::get<0>(kv.first), std::get<1>(kv.first), std::get<2>(kv.first), std::get<3>(kv.first));
@@ -544,7 +546,7 @@ int main(int argc, char** argv) {
                 for (auto x : R.R.dims) printf(" %zu", x);
                 printf("\n  minimal generators by degree (n = 1..%d):", md);
                 for (int d = 1; d <= md; ++d) printf(" %zu", R.R.indecomposables[d]);
-                printf("\n  (all products of basis classes: --print json; they are cup products)\n");
+                printf("\n  (%s: --print json; they are cup products)\n", R.R.all_products ? "all products of basis classes" : "products of the generators with every basis class");
             }
             if (o.stats) { printf("  [Anick chains per degree:"); for (auto c : R.chains) printf(" %zu", c); printf("; %zu homotopy states]\n", R.states); }
             return 0;

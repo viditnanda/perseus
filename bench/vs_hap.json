@@ -243,16 +243,17 @@
   {
    "group": "SmallGroup(32, 49)",
    "task": "mod-2 ring, degrees <= 4",
-   "perseus_s": 0.0014,
+   "perseus_s": 0.0016,
+   "perseus_generators_only_s": 0.0014,
    "hap": {
     "ModPCohomologyRing + ModPRingGenerators": {
      "status": "ok",
-     "runtime_s": 0.118,
-     "wall_s": 2.795,
+     "runtime_s": 0.108,
+     "wall_s": 2.302,
      "runs": 3
     }
    },
-   "hap_best_s": 0.118,
+   "hap_best_s": 0.108,
    "hap_best": "ModPCohomologyRing + ModPRingGenerators",
    "generators_by_degree": [
     4,
@@ -264,16 +265,17 @@
   {
    "group": "SmallGroup(64, 138)",
    "task": "mod-2 ring, degrees <= 4",
-   "perseus_s": 0.0024,
+   "perseus_s": 0.0019,
+   "perseus_generators_only_s": 0.0019,
    "hap": {
     "ModPCohomologyRing + ModPRingGenerators": {
      "status": "ok",
-     "runtime_s": 0.189,
-     "wall_s": 2.763,
+     "runtime_s": 0.172,
+     "wall_s": 2.255,
      "runs": 3
     }
    },
-   "hap_best_s": 0.189,
+   "hap_best_s": 0.172,
    "hap_best": "ModPCohomologyRing + ModPRingGenerators",
    "generators_by_degree": [
     3,
@@ -285,16 +287,17 @@
   {
    "group": "SmallGroup(128, 1000)",
    "task": "mod-2 ring, degrees <= 4",
-   "perseus_s": 0.0033,
+   "perseus_s": 0.0028,
+   "perseus_generators_only_s": 0.0026,
    "hap": {
     "ModPCohomologyRing + ModPRingGenerators": {
      "status": "ok",
-     "runtime_s": 2.222,
-     "wall_s": 5.182,
+     "runtime_s": 1.828,
+     "wall_s": 4.156,
      "runs": 3
     }
    },
-   "hap_best_s": 2.222,
+   "hap_best_s": 1.828,
    "hap_best": "ModPCohomologyRing + ModPRingGenerators",
    "generators_by_degree": [
     4,
@@ -306,16 +309,17 @@
   {
    "group": "SmallGroup(64, 138)",
    "task": "mod-2 ring, degrees <= 8",
-   "perseus_s": 0.8983,
+   "perseus_s": 0.1007,
+   "perseus_generators_only_s": 0.0789,
    "hap": {
     "ModPCohomologyRing + ModPRingGenerators": {
      "status": "ok",
-     "runtime_s": 17.998,
-     "wall_s": 20.956,
+     "runtime_s": 15.661,
+     "wall_s": 18.208,
      "runs": 1
     }
    },
-   "hap_best_s": 17.998,
+   "hap_best_s": 15.661,
    "hap_best": "ModPCohomologyRing + ModPRingGenerators",
    "generators_by_degree": [
     3,
@@ -331,11 +335,13 @@
   {
    "group": "SmallGroup(128, 1000)",
    "task": "mod-2 ring, degrees <= 8",
-   "perseus_s": 0.4375,
+   "perseus_s": 0.1787,
+   "perseus_generators_only_s": 0.0905,
    "hap": {
     "ModPCohomologyRing + ModPRingGenerators": {
      "status": "timeout",
-     "wall_s": 300.1
+     "wall_s": 300.1,
+     "stage": "timed computation"
     }
    },
    "hap_best_s": null,

@@ -25,8 +25,10 @@
 // q-part is therefore read off a Smith form over Z/q^(v+1) (sparse elimination, least valuation first); this is
 // exact, with no rational arithmetic and no candidate primes.
 //
-// Mod-p cohomology ring: cocycles on chains over F_p, and products by Yoneda composition: a cocycle alpha of
-// degree a lifts through h to a chain map alpha~ : P_{a+*} -> P_*, and (alpha . beta)(c) = beta(eps alpha~_b(c)).
+// Mod-p cohomology ring: F_p (x) P is split once across degrees by Gaussian elimination (fp_split), which gives a
+// basis of cocycles and a dual basis of cycles at the size of H^*. Products by Yoneda composition: a cocycle alpha
+// of degree a lifts through h to a chain map alpha~ : P_{a+*} -> P_*, and (alpha . beta)(c) = beta(eps alpha~_b(c)).
+// By default only the minimal generators are lifted (their products span the decomposables, by associativity).
 // This is the cup product: pulled back to the normalised bar resolution through the comparison map built from h,
 // it agrees with the Alexander-Whitney cup product of the pulled-back cocycles up to a coboundary, with no sign
 // (tests/t_pcgroup.cpp checks this at p = 2, 3, 5, in degrees where the sign (-1)^(ab) would be visible).
@@ -427,7 +429,8 @@ struct CohomologyRing {
     std::vector<size_t> dims;                         // dim H^n(G; F_p)
     std::vector<size_t> indecomposables;              // minimal ring generators in degree n (index n; n >= 1)
     std::vector<std::pair<int, int>> generators;      // (degree, basis index) of a choice of minimal generators
-    std::map<std::tuple<int, int, int, int>, std::vector<uint32_t>> products;   // (a, i, b, j), a <= b: coordinates
+    bool all_products = false;                        // products: all (a, i, b, j) with a <= b; else (a, i) a generator
+    std::map<std::tuple<int, int, int, int>, std::vector<uint32_t>> products;   // (a, i, b, j): coordinates of alpha_ai . beta_bj
     std::vector<std::vector<std::vector<std::pair<int32_t, uint32_t>>>> basis;   // basis[n][i]: a cocycle on the Anick n-chains
 };
 struct PcResult {
@@ -643,27 +646,42 @@ inline FpSplit fp_split(const Anick& A, int D, i64 p) {
     }
     return F;
 }
-// the cocycle g0^*(s) = e_s - w^T pi_L on the chains of degree n, w^T W_L = W[s, :] (back substitution over the
-// pivots of d_{n+1} in reverse order)
-inline SV fp_cocycle(const FpSplit& F, int n, int32_t s) {
+// the cocycles g0^*(s) = e_s - w^T pi_L on the chains of degree n, for every survivor s, where w^T W_L = W[s, :]:
+// back substitution over the pivots of d_{n+1} in reverse order. Only the pivots reached from s are visited:
+// w at the pivot row of k is nonzero only if W[k] meets s or a row where w is already nonzero.
+inline std::vector<SV> fp_cocycles(const FpSplit& F, int n, size_t nchains) {
     const FpDegree& E = F.E[n + 1]; i64 p = F.p;
-    std::map<int32_t, i64> w;                         // keyed by pivot row (a chain of degree n in L_n)
-    for (size_t k = E.prow.size(); k-- > 0;) {
-        i64 b = 0, piv = 0;
-        for (auto& kv : E.W[k]) {
-            if (kv.first == s) b = (b + kv.second) % p;
-            else if (kv.first == E.prow[k]) piv = kv.second;
-            else if (E.rowpiv[kv.first] >= 0) { auto it = w.find(kv.first); if (it != w.end()) b = (b + p - it->second * kv.second % p) % p; }
+    std::vector<std::vector<int32_t>> in(nchains);          // row -> pivots k whose column W[k] has it (not as pivot)
+    std::vector<i64> pivval(E.prow.size(), 0);
+    for (size_t k = 0; k < E.prow.size(); ++k)
+        for (auto& kv : E.W[k]) { if (kv.first == E.prow[k]) pivval[k] = inv_mod(kv.second, p); else in[kv.first].push_back((int32_t)k); }
+    std::vector<i64> w(nchains, 0); std::vector<char> queued(E.prow.size(), 0);
+    std::vector<SV> out;
+    for (int32_t s : F.S[n]) {
+        std::priority_queue<int32_t> heap; std::vector<int32_t> touched, qk;
+        for (int32_t k : in[s]) if (!queued[k]) { queued[k] = 1; qk.push_back(k); heap.push(k); }
+        while (!heap.empty()) {
+            int32_t k = heap.top(); heap.pop();
+            i64 b = 0;
+            for (auto& kv : E.W[k]) {
+                if (kv.first == s) b = (b + kv.second) % p;
+                else if (kv.first != E.prow[k] && w[kv.first]) b = (b + p - w[kv.first] * kv.second % p) % p;
+            }
+            if (!b) continue;
+            int32_t r = E.prow[k]; w[r] = b * pivval[k] % p; touched.push_back(r);
+            for (int32_t k2 : in[r]) if (k2 < k && !queued[k2]) { queued[k2] = 1; qk.push_back(k2); heap.push(k2); }
         }
-        if (b) w[E.prow[k]] = b * inv_mod(piv, p) % p;
+        SV v; v.push_back({s, 1u});
+        for (int32_t r : touched) { v.push_back({r, (uint32_t)((p - w[r]) % p)}); w[r] = 0; }
+        for (int32_t k : qk) queued[k] = 0;
+        std::sort(v.begin(), v.end());
+        out.push_back(std::move(v));
     }
-    SV v; v.push_back({s, 1u});
-    for (auto& kv : w) if (kv.second) v.push_back({kv.first, (uint32_t)((p - kv.second) % p)});
-    std::sort(v.begin(), v.end());
-    return v;
+    return out;
 }
 
-inline CohomologyRing cohomology_ring(const PcGroup& G, int maxdim, int p, size_t* states_out = nullptr) {
+inline CohomologyRing cohomology_ring(const PcGroup& G, int maxdim, int p, size_t* states_out = nullptr, bool all_products = false) {
+    const bool generators_only = !all_products;
     if (p < 2) throw std::invalid_argument("pc_group: ring needs a prime");
     for (i64 d = 2; d * d <= p; ++d) if (p % d == 0) throw std::invalid_argument("pc_group: ring needs a prime");
     bool stats = std::getenv("PERSEUS_PC_STATS") != nullptr;
@@ -672,14 +690,13 @@ inline CohomologyRing cohomology_ring(const PcGroup& G, int maxdim, int p, size_
     Anick A(G, maxdim + 1, p);
     lap("anick resolution");
     const u64 N = (u64)G.n;
-    CohomologyRing R; R.p = p;
+    CohomologyRing R; R.p = p; R.all_products = all_products;
     FpSplit F = fp_split(A, maxdim, p);
+    lap("F_p splitting");
     std::vector<std::vector<SV>> basis(maxdim + 1), reps(maxdim + 1);   // cocycles g0^*(s); cycles f0(s)
     for (int n = 0; n <= maxdim; ++n) {
-        for (int32_t c : F.S[n]) {
-            basis[n].push_back(fp_cocycle(F, n, c));
-            reps[n].push_back(n == 0 ? SV{{c, 1u}} : F.E[n].trans[c]);
-        }
+        basis[n] = fp_cocycles(F, n, A.C.size(n));
+        for (int32_t c : F.S[n]) reps[n].push_back(n == 0 ? SV{{c, 1u}} : F.E[n].trans[c]);
         R.dims.push_back(F.S[n].size());
     }
     lap("cohomology bases");
@@ -690,55 +707,72 @@ inline CohomologyRing cohomology_ring(const PcGroup& G, int maxdim, int p, size_
         for (size_t i = 0; i < reps[n].size(); ++i) { i64 t = 0; for (auto& kv : reps[n][i]) t = (t + dense[kv.first] * kv.second) % p; x[i] = (uint32_t)t; }
         return x;
     };
-    std::vector<std::vector<std::vector<uint32_t>>> prods(maxdim + 1);
-    for (int a = 1; 2 * a <= maxdim; ++a) {
-        for (size_t ai = 0; ai < basis[a].size(); ++ai) {
-            const SV& alpha = basis[a][ai];
-            std::vector<Vec> L(A.C.size(a));            // L[c] in P_0 for c of degree a
-            for (auto& kv : alpha) L[kv.first] = Vec{{(u64)G.e, (i64)kv.second}};
-            for (int j = 1; a + j <= maxdim; ++j) {
-                std::vector<Vec> L2(A.C.size(a + j));
-                for (size_t c = 0; c < A.C.size(a + j); ++c) {
-                    std::vector<std::pair<u64, i64>> acc;
-                    for (auto& kv : A.d[a + j][c]) {
-                        size_t cp = kv.first / N; int g = (int)(kv.first % N);
-                        for (auto& kw : L[cp]) acc.push_back({(kw.first / N) * N + (u64)G.mul((int)(kw.first % N), g), mulmod(kv.second, kw.second, p)});
-                    }
-                    Vec X; normalize(acc, p, X);
-                    A.hvec(j - 1, X, L2[c]);
+    // Products by lifting. The decomposables in degree n are spanned by the products gamma . x with gamma a
+    // minimal generator (associativity: alpha . beta = sum gamma . (x . beta) when alpha = sum gamma . x), so
+    // in generators-only mode only the generators are lifted, degree by degree: the generators of degree a are
+    // the basis classes outside the span of the products already found in degree a. Otherwise every basis
+    // class of degree a <= maxdim/2 is lifted and all products alpha . beta, a <= b, are kept.
+    std::vector<Echelon> decomp; for (int n = 0; n <= maxdim; ++n) decomp.emplace_back(p);
+    // chains on which a lift is needed: those of some f0(s), and those met by the differential of a needed chain
+    std::vector<std::vector<char>> needed(maxdim + 1);
+    for (int n = maxdim; n >= 1; --n) {
+        needed[n].assign(A.C.size(n), 0);
+        for (auto& r : reps[n]) for (auto& kv : r) needed[n][kv.first] = 1;
+        if (n < maxdim) for (size_t c = 0; c < A.C.size(n + 1); ++c) if (needed[n + 1][c]) for (auto& kv : A.d[n + 1][c]) needed[n][kv.first / N] = 1;
+    }
+    R.indecomposables.assign(maxdim + 1, 0);
+    auto lift = [&](int a, size_t ai, bool all_b) {
+        const SV& alpha = basis[a][ai];
+        std::vector<Vec> L(A.C.size(a));                // L[c] in P_j for c of degree a + j
+        for (auto& kv : alpha) L[kv.first] = Vec{{(u64)G.e, (i64)kv.second}};
+        for (int j = 1; a + j <= maxdim; ++j) {
+            std::vector<Vec> L2(A.C.size(a + j));
+            for (size_t c = 0; c < A.C.size(a + j); ++c) {
+                if (!needed[a + j][c]) continue;
+                std::vector<std::pair<u64, i64>> acc;
+                for (auto& kv : A.d[a + j][c]) {
+                    size_t cp = kv.first / N; int g = (int)(kv.first % N);
+                    for (auto& kw : L[cp]) acc.push_back({(kw.first / N) * N + (u64)G.mul((int)(kw.first % N), g), mulmod(kv.second, kw.second, p)});
                 }
-                L.swap(L2);
-                int b = j;
-                if (b < a) continue;
-                for (size_t bj = 0; bj < basis[b].size(); ++bj) {
-                    std::vector<i64> beta(A.C.size(b), 0);
-                    for (auto& kv : basis[b][bj]) beta[kv.first] = kv.second;
-                    SV prod;
-                    for (size_t c = 0; c < A.C.size(a + b); ++c) {
-                        i64 s = 0; for (auto& kw : L[c]) s = (s + kw.second * beta[kw.first / N]) % p;
-                        if (s) prod.push_back({(int32_t)c, (uint32_t)s});
-                    }
-                    auto x = coords(a + b, prod);
-                    R.products[std::make_tuple(a, (int)ai, b, (int)bj)] = x;
-                    prods[a + b].push_back(x);
-                }
+                Vec X; normalize(acc, p, X);
+                A.hvec(j - 1, X, L2[c]);
             }
+            L.swap(L2);
+            int b = j;
+            if (!all_b && b < a) continue;
+            std::vector<char> need(A.C.size(a + b), 0);   // the product is read only on the f0(s)
+            for (auto& r : reps[a + b]) for (auto& kv : r) need[kv.first] = 1;
+            for (size_t bj = 0; bj < basis[b].size(); ++bj) {
+                std::vector<i64> beta(A.C.size(b), 0);
+                for (auto& kv : basis[b][bj]) beta[kv.first] = kv.second;
+                SV prod;
+                for (size_t c = 0; c < A.C.size(a + b); ++c) {
+                    if (!need[c]) continue;
+                    i64 s = 0; for (auto& kw : L[c]) s = (s + kw.second * beta[kw.first / N]) % p;
+                    if (s) prod.push_back({(int32_t)c, (uint32_t)s});
+                }
+                auto x = coords(a + b, prod);
+                R.products[std::make_tuple(a, (int)ai, b, (int)bj)] = x;
+                SV v; for (size_t i = 0; i < x.size(); ++i) if (x[i]) v.push_back({(int32_t)i, x[i]});
+                decomp[a + b].insert(v);
+            }
+        }
+    };
+    for (int a = 1; a <= maxdim; ++a) {
+        R.indecomposables[a] = R.dims[a] - decomp[a].rows.size();
+        for (size_t i = 0; i < R.dims[a]; ++i) {
+            bool gen = !decomp[a].rows.count((int32_t)i);
+            if (gen) R.generators.push_back({a, (int)i});
+            if (generators_only ? (gen && a < maxdim) : (2 * a <= maxdim)) lift(a, i, generators_only);
         }
     }
     lap("products");
-    R.indecomposables.assign(maxdim + 1, 0);
-    for (int n = 1; n <= maxdim; ++n) {
-        Echelon E(p);
-        for (auto& x : prods[n]) { SV v; for (size_t i = 0; i < x.size(); ++i) if (x[i]) v.push_back({(int32_t)i, x[i]}); E.insert(v); }
-        R.indecomposables[n] = R.dims[n] - E.rows.size();
-        for (size_t i = 0; i < R.dims[n]; ++i) if (!E.rows.count((int32_t)i)) R.generators.push_back({n, (int)i});
-    }
     R.basis = basis;
     if (states_out) *states_out = A.states();
     return R;
 }
 
-inline PcResult pc_group_compute(const PcGroup& G, int maxdim, bool homology, int ring_prime) {
+inline PcResult pc_group_compute(const PcGroup& G, int maxdim, bool homology, int ring_prime, bool all_products = false) {
     auto t0 = std::chrono::steady_clock::now();
     PcResult res;
     if (maxdim < 0) throw std::invalid_argument("pc_group: maxdim must be >= 0");
@@ -748,7 +782,7 @@ inline PcResult pc_group_compute(const PcGroup& G, int maxdim, bool homology, in
     }
     if (ring_prime) {
         if (G.n % ring_prime) throw std::invalid_argument("pc_group: the ring prime does not divide |G| (the ring is then trivial)");
-        size_t s = 0; res.R = cohomology_ring(G, maxdim, ring_prime, &s); res.has_ring = true; res.states += s;
+        size_t s = 0; res.R = cohomology_ring(G, maxdim, ring_prime, &s, all_products); res.has_ring = true; res.states += s;
         if (res.chains.empty()) { Chains C; C.build(G, maxdim + 1); for (int n = 0; n <= maxdim + 1; ++n) res.chains.push_back(C.size(n)); }
     }
     res.seconds = std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count();
