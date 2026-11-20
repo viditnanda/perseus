@@ -66,7 +66,7 @@ static const char* USAGE =
 "  --image s,t      explicit complexes: the image of H_*(K_s; Z) -> H_*(K_t; Z)\n"
 "  --torsion        explicit complexes, Q mode: the torsion of H_q(K_t; Z) at every t where it changes,\n"
 "                   with its invariant factors and p-primary exponents (Howell sweeps over Z/p^k)\n"
-"  --classify-by m  explicit complexes: auto | sweep (batched Howell sweeps over Z/m) | rerun (one\n"
+"  --classify-by m  explicit complexes: auto (sweeps when a sample of reruns predicts they are cheaper)\n                   | sweep (always batched Howell sweeps over Z/m) | rerun (one\n"
 "                   rerun per candidate prime); big candidates (>= 2^63) are always rerun\n"
 "  --no-reduce      cells/sset: skip the algebraic Morse reduction (unit pairs with equal births)\n"
 "  --lmax l         magnitude: lengths 0..l (default 4)\n"
@@ -247,8 +247,9 @@ static int solve(const B& be, const Opts& o, const IntegralSpec& ispec = Integra
         co.mode = o.mode; co.seed = o.seed; co.target_log2 = -o.target;
         if (prep && o.classify_by != "rerun") {
             int nt = o.threads > 0 ? o.threads : (int)std::max(1u, std::thread::hardware_concurrency());
-            co.sweep = [&, nt](const Certificate& c, const Barcode& qb, int kmax, std::vector<BadPrime>& bad, std::string& diag) {
-                return torsion::classify(*prep, c, qb, kmax, nt, be.keep_zero_length, bad, tcache, &diag); };
+            co.sweep_policy = o.classify_by == "sweep" ? "sweep" : "auto";
+            co.sweep = [&, nt](const Certificate& c, const Barcode& qb, int kmax, double budget, const std::set<uint64_t>& skip, std::vector<BadPrime>& bad, std::string& diag) {
+                return torsion::classify(*prep, c, qb, kmax, nt, be.keep_zero_length, bad, tcache, &diag, budget, skip); };
         }
         auto res = certify(be, co);
         main_bars = res.first.bars; cert = res.second;

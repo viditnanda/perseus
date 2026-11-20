@@ -33,8 +33,8 @@ Vidit's merge order (19 Nov 2026): **#4, then #2, then #3**. He verifies each on
 | #3 | `simplicial-sets` | simplicial sets, chain complexes over Z, integral outputs, magnitude homology, Laurent coefficients | merged 19 Nov 2026 (merge commit 6237171) |
 | #5 | `certify-warmstart` | classification profiled on Linial–Meshulam; big candidates in parallel (step 2) | merged 19 Nov 2026 (merge commit 00a8ec0) |
 | #6 | `certify-proved-default` | the default certificate is a proof everywhere; fast mode only on request, labelled (step 3) | merged 19 Nov 2026 (merge commit d089aec) |
-| #7 | `certificate-per-prime-theorem` | docs only: Theorem 4 (bad primes = primes of torsion in relative homology) in `CERTIFICATE.md` §7; step 4 plan | open; Vidit asked for this as a separate docs PR before step 4 |
-| #8 | `step4-howell` | Howell sweeps: batched classification of small candidates (default on explicit complexes), `--torsion` trajectories; based on #7 | open |
+| #7 | `certificate-per-prime-theorem` | docs only: Theorem 4 (bad primes = primes of torsion in relative homology) in `CERTIFICATE.md` §7; step 4 plan | merged 19 Nov 2026 (merge commit f4115ef) |
+| #8 | `step4-howell` | Howell sweeps (first version: sweeps by default on explicit complexes) | closed unmerged when its base branch was deleted; superseded by the next PR |
 
 The README's cubical tables (2D, 3D and 4D) are the single source of truth for cubical timings. They were re-measured on the code of #4 and #2 together, all programs in one sitting. Any later change that affects cubical speed re-measures the affected rows, or the whole table, and dates it.
 
@@ -107,7 +107,7 @@ The first items came from an external review of `main` at `5716401`; Vidit asked
      * *Why not a plain run modulo a composite:* every candidate divides some pivot value, so such a run splits at every candidate (Lemma 3 style); the Howell form carries on through non-unit pivots instead.
      * *A correction to the plan above.* "One sweep over t replaces all 496 reruns" was wrong: it assumed one modulus holding every candidate, which is the modulus-Δ route that Vidit's second caution rules out. With 62-bit batches the cost is one sweep per batch and degree: 124 sweeps for 386 small candidates at n = 90.
      * *The tied-case restriction turned out unnecessary.* The sweep reads off F_p pairs directly, not relative torsion of quadrants, so it works for every filtration of an explicit complex. Absolute torsion needs only the column prefixes (s = −1), for any filtration too.
-     * *Classification (`--classify-by auto|sweep|rerun`, default sweep on explicit complexes).* Small candidates are packed per degree into 62-bit moduli. A reference prime ℓ dividing no pivot value gives the Q pairs; its barcode must equal the Q barcode, or the code falls back to reruns. Big candidates (≥ 2^63) are still one run each modulo N.
+     * *Classification (`--classify-by auto|sweep|rerun`).* Small candidates are packed per degree into 62-bit moduli. A reference prime ℓ dividing no pivot value gives the Q pairs; its barcode must equal the Q barcode, or the code falls back to reruns. Big candidates (≥ 2^63) are still one run each modulo N.
      * *Torsion trajectory (`--torsion`, `torsion=True`).* For each bad prime p (Theorem 4: only bad primes have torsion), sweeps modulo p, then p^2, p^3, … until no exponent reaches k, give the p-primary exponents of tors H_q(K_t; Z) at every t. Output: per degree, the steps where the group changes, with invariant factors and primary parts. Composites that could not be factored are followed as such modulo N^k and flagged as groups. A split marks the trajectory incomplete.
    * **Validation.**
      * `tests/t_howell.cpp`: Lemma 5 against plain F_p reductions, and the length formula against brute-force spans; 6,000 random cases in both arithmetics; part of `make test-chain`.
@@ -129,6 +129,14 @@ The first items came from an external review of `main` at `5716401`; Vidit asked
      * n = 70: H_1 passes through Z/2 ⊕ Z/11618403313260425604101352.
      * n = 90: a cyclic group of order 1.09·10^50, including the 117-bit prime, for three steps.
      * 3-dimensional LM, n = 25, 2,700 tetrahedra: H_2 passes through Z/8705060926506448518465431062162, with an 81-bit composite followed as a group.
+   * **`auto` by measured cost (20 Nov 2026).** Making sweeps the default on every explicit input was a regression found before merge. On RP² Rips (300 points, sparse route, 1 candidate) the sweeps took 45 s against 0.5 s for the rerun: they skip clearing, and the reference sweeps alone cost about a hundred reruns there. Vidit asked for the replacement to be tested properly. `auto` now does the following:
+     1. It reruns a sample (one candidate per thread, at least two; the answers are kept), and sets the budget to the mean time times the remaining candidates.
+     2. It runs the reference sweeps under that budget, cancelling them past it.
+     3. It predicts the batches from the reference times (same matrices).
+     4. It sweeps only if reference plus prediction beat the budget. Batches running past twice the prediction are abandoned. With two candidates or fewer it reruns.
+
+     `bench/classify_auto.py` runs every instance in rerun, sweep and auto mode (raw results in `bench/classify_auto.json`). The instances: LM tied (n = 70, 90), distinct values (n = 40, 70), d = 3 (n = 25), a random chain complex, RP² Rips via the sparse route, Rips with 0.9M tetrahedra plus an LM component (6 or 347 candidates), explicit cubical noise, and the CRT fixtures. The three methods agree on bad primes and intervals everywhere. auto matched the better method on every instance (README table). Its worst overhead was 0.17 s on the Rips + LM n = 40 mix, where it cut the reference sweeps off at the 0.26 s budget.
+   * **#8 was closed** when its base branch (#7's) was deleted. The work continues in a new PR from `step4-howell` to `main`.
    * **Next, in order of payoff.**
      1. The 110 big candidates at n = 90 (39 s) are now the largest classification cost. Packing them into multi-word moduli does not pay, since schoolbook arithmetic is quadratic in the words. Options: Montgomery arithmetic for `ModBig` (it uses BigInt division now), and running them in the Howell sweep so that a split no longer restarts a run.
      2. `ModBig` sweeps are slow (most of the trajectory's 20 s at n = 90 is the 117-bit prime). Montgomery multi-word arithmetic, as in `run_mod_big`, would fix this.

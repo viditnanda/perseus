@@ -130,8 +130,13 @@ struct CertifyOptions {
     double target_log2 = -64;             // fast mode: aim for an error bound below 2^target
     int max_lanes = 32;
     // Optional: classify the small candidates by Howell sweeps (torsion.hpp) instead of reruns. Set by the
-    // caller for explicit complexes. Returns false when it cannot vouch for its answer; then reruns run.
-    std::function<bool(const Certificate&, const Barcode&, int, std::vector<BadPrime>&, std::string&)> sweep;
+    // caller for explicit complexes. Arguments: certificate, Q bars, kmax, budget (CPU seconds the sweeps may
+    // cost, < 0: no limit), candidates already settled, bad primes found, diagnostics. Returns false when it
+    // declines or cannot vouch for its answer; then the remaining candidates are rerun.
+    std::function<bool(const Certificate&, const Barcode&, int, double, const std::set<uint64_t>&, std::vector<BadPrime>&, std::string&)> sweep;
+    // "auto": rerun a sample of candidates first, and let the sweeps go ahead only if they are predicted to
+    // cost less than rerunning the rest; "sweep": always sweep.
+    std::string sweep_policy = "auto";
 };
 
 // log2 of sum_k c * P_k * (m_k / N)^K, with m_k = floor((h_k + extra) / 61)
@@ -441,34 +446,50 @@ std::pair<BRun<typename B::Clear>, Certificate> certify(const B& be, const Certi
         auto tb1 = now();
         if (dbg) fprintf(stderr, "  [debug: big candidates %.3f s, %d runs modulo multi-word N, %zu settled]\n", std::chrono::duration<double>(tb1 - tb0).count(), nbig_runs, done.size());
         std::vector<std::pair<uint64_t, int>> cand(cert.candidates.begin(), cert.candidates.end());
-        if (opt.sweep && !cand.empty()) {         // Howell sweeps of batches of candidates (torsion.hpp)
-            std::vector<BadPrime> sb; std::string diag;
-            bool ok = opt.sweep(cert, q.bars, kmax, sb, diag);
-            if (dbg) fprintf(stderr, "  [debug: sweep classification %s: %s]\n", ok ? "used" : "not used", diag.c_str());
-            if (ok) { for (auto& b : sb) cert.bad.push_back(std::move(b)); cand.clear(); }
-        }
         std::vector<double> tcand(cand.size(), 0);
-        std::vector<BadPrime> found(cand.size()); std::vector<char> isbad(cand.size(), 0);
-        std::atomic<size_t> next(0);
-        auto worker = [&]() {
-            for (size_t i; (i = next++) < cand.size();) {
-                uint64_t p = cand[i].first; int k0 = cand[i].second;
-                const Clear* in = k0 > 0 ? &q.clear_out[k0 - 1] : nullptr;
-                BadPrime bp; bp.p = p; bp.k0 = k0;
-                auto tc0 = std::chrono::steady_clock::now();
-                BRun<Clear> r = run_field(be, p, k0, kmax, in);
-                tcand[i] = std::chrono::duration<double>(std::chrono::steady_clock::now() - tc0).count();
-                bp.only_p = bar_diff(r.bars, q.bars, k0); bp.only_q = bar_diff(q.bars, r.bars, k0);
-                if (!bars_empty(bp.only_p) || !bars_empty(bp.only_q)) { found[i] = std::move(bp); isbad[i] = 1; }
-            }
+        std::vector<BadPrime> found(cand.size()); std::vector<char> isbad(cand.size(), 0), todo(cand.size(), 1);
+        auto rerun = [&](size_t i) {
+            uint64_t p = cand[i].first; int k0 = cand[i].second;
+            const Clear* in = k0 > 0 ? &q.clear_out[k0 - 1] : nullptr;
+            BadPrime bp; bp.p = p; bp.k0 = k0;
+            auto tc0 = std::chrono::steady_clock::now();
+            BRun<Clear> r = run_field(be, p, k0, kmax, in);
+            tcand[i] = std::chrono::duration<double>(std::chrono::steady_clock::now() - tc0).count();
+            bp.only_p = bar_diff(r.bars, q.bars, k0); bp.only_q = bar_diff(q.bars, r.bars, k0);
+            if (!bars_empty(bp.only_p) || !bars_empty(bp.only_q)) { found[i] = std::move(bp); isbad[i] = 1; }
         };
-        int nt = std::max(1, std::min<int>(opt.threads, (int)cand.size()));
-        std::vector<std::thread> pool; for (int t = 1; t < nt; ++t) pool.emplace_back(worker);
-        worker(); for (auto& th : pool) th.join();
+        auto rerun_all = [&](const std::vector<size_t>& idx) {
+            std::atomic<size_t> next(0);
+            auto worker = [&]() { for (size_t j; (j = next++) < idx.size();) rerun(idx[j]); };
+            int nt = std::max(1, std::min<int>(opt.threads, (int)idx.size()));
+            std::vector<std::thread> pool; for (int t = 1; t < nt; ++t) pool.emplace_back(worker);
+            worker(); for (auto& th : pool) th.join();
+        };
+        std::string sweep_note;
+        bool sweep_auto = opt.sweep_policy != "sweep";
+        if (opt.sweep && !cand.empty() && !(sweep_auto && cand.size() <= 2)) {   // Howell sweeps (torsion.hpp)
+            double budget = -1; std::set<uint64_t> skip;
+            if (sweep_auto) {                     // a sample of reruns, one per thread (at least two), sets the budget
+                size_t ns = std::min(cand.size(), (size_t)std::max(2, opt.threads));
+                std::vector<size_t> idx; for (size_t i = 0; i < ns; ++i) idx.push_back(i * cand.size() / ns);
+                rerun_all(idx);
+                double per = 0; for (size_t i : idx) { per += tcand[i]; todo[i] = 0; skip.insert(cand[i].first); }
+                per /= ns;
+                budget = per * (double)(cand.size() - ns);
+            }
+            std::vector<BadPrime> sb;
+            bool ok = opt.sweep(cert, q.bars, kmax, budget, skip, sb, sweep_note);
+            if (dbg) fprintf(stderr, "  [debug: sweep classification %s: %s]\n", ok ? "used" : "not used", sweep_note.c_str());
+            if (ok) { for (auto& b : sb) cert.bad.push_back(std::move(b)); for (size_t i = 0; i < cand.size(); ++i) todo[i] = 0; }
+        }
+        std::vector<size_t> rest; for (size_t i = 0; i < cand.size(); ++i) if (todo[i]) rest.push_back(i);
+        rerun_all(rest);
+        int nt = std::max(1, std::min<int>(opt.threads, (int)std::max<size_t>(1, rest.size())));
         for (size_t i = 0; i < cand.size(); ++i) if (isbad[i]) cert.bad.push_back(std::move(found[i]));
         if (dbg) {        // where each small candidate first divides a pivot, against the cost of its rerun
             double tsum = 0; for (double x : tcand) tsum += x;
-            fprintf(stderr, "  [debug: small candidates %.3f s wall, %.3f s summed over %zu reruns, %d threads]\n", std::chrono::duration<double>(now() - tb1).count(), tsum, cand.size(), nt);
+            size_t nr = 0; for (double x : tcand) nr += x > 0;
+            fprintf(stderr, "  [debug: small candidates %.3f s wall, %.3f s summed over %zu reruns, %d threads]\n", std::chrono::duration<double>(now() - tb1).count(), tsum, nr, nt);
             if (const char* path = getenv("PERSEUS_CLASSIFY_DUMP")) {
                 FILE* f = fopen(path, "w");
                 std::map<int, uint64_t> kmaxkey; for (auto& v : cert.values) kmaxkey[v.k] = std::max(kmaxkey[v.k], v.key);

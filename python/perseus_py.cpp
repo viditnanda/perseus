@@ -63,8 +63,9 @@ static py::dict solve(const B& be, const SolveOpts& o) {
         torsion::Cache tcache;
         if (o.classify_by != "auto" && o.classify_by != "sweep" && o.classify_by != "rerun") throw std::invalid_argument("classify_by must be 'auto', 'sweep' or 'rerun'");
         if (prep && o.classify_by != "rerun")
-            co.sweep = [&](const Certificate& c, const Barcode& qb, int kmax, std::vector<BadPrime>& bad, std::string& diag) {
-                return torsion::classify(*prep, c, qb, kmax, threads, be.keep_zero_length, bad, tcache, &diag); };
+            { co.sweep_policy = o.classify_by == "sweep" ? "sweep" : "auto"; }
+            co.sweep = [&](const Certificate& c, const Barcode& qb, int kmax, double budget, const std::set<uint64_t>& skip, std::vector<BadPrime>& bad, std::string& diag) {
+                return torsion::classify(*prep, c, qb, kmax, threads, be.keep_zero_length, bad, tcache, &diag, budget, skip); };
         std::pair<BRun<typename B::Clear>, Certificate> r;
         { py::gil_scoped_release nogil; r = certify(be, co); }
         const Certificate& c = r.second;

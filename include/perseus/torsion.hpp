@@ -52,10 +52,28 @@ static std::vector<typename Sweep<M>::Ent> column(const Prepared& P, int j, int3
 }
 
 // sweep d_j over Z/m, m = prod p_i^{k_i}; one result per (p_i, k_i). check_groups: the p_i may be composite
+// a shared stop signal for sweeps run against a time budget
+struct Budget {
+    double cpu = -1;                                  // seconds of sweep time allowed in total; < 0: unlimited
+    std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
+    int concurrency = 1;
+    std::atomic<bool> stop{false};
+    bool exceeded() {
+        if (cpu < 0) return false;
+        if (stop) return true;
+        if (std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count() * concurrency > cpu) stop = true;
+        return stop;
+    }
+};
+
 template <class M, class PT>
-std::vector<PrimeResult> sweep(const Prepared& P, int j, const M& R, const std::vector<std::pair<PT, int>>& pk, bool check_groups = false) {
+std::vector<PrimeResult> sweep(const Prepared& P, int j, const M& R, const std::vector<std::pair<PT, int>>& pk, bool check_groups = false,
+                               Budget* budget = nullptr, bool* cancelled = nullptr) {
     Sweep<M> S(R, P.count(j - 1));
-    for (size_t c = 0; c < P.count(j); ++c) S.insert(column(P, j, (int32_t)c, R), (int32_t)c);
+    for (size_t c = 0; c < P.count(j); ++c) {
+        if (budget && (c & 127) == 0 && budget->exceeded()) { if (cancelled) *cancelled = true; return {}; }
+        S.insert(column(P, j, (int32_t)c, R), (int32_t)c);
+    }
     std::vector<PrimeResult> out(pk.size());
     for (auto& ev : S.events)
         for (size_t i = 0; i < pk.size(); ++i) {
@@ -123,6 +141,7 @@ struct Cache {
     uint64_t ell = 0;
     std::map<int, Pairs> ref;                         // degree -> reference (Q) pairs
     std::map<uint64_t, std::map<int, Pairs>> fp;      // prime -> degree -> F_p pairs, where they differ in general
+    std::map<int, double> ref_seconds;                // degree -> time of its reference sweep
 };
 
 // barcode in degrees k0..kmax (lower degrees empty) from the pairs of degrees k0 - 1 .. kmax
@@ -143,26 +162,43 @@ inline Barcode assemble(const Prepared& P, int k0, int kmax, const std::function
     return B;
 }
 
-inline void ensure_ref(const Prepared& P, Cache& C, const Certificate& cert, const std::set<int>& degs, int threads) {
+// the reference sweeps of the given degrees; their times go to C.ref_seconds. Returns false if the budget stopped them
+inline bool ensure_ref(const Prepared& P, Cache& C, const Certificate& cert, const std::set<int>& degs, int threads, Budget* budget = nullptr) {
     if (!C.ell) C.ell = reference_prime(cert);
     std::vector<int> need; for (int k : degs) if (k >= 0 && k < P.D && !C.ref.count(k)) need.push_back(k);
-    std::vector<Pairs> res(need.size());
+    std::vector<Pairs> res(need.size()); std::vector<double> secs(need.size(), 0);
+    std::vector<char> cut(need.size(), 0);
     std::vector<std::function<void()>> jobs;
+    if (budget) budget->concurrency = std::max(1, std::min<int>(threads, (int)need.size()));
     for (size_t i = 0; i < need.size(); ++i) jobs.push_back([&, i]() {
-        res[i] = sweep(P, need[i] + 1, ModU64(C.ell), std::vector<std::pair<uint64_t, int>>{{C.ell, 1}})[0].pairs; });
+        auto t0 = std::chrono::steady_clock::now(); bool c = false;
+        auto r = sweep(P, need[i] + 1, ModU64(C.ell), std::vector<std::pair<uint64_t, int>>{{C.ell, 1}}, false, budget, &c);
+        if (c) { cut[i] = 1; return; }
+        res[i] = std::move(r[0].pairs);
+        secs[i] = std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count(); });
     run_jobs(jobs, threads);
-    for (size_t i = 0; i < need.size(); ++i) C.ref[need[i]] = std::move(res[i]);
+    bool ok = true;
+    for (size_t i = 0; i < need.size(); ++i) {
+        if (cut[i]) { ok = false; continue; }
+        C.ref[need[i]] = std::move(res[i]); C.ref_seconds[need[i]] = secs[i];
+    }
+    return ok;
 }
 
 // Classify the small candidates (cert.candidates) by sweeps. Returns false if the reference disagrees with the
 // Q barcode (then nothing is claimed and the caller reruns). Bad primes get their F_p pairs cached.
+// budget_cpu < 0: always sweep. Otherwise the sweeps go ahead only while they are predicted to cost less than
+// budget_cpu, the estimated cost of rerunning the candidates instead; the reference sweeps run under that budget,
+// and their times predict the batch sweeps (same matrices). skip: candidates already settled by the caller.
 inline bool classify(const Prepared& P, const Certificate& cert, const Barcode& qbars, int kmax, int threads, bool keep0,
-                     std::vector<BadPrime>& bad, Cache& C, std::string* diag = nullptr) {
+                     std::vector<BadPrime>& bad, Cache& C, std::string* diag = nullptr,
+                     double budget_cpu = -1, const std::set<uint64_t>& skip = std::set<uint64_t>()) {
     P.build_boundaries();
     kmax = std::min(kmax, P.D);
     std::map<uint64_t, std::set<int>> Dp;
     std::set<int> degs;
     for (auto& kv : cert.candidates) {
+        if (skip.count(kv.first)) continue;
         std::set<int> D = degrees_of(cert, BigInt::from_u64(kv.first));
         for (auto it = D.begin(); it != D.end();) { if (*it > kmax || *it >= P.D) it = D.erase(it); else ++it; }
         if (D.empty()) continue;                       // divides no pivot value of a degree we report
@@ -172,7 +208,25 @@ inline bool classify(const Prepared& P, const Certificate& cert, const Barcode& 
     }
     if (Dp.empty()) return true;
     auto t0 = std::chrono::steady_clock::now();
-    ensure_ref(P, C, cert, degs, threads);
+    auto say = [&](const std::string& x) { if (diag) *diag = x; };
+    // the batches, before any sweep: how many per degree
+    std::map<int, std::vector<std::pair<uint64_t, int>>> per;
+    for (auto& kv : Dp) for (int k : kv.second) per[k].push_back({kv.first, 1});
+    std::map<int, size_t> nbatch; size_t njobs = 0;
+    for (auto& kv : per) { nbatch[kv.first] = pack(kv.second).size(); njobs += nbatch[kv.first]; }
+    Budget bref; bref.cpu = budget_cpu;
+    double before = 0; for (int k : degs) if (C.ref_seconds.count(k)) before += C.ref_seconds[k];
+    if (!ensure_ref(P, C, cert, degs, threads, budget_cpu >= 0 ? &bref : nullptr)) {
+        char b[200]; snprintf(b, sizeof b, "declined: the reference sweeps alone exceeded the rerun estimate %.3f s", budget_cpu); say(b); return false;
+    }
+    double tref = 0, predicted = 0;
+    for (int k : degs) if (k < P.D) tref += C.ref_seconds[k];
+    tref -= before;
+    for (auto& kv : nbatch) predicted += kv.second * C.ref_seconds[kv.first];
+    if (budget_cpu >= 0 && tref + predicted > budget_cpu) {
+        char b[240]; snprintf(b, sizeof b, "declined: %zu sweeps predicted %.3f s + reference %.3f s > reruns %.3f s", njobs, predicted, tref, budget_cpu);
+        say(b); return false;
+    }
     {   // the reference must reproduce the Q barcode in every degree it covers
         int lo = *degs.begin(); int k1 = lo == 0 ? 0 : lo + 1;
         Barcode R = assemble(P, k1, kmax, [&](int k) -> const Pairs& { return C.ref.at(k); }, keep0);
@@ -181,15 +235,16 @@ inline bool classify(const Prepared& P, const Certificate& cert, const Barcode& 
             if (R[k] != q) { if (diag) *diag = "reference sweep disagrees with the Q barcode in degree " + std::to_string(k); return false; }
         }
     }
-    // batches per degree
-    struct Job { int k; std::vector<std::pair<uint64_t, int>> bin; std::vector<PrimeResult> res; };
+    // batches per degree; under a budget they stop at twice the prediction plus the budget's slack
+    struct Job { int k; std::vector<std::pair<uint64_t, int>> bin; std::vector<PrimeResult> res; bool cut = false; };
     std::vector<Job> jobs;
-    std::map<int, std::vector<std::pair<uint64_t, int>>> per;
-    for (auto& kv : Dp) for (int k : kv.second) per[k].push_back({kv.first, 1});
     for (auto& kv : per) for (auto& b : pack(kv.second)) jobs.push_back({kv.first, b, {}});
+    Budget bjobs; bjobs.cpu = budget_cpu < 0 ? -1 : std::max(2 * predicted, budget_cpu - tref);
+    bjobs.concurrency = std::max(1, std::min<int>(threads, (int)jobs.size()));
     std::vector<std::function<void()>> fns;
-    for (auto& J : jobs) fns.push_back([&P, &J]() { J.res = sweep(P, J.k + 1, ModU64(modulus_of(J.bin)), J.bin); });
+    for (auto& J : jobs) fns.push_back([&P, &J, &bjobs]() { J.res = sweep(P, J.k + 1, ModU64(modulus_of(J.bin)), J.bin, false, &bjobs, &J.cut); });
     run_jobs(fns, threads);
+    for (auto& J : jobs) if (J.cut) { say("abandoned: the batch sweeps ran past twice their prediction"); return false; }
     std::map<uint64_t, std::map<int, Pairs>> fp;
     for (auto& J : jobs) for (size_t i = 0; i < J.bin.size(); ++i) fp[J.bin[i].first][J.k] = std::move(J.res[i].pairs);
     for (auto& kv : Dp) {
@@ -201,8 +256,9 @@ inline bool classify(const Prepared& P, const Certificate& cert, const Barcode& 
         bp.only_p = bar_diff(B, qbars, k0); bp.only_q = bar_diff(qbars, B, k0);
         if (!bars_empty(bp.only_p) || !bars_empty(bp.only_q)) { bad.push_back(std::move(bp)); C.fp[p] = std::move(mine); }
     }
-    if (diag) { char b[160]; snprintf(b, sizeof b, "%zu sweeps for %zu candidates in %.3f s", jobs.size() + C.ref.size(), Dp.size(),
-                                      std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count()); *diag = b; }
+    if (diag) { char b[240]; snprintf(b, sizeof b, "%zu sweeps for %zu candidates in %.3f s (reference %.3f s, batches predicted %.3f s%s)",
+                                      jobs.size() + C.ref.size(), Dp.size(), std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count(),
+                                      tref, predicted, budget_cpu >= 0 ? (", rerun estimate " + std::to_string(budget_cpu) + " s").c_str() : ""); *diag = b; }
     return true;
 }
 

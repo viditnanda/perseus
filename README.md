@@ -56,7 +56,7 @@ Run the reduction over Q and look at the pivots. If a prime p divides no numerat
 1. **Reduces over Q, exactly.** By default (`--mode proved`; `--mode auto` is the same) the reduction runs in exact rational arithmetic: int64 numerators and denominators with every operation overflow-checked, and, in a degree where they overflow, rationals that stay in int64 while they fit and become big integers only where they must. The barcode and the pivot values are exact, so the certificate is a proof. `--mode fast` reduces modulo K random primes from [2^61, 2^62) instead and reports a bound on the probability of error that holds for every input (default below 2^-64; `--target`). It is not a proof, and every output says so: a warning on stderr, `"proof": false` and a `"warning"` entry in the JSON, and a Python warning. The bound is over a fresh 256-bit seed; `--seed` reproduces a run but does not certify it.
 2. **Reconstructs** non-unit pivot values in fast mode, by Wang reconstruction checked against two independent primes.
 3. **Factors** the pivot values: trial division, division by primes already found, Pollard–Brent rho, and gcds between leftovers. Large primes and unsplit composites N are not factored further.
-4. **Settles every candidate.** On explicit complexes (simplices, cells, simplicial sets) the primes below 2^63 are packed into 62-bit moduli and settled by one sweep per modulus over Z/m in Howell form, which gives every packed prime's F_p barcode at once (`--classify-by rerun` for one rerun per prime instead). On other inputs they are rerun over F_p, in parallel. Each remaining N is settled by one run modulo N. Either the run splits N, or every prime factor of N gives the same barcode. Then the certificate states the answer for all of them at once, e.g. "every prime factor of N is bad", without knowing the factors.
+4. **Settles every candidate.** Primes below 2^63 are rerun over F_p, in parallel. On explicit complexes (simplices, cells, simplicial sets) they can instead be packed into 62-bit moduli and settled by one sweep per modulus over Z/m in Howell form, which gives every packed prime's F_p barcode at once. By default a timed sample of reruns decides which is cheaper for the input at hand (`--classify-by auto|sweep|rerun`). Each remaining N is settled by one run modulo N. Either the run splits N, or every prime factor of N gives the same barcode. Then the certificate states the answer for all of them at once, e.g. "every prime factor of N is bad", without knowing the factors.
 
 The output states what is guaranteed about the barcode (`proved`, or `probabilistic` with the bound), and whether the description of the bad primes is complete. Field dependence of persistence is governed by torsion in the relative homology H_q(X_n, X_m; Z) (Obayashi–Yoshiwaki): p is bad in degree q exactly when some H_q(K_j, K_i; Z) or H_{q−1}(K_i; Z) has p-torsion (`docs/CERTIFICATE.md` §7, Theorem 4). The pivots above are where that torsion is detected.
 
@@ -220,7 +220,7 @@ On geometric data a proof costs nothing extra; time beyond F_2 is classification
 * gcds finish as binary gcds on 128-bit words;
 * sums and products cancel common factors before multiplying (Henrici).
 
-On the reproducible instances of `bench/certify_lm.py` (measured 19 Nov 2026, 2 cores, raw results in `bench/certify_lm.json`). Since 19 Nov the small candidates of explicit complexes are classified by batched Howell sweeps; `--classify-by rerun` gives the old one rerun per candidate, with identical results:
+On the reproducible instances of `bench/certify_lm.py` (measured 19 Nov 2026, 2 cores, raw results in `bench/certify_lm.json`). Since 19 Nov the small candidates of explicit complexes can be classified by batched Howell sweeps. The table compares forced sweeps with `--classify-by rerun`, which gives identical results:
 
 | instance | default, proved | `--classify-by rerun` | small candidates: sweeps | small candidates: reruns | `--torsion` adds | `--mode fast` |
 |---|---|---|---|---|---|---|
@@ -229,6 +229,17 @@ On the reproducible instances of `bench/certify_lm.py` (measured 19 Nov 2026, 2 
 | n = 70, distinct values | 18.7 s | 31.4 s | 7.3 s (114 sweeps) | 20.1 s (326 reruns) | 21.7 s | 11.2 s |
 
 The exact Q run alone takes 1.8 s and 23.9 s on the two tied instances (it took 202 s at n = 90 with plain big rationals). What remains at n = 90 is mostly the 110 candidates of at least 2^63 (39 s), still one run each. In the third instance edges and triangles have distinct interleaved values; there all 347 candidates are bad. Both modes and both classifications find the same bad primes.
+
+The default, `--classify-by auto`, chooses between the two per input. It reruns a timed sample of candidates first, and sweeps only if reference sweeps run under that budget predict a saving. On `bench/classify_auto.py` (20 Nov 2026, 2 cores; seconds spent classifying the small candidates; identical bad primes in all three columns):
+
+| instance | candidates | reruns | sweeps | auto |
+|---|---|---|---|---|
+| LM n = 90, tied | 496 | 54.2 | 24.2 | 24.0 (sweeps) |
+| LM n = 70, distinct values | 347 | 18.8 | 6.8 | 6.9 (sweeps) |
+| LM d = 3, n = 25 | 333 | 74.5 | 29.8 | 31.7 (sweeps) |
+| RP² Rips, 300 points, sparse route | 1 | 0.5 | 44.9 | 0.3 (reruns) |
+| Rips with 0.9M tetrahedra + LM n = 40 | 6 | 0.17 | 1.69 | 0.34 (reruns, sweeps cut off) |
+| Rips with 0.9M tetrahedra + LM n = 70 | 347 | 111.0 | 18.4 | 18.3 (sweeps) |
 
 ### Cubical (F_2, measured 19 Nov 2026 in one sitting, 2-core Xeon, 7.8 GB)
 
@@ -399,7 +410,7 @@ The current tree passes all of them.
 ## Limitations and roadmap
 
 * Dense Rips inputs (distance matrices) are still n × n; point clouds and graphs go through the sparse route when it pays.
-* Classifying many candidate primes dominates on torsion-heavy inputs. On explicit complexes the small candidates are now settled in batches by Howell sweeps (2.2–2.8× faster than one rerun each on Linial–Meshulam processes); candidates of at least 2^63 are still one run each, and Rips and cubical inputs still rerun every candidate.
+* Classifying many candidate primes dominates on torsion-heavy inputs. On explicit complexes the small candidates are settled in batches by Howell sweeps when that is cheaper (2.2–6× faster on the benchmarks above). Candidates of at least 2^63 are still one run each, and implicit Rips and cubical inputs still rerun every candidate.
 * Laurent coefficients cover Q(t), Q[t, t^-1], its residue fields and F_p(t), F_p[t, t^-1], not Z[t, t^-1] itself; images over Q[t, t^-1] are not computed yet. Finite twisted coefficients (Z[t]/(t^n − 1), for Milnor fibres) are planned.
 * Integral homology and images use dense Smith forms on the residual complex; inputs that do not reduce well are limited to residual blocks of about 40 million entries.
 

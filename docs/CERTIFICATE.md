@@ -148,10 +148,13 @@ this is random: it is exact arithmetic modulo known integers. `tests/t_howell.cp
 formula of §7, against plain F_p reductions and brute-force enumeration of spans on random integer matrices. The test
 suite checks that sweeps and reruns give identical bad primes and intervals.
 
-*Cost.* One sweep per batch and degree, plus the reference: on `bench/certify_lm.py`, 124 sweeps instead of 386
-reruns at n = 90, and 114 instead of 326 on an instance with distinct interleaved values (`docs/ROADMAP.md`, step 4).
-Candidates of at least 2^63, and composites that could not be split, are still settled by runs modulo N (Lemma 3).
-`--classify-by rerun` restores the reruns everywhere.
+*Cost, and when to sweep.* The sweeps cost one run per batch and degree, plus one reference run per degree. They do not use clearing, so they pay only when there are many candidates and the matrices reduce cheaply without it, as on Linial–Meshulam processes. On a Rips complex with a few candidates they can be a hundred times slower than reruns. `--classify-by auto` (the default) therefore decides by measured cost:
+1. It reruns a sample of candidates (one per thread, at least two) and keeps their answers. Their mean time, times the number of remaining candidates, is the budget.
+2. It runs the reference sweeps under that budget, and stops them if they alone exceed it.
+3. It predicts the batch sweeps from the reference times, since they reduce the same matrices, and sweeps only if reference plus prediction beat the budget. A safety deadline abandons batches that run past twice their prediction.
+4. With two candidates or fewer, it simply reruns.
+
+A wrong guess costs at most about one rerun budget. `bench/classify_auto.py` checks this on Linial–Meshulam processes, chain complexes, Rips complexes and mixtures of the two (`docs/ROADMAP.md`, step 4). `--classify-by sweep` always sweeps, and `--classify-by rerun` always reruns. Candidates of at least 2^63, and composites that could not be split, are still settled by runs modulo N (Lemma 3).
 
 ## 4. What the output says
 
