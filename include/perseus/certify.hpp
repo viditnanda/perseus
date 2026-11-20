@@ -9,11 +9,11 @@
 //
 // Two ways to obtain the Q reduction:
 //
-//  * proved: exact rational arithmetic (int64 with overflow checks, BigInt for any degree that overflows).
+//  * proved (the default): exact rational arithmetic (int64 with overflow checks, BigInt for any degree that overflows).
 //    The Q barcode and the pivot values are exact; the certificate is a proof, up to the factoring of
 //    the pivot values (any factor that could not be split is reported as unresolved).
 //
-//  * fast (default): the reduction is carried out modulo K random primes from [2^61, 2^62) at once. Each
+//  * fast (on request, --mode fast): the reduction is carried out modulo K random primes from [2^61, 2^62) at once. Each
 //    lane computes the Q reduction mod its prime until the first Q-pivot divisible by that prime; if some
 //    but not all lanes vanish there, the run is detected as unlucky and repeated with fresh primes. It can
 //    go wrong undetectably only if a nonzero integer fixed by the input (a pivot numerator, or numerator -+

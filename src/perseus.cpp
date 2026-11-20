@@ -80,7 +80,7 @@ static const char* USAGE =
 "  --pairs s,t,...  magnitude: only these (start, end) pairs\n"
 "  --ring p         pcgroup, sylow: also the mod-p cohomology ring through degree maxdim (default maxdim 4)\n"
 "  --no-homology    pcgroup, sylow: skip the integral homology\n"
-"  --all-products   pcgroup --ring: every product of basis classes (default: products of the generators with every class)\n"
+"  --all-products   pcgroup, sylow --ring: every product of basis classes (default: products of the generators with every class)\n"
 "  --print fmt      ripser | perseus | json | none   (stdout; default ripser unless a prefix is given)\n"
 "  --stats          timing and engine statistics on stderr\n"
 "\n"
@@ -479,7 +479,7 @@ int main(int argc, char** argv) {
             std::string text((std::istreambuf_iterator<char>(is)), std::istreambuf_iterator<char>());
             pcg::SylowData Dt = pcg::parse_sylow(text);
             int md = o.maxdim >= 0 ? o.maxdim : 4;
-            pcg::SylowResult R = pcg::sylow_compute(Dt, md, o.pc_homology, o.ring);
+            pcg::SylowResult R = pcg::sylow_compute(Dt, md, o.pc_homology, o.ring, o.all_products);
             auto inv_str = [](size_t fr, const std::vector<uint64_t>& tors) {
                 std::string s; if (fr) s = fr > 1 ? "Z^" + std::to_string(fr) : "Z";
                 for (auto t : tors) { if (!s.empty()) s += " + "; s += "Z/" + std::to_string(t); }
@@ -508,12 +508,12 @@ int main(int argc, char** argv) {
                     printf("], \"sylow_dims\": [");
                     for (size_t i = 0; i < C.sylow_dims.size(); ++i) printf("%s%zu", i ? ", " : "", C.sylow_dims[i]);
                     printf("],\n    \"generators\": [");
-                    for (size_t i = 0; i < C.generators.size(); ++i) printf("%s[%d, %s]", i ? ", " : "", C.generators[i].first, vec(C.generators[i].second).c_str());
+                    for (size_t i = 0; i < C.generators.size(); ++i) printf("%s[%d, %d]", i ? ", " : "", C.generators[i].first, C.generators[i].second);
                     printf("],\n    \"basis\": [");
                     for (size_t n = 0; n < C.basis.size(); ++n) { printf("%s[", n ? ", " : ""); for (size_t i = 0; i < C.basis[n].size(); ++i) printf("%s%s", i ? ", " : "", vec(C.basis[n][i]).c_str()); printf("]"); }
-                    printf("],\n    \"products\": [");
+                    printf("],\n    \"products_of\": \"%s\", \"products\": [", C.all_products ? "all basis classes" : "generators");
                     bool first = true;
-                    for (auto& kv : C.products) { printf("%s\n      [%d, %d, %d, %s]", first ? "" : ",", std::get<0>(kv.first), std::get<1>(kv.first), std::get<2>(kv.first), vec(kv.second).c_str()); first = false; }
+                    for (auto& kv : C.products) { printf("%s\n      [%d, %d, %d, %d, %s]", first ? "" : ",", std::get<0>(kv.first), std::get<1>(kv.first), std::get<2>(kv.first), std::get<3>(kv.first), vec(kv.second).c_str()); first = false; }
                     printf("\n    ]}");
                 }
                 printf("\n}\n");
@@ -531,7 +531,7 @@ int main(int argc, char** argv) {
                 for (auto x : R.R.dims) printf(" %zu", x);
                 printf("\n  minimal generators by degree (n = 1..%d):", md);
                 for (int d = 1; d <= md; ++d) printf(" %zu", R.R.indecomposables[d]);
-                printf("\n  (generators, basis and products of the generators with every class: --print json)\n");
+                printf("\n  (generators, basis and %s: --print json)\n", R.R.all_products ? "all products of basis classes" : "products of the generators with every class");
             }
             return 0;
         }

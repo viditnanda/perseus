@@ -18,7 +18,8 @@
 //
 // Mod-p cohomology ring: the stable subspace of H^*(P; F_p) is a subring. Its minimal generators are found degree by
 // degree as in pc_group.hpp: a stable generator gamma is lifted once (as a cocycle on P's Anick chains) and multiplied
-// with every stable class; the decomposables of degree n are the span of these products.
+// with every stable class; the decomposables of degree n are the span of these products. With all_products, every
+// stable basis class of degree a <= maxdim/2 is lifted instead and all products of basis classes, a <= b, are kept.
 #pragma once
 #include "perseus/pc_group.hpp"
 #include <set>
@@ -35,9 +36,9 @@ struct StableRing {
     int p = 0;
     std::vector<size_t> dims, indecomposables;
     std::vector<std::vector<std::vector<uint32_t>>> basis;     // basis[n][i]: a stable class, in the basis of H^n(P; F_p)
-    std::vector<std::pair<int, std::vector<uint32_t>>> generators;   // (degree, coordinates in basis[degree])
-    // (generator index, b, j) -> coordinates of generator . basis[b][j] in basis[a + b]
-    std::map<std::tuple<int, int, int>, std::vector<uint32_t>> products;
+    std::vector<std::pair<int, int>> generators;               // (degree, index in basis[degree])
+    bool all_products = false;                                // products: all (a, i, b, j) with a <= b; else (a, i) a generator
+    std::map<std::tuple<int, int, int, int>, std::vector<uint32_t>> products;   // (a, i, b, j): coordinates of basis[a][i] . basis[b][j]
     std::vector<size_t> sylow_dims;                            // dim H^n(P; F_p)
 };
 struct SylowResult {
@@ -301,12 +302,12 @@ inline std::vector<size_t> rref(std::vector<std::vector<i64>>& R, size_t ncols, 
     R.resize(r);
     return piv;
 }
-inline StableRing stable_ring(const SylowPrime& S, int D, bool stats = false) {
+inline StableRing stable_ring(const SylowPrime& S, int D, bool stats = false, bool all_products = false) {
     PcGroup P(S.mult, S.pcgs, S.rel, S.identity);
     const i64 p = S.p;
     auto t0 = std::chrono::steady_clock::now();
     RingCtx X(P, D, p);
-    StableRing R; R.p = (int)p;
+    StableRing R; R.p = (int)p; R.all_products = all_products;
     // restriction rows: for each coset and each cycle f0(s) of Q, the class (iota - kappa)_* f0(s) in H_n(P; F_p);
     // x in H^n(P) is stable iff it vanishes on all of them
     std::vector<std::vector<std::vector<i64>>> rows(D + 1);
@@ -355,16 +356,16 @@ inline StableRing stable_ring(const SylowPrime& S, int D, bool stats = false) {
         std::vector<size_t> gens;
         for (size_t i = 0; i < R.dims[a]; ++i) { SV e1{{(int32_t)i, 1u}}; if (E.insert(e1) >= 0) gens.push_back(i); }
         R.indecomposables[a] = gens.size();
-        for (size_t i : gens) {
-            int gi = (int)R.generators.size();
-            std::vector<uint32_t> ec(R.dims[a], 0); ec[i] = 1; R.generators.push_back({a, ec});
-            if (a >= D) continue;
-            X.lift(a, X.cocycle(a, R.basis[a][i]), 1, [&](int b, const std::vector<std::vector<uint32_t>>& prods) {
-                for (size_t j = 0; j < R.basis[b].size(); ++j) {          // gamma . y = sum_t y_t (gamma . beta_t)
+        std::set<size_t> isgen(gens.begin(), gens.end());
+        for (size_t i : gens) R.generators.push_back({a, (int)i});
+        for (size_t i = 0; i < R.dims[a]; ++i) {
+            if (all_products ? 2 * a > D : (!isgen.count(i) || a >= D)) continue;
+            X.lift(a, X.cocycle(a, R.basis[a][i]), all_products ? a : 1, [&](int b, const std::vector<std::vector<uint32_t>>& prods) {
+                for (size_t j = 0; j < R.basis[b].size(); ++j) {          // x . y = sum_t y_t (x . beta_t)
                     std::vector<uint32_t> pr(X.dim(a + b), 0);
                     for (size_t t = 0; t < prods.size(); ++t) if (R.basis[b][j][t]) for (size_t u = 0; u < pr.size(); ++u) pr[u] = (uint32_t)((pr[u] + (i64)R.basis[b][j][t] * prods[t][u]) % p);
                     auto c = stable_coords(a + b, pr);
-                    R.products[std::make_tuple(gi, b, (int)j)] = c;
+                    R.products[std::make_tuple(a, (int)i, b, (int)j)] = c;
                     SV v; for (size_t t = 0; t < c.size(); ++t) if (c[t]) v.push_back({(int32_t)t, c[t]});
                     decomp[a + b].insert(v);
                 }
@@ -375,7 +376,7 @@ inline StableRing stable_ring(const SylowPrime& S, int D, bool stats = false) {
     return R;
 }
 
-inline SylowResult sylow_compute(const SylowData& Dt, int maxdim, bool homology, int ring_prime) {
+inline SylowResult sylow_compute(const SylowData& Dt, int maxdim, bool homology, int ring_prime, bool all_products = false) {
     auto t0 = std::chrono::steady_clock::now();
     bool stats = std::getenv("PERSEUS_PC_STATS") != nullptr;
     if (maxdim < 0) throw std::invalid_argument("sylow: maxdim must be >= 0");
@@ -406,7 +407,7 @@ inline SylowResult sylow_compute(const SylowData& Dt, int maxdim, bool homology,
     if (ring_prime) {
         const SylowPrime* S = nullptr; for (auto& x : Dt.primes) if (x.p == ring_prime) S = &x;
         if (!S) throw std::invalid_argument("sylow: no Sylow subgroup for the ring prime in the input");
-        res.R = stable_ring(*S, maxdim, stats); res.has_ring = true;
+        res.R = stable_ring(*S, maxdim, stats, all_products); res.has_ring = true;
     }
     res.seconds = std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count();
     return res;

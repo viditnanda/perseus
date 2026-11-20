@@ -311,7 +311,11 @@ check("finite_group M11: mod-2 ring as in Benson-Carlson (generators in degrees 
 j = json.loads(subprocess.run([PERSEUS, "sylow", os.path.join(SYF, "a5.txt"), "--maxdim", "6", "--ring", "2", "--print", "json"], capture_output=True, text=True, timeout=600).stdout)
 m = perseus.finite_group(**perseus.read_sylow(os.path.join(SYF, "a5.txt")), maxdim=6, ring=2)
 check("command line sylow agrees with the module", [h["torsion"] for h in j["homology"]] == [h["torsion"] for h in m["homology"]]
-      and j["cohomology"]["dims"] == m["cohomology"]["dims"] and {tuple(x[:3]): x[3] for x in j["cohomology"]["products"]} == m["cohomology"]["products"], j)
+      and j["cohomology"]["dims"] == m["cohomology"]["dims"] and {tuple(x[:4]): x[4] for x in j["cohomology"]["products"]} == m["cohomology"]["products"], j)
+ma = perseus.finite_group(**perseus.read_sylow(os.path.join(SYF, "a5.txt")), maxdim=6, ring=2, all_products=True)
+check("finite_group: the full product table on request agrees with the generator products", ma["cohomology"]["products_of"] == "all basis classes"
+      and m["cohomology"]["products_of"] == "generators" and ma["cohomology"]["generators_by_degree"] == m["cohomology"]["generators_by_degree"]
+      and all(ma["cohomology"]["products"][k] == v for k, v in m["cohomology"]["products"].items() if k in ma["cohomology"]["products"]), ma["cohomology"]["products_of"])
 
 # ---- torsion trajectories and classification by Howell sweeps (torsion.hpp) ---------------------------------
 def smith_torsion(cols, nrows):

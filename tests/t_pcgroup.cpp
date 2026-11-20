@@ -348,6 +348,16 @@ int main() {
                 CHECK(R.R.dims == C.dims && R.R.indecomposables == C.indecomposables, gp.first + ": mod-" + std::to_string(Sp.p) + " ring (dims, generators) through Sylow subgroups agrees with the direct engine");
             }
         }
+        // the two product modes of the stable ring
+        for (auto gp : std::vector<std::pair<std::string, int>>{{"a5", 2}, {"m11", 2}, {"gl23", 3}}) {
+            SylowData Dt = load(sd + gp.first + ".txt");
+            SylowResult Rg = sylow_compute(Dt, 6, false, gp.second), Ra = sylow_compute(Dt, 6, false, gp.second, true);
+            bool same = Rg.R.generators == Ra.R.generators && Rg.R.dims == Ra.R.dims; size_t common = 0;
+            for (auto& kv : Rg.R.products) { auto it = Ra.R.products.find(kv.first); if (it != Ra.R.products.end()) { ++common; if (it->second != kv.second) same = false; } }
+            std::set<std::pair<int, int>> gens(Rg.R.generators.begin(), Rg.R.generators.end());
+            bool keys = true; for (auto& kv : Rg.R.products) if (!gens.count({std::get<0>(kv.first), std::get<1>(kv.first)})) keys = false;
+            CHECK(same && keys && common > 0, gp.first + " mod " + std::to_string(gp.second) + ": the stable ring's two product modes agree");
+        }
         // a prime left out: only the other p-parts, flagged incomplete
         { SylowData Dt = load(sd + "a5.txt"); Dt.primes.pop_back(); SylowResult R = sylow_compute(Dt, 3, true, 0);
           CHECK(!R.complete && R.H.torsion[3] == std::vector<u64>{6}, "A5 without its Sylow 5-subgroup: H_3 is the 2- and 3-parts, Z/6, flagged incomplete"); }
