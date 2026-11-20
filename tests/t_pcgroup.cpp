@@ -4,8 +4,11 @@
 //   3. the universal coefficient theorem: the mod-p ring engine against the integral engine, for every group
 //      and every prime dividing its order;
 //   4. ground truth from HAP and the Green-King database (tests/fixtures/pcgroups/expected.txt);
-//   5. invalid inputs are rejected.
+//   5. invalid inputs are rejected;
+//   6. the Sylow route (sylow.hpp): against HAP and the literature for non-solvable groups, against the direct
+//      engine for solvable ones, universal coefficients between its integral and mod-p results, invalid inputs.
 #include "perseus/pc_group.hpp"
+#include "perseus/sylow.hpp"
 #include <cstdio>
 #include <fstream>
 #include <sstream>
@@ -298,6 +301,75 @@ int main() {
         CHECK(latin, "the intercalate swap keeps a Latin square");
         std::string msg; try { PcGroup(T, G.pcgs, G.rel, 0); } catch (const std::invalid_argument& ex) { msg = ex.what(); }
         CHECK(msg.find("associative") != std::string::npos, "a non-associative loop is rejected by the associativity test: " + msg);
+    }
+    // 6. the Sylow route
+    {
+        auto load = [](const std::string& path) { std::ifstream in(path); std::stringstream ss; ss << in.rdbuf(); return parse_sylow(ss.str()); };
+        std::string sd = "tests/fixtures/sylow/";
+        auto pp = [](const std::vector<u64>& inv) { return prime_powers(inv); };
+        std::ifstream ex2(sd + "expected.txt"); std::string line2;
+        while (std::getline(ex2, line2)) {
+            if (line2.empty() || line2[0] == '#') continue;
+            std::istringstream ls(line2); std::string g, kind; ls >> g >> kind;
+            SylowData Dt = load(sd + g + ".txt");
+            if (kind == "H") {
+                std::string spec; ls >> spec; std::vector<std::vector<u64>> want; std::string field; std::istringstream fs(spec);
+                while (std::getline(fs, field, ';')) { std::vector<u64> v; std::istringstream xs(field); std::string t; while (std::getline(xs, t, ',')) if (t != "0") v.push_back(std::stoull(t)); std::sort(v.begin(), v.end()); want.push_back(v); }
+                int D = (int)want.size(); SylowResult R = sylow_compute(Dt, D, true, 0);
+                CHECK(R.complete, g + ": every prime is present");
+                for (int d = 1; d <= D; ++d) CHECK(R.H.free[d] == 0 && pp(R.H.torsion[d]) == want[d - 1], g + ": H_" + std::to_string(d) + " through Sylow subgroups against HAP");
+            } else if (kind == "R") {
+                int p; std::string w; std::vector<size_t> dims, gens; ls >> p;
+                while (ls >> w) { std::string list; ls >> list; std::istringstream xs(list); std::string t; while (std::getline(xs, t, ',')) (w == "dims" ? dims : gens).push_back(std::stoul(t)); }
+                SylowResult R = sylow_compute(Dt, 9, false, p);
+                for (int n = 0; n <= 9; ++n) CHECK(R.R.dims[n] == dims[n], g + ": dim H^" + std::to_string(n) + "(F_" + std::to_string(p) + ") against the literature");
+                for (int n = 1; n <= 9; ++n) CHECK(R.R.indecomposables[n] == gens[n - 1], g + ": mod-" + std::to_string(p) + " generators in degree " + std::to_string(n) + " against the literature");
+            }
+        }
+        // universal coefficients between the integral and the mod-p results of the Sylow route, every prime
+        for (std::string g : {"a5", "psl27", "a6", "m11", "a7", "s4", "gl23", "c4c4s3"}) {
+            SylowData Dt = load(sd + g + ".txt"); int D = 6;
+            SylowResult H = sylow_compute(Dt, D, true, 0);
+            for (auto& S : Dt.primes) {
+                SylowResult R = sylow_compute(Dt, D, false, S.p);
+                auto t = [&](int m) { size_t c = 0; if (m < 1) return c; for (u64 x : H.H.torsion[m]) if (x % (u64)S.p == 0) ++c; return c; };
+                for (int n = 1; n <= D; ++n) CHECK(R.R.dims[n] == t(n) + t(n - 1), g + ": UCT mod " + std::to_string(S.p) + " in degree " + std::to_string(n) + " (Sylow route)");
+            }
+        }
+        // against the direct engine on solvable groups
+        for (auto gp : std::vector<std::pair<std::string, std::string>>{{"s4", "g24_12"}, {"gl23", "g48_29"}, {"c4c4s3", "g96_64"}}) {
+            SylowData Dt = load(sd + gp.first + ".txt"); Grp G = read_fixture("tests/fixtures/pcgroups/" + gp.second + ".txt");
+            PcGroup P(G.T, G.pcgs, G.rel, G.e); int D = 6;
+            SylowResult S = sylow_compute(Dt, D, true, 0); GroupHomology H = group_homology(P, D);
+            bool same = true; for (int d = 1; d <= D; ++d) if (S.H.torsion[d] != H.torsion[d]) same = false;
+            CHECK(same, gp.first + ": integral homology through Sylow subgroups agrees with the direct engine");
+            for (auto& Sp : Dt.primes) {
+                SylowResult R = sylow_compute(Dt, D, false, Sp.p); CohomologyRing C = cohomology_ring(P, D, Sp.p);
+                CHECK(R.R.dims == C.dims && R.R.indecomposables == C.indecomposables, gp.first + ": mod-" + std::to_string(Sp.p) + " ring (dims, generators) through Sylow subgroups agrees with the direct engine");
+            }
+        }
+        // the two product modes of the stable ring
+        for (auto gp : std::vector<std::pair<std::string, int>>{{"a5", 2}, {"m11", 2}, {"gl23", 3}}) {
+            SylowData Dt = load(sd + gp.first + ".txt");
+            SylowResult Rg = sylow_compute(Dt, 6, false, gp.second), Ra = sylow_compute(Dt, 6, false, gp.second, true);
+            bool same = Rg.R.generators == Ra.R.generators && Rg.R.dims == Ra.R.dims; size_t common = 0;
+            for (auto& kv : Rg.R.products) { auto it = Ra.R.products.find(kv.first); if (it != Ra.R.products.end()) { ++common; if (it->second != kv.second) same = false; } }
+            std::set<std::pair<int, int>> gens(Rg.R.generators.begin(), Rg.R.generators.end());
+            bool keys = true; for (auto& kv : Rg.R.products) if (!gens.count({std::get<0>(kv.first), std::get<1>(kv.first)})) keys = false;
+            CHECK(same && keys && common > 0, gp.first + " mod " + std::to_string(gp.second) + ": the stable ring's two product modes agree");
+        }
+        // a prime left out: only the other p-parts, flagged incomplete
+        { SylowData Dt = load(sd + "a5.txt"); Dt.primes.pop_back(); SylowResult R = sylow_compute(Dt, 3, true, 0);
+          CHECK(!R.complete && R.H.torsion[3] == std::vector<u64>{6}, "A5 without its Sylow 5-subgroup: H_3 is the 2- and 3-parts, Z/6, flagged incomplete"); }
+        // invalid inputs
+        auto rejects = [](std::function<void()> f) { try { f(); } catch (const std::invalid_argument&) { return true; } return false; };
+        { SylowData Dt = load(sd + "a5.txt"); auto& C = Dt.primes[0].cosets[0]; std::swap(C.images[0], C.images[1]);
+          CHECK(rejects([&] { sylow_compute(Dt, 3, true, 0); }), "a conjugation map that is not a homomorphism is rejected"); }
+        { SylowData Dt = load(sd + "a5.txt"); Dt.primes[0].cosets[0].elements.pop_back();
+          CHECK(rejects([&] { sylow_compute(Dt, 3, true, 0); }), "a subgroup list that does not match its images is rejected"); }
+        { SylowData Dt = load(sd + "a5.txt"); Dt.order = 120;
+          CHECK(rejects([&] { sylow_compute(Dt, 3, true, 0); }), "a subgroup that is not Sylow for the stated order is rejected"); }
+        CHECK(rejects([&] { parse_sylow("order 60\nprime 2\n4 2\n"); }), "a truncated file is rejected");
     }
     printf("t_pcgroup: %d checks, %d failures\n", checks, fails);
     return fails ? 1 : 0;

@@ -13,6 +13,7 @@
 #include "perseus/simplicial_set.hpp"
 #include "perseus/magnitude.hpp"
 #include "perseus/pc_group.hpp"
+#include "perseus/sylow.hpp"
 #include "perseus/laurent.hpp"
 #include "perseus/torsion.hpp"
 #include <thread>
@@ -558,6 +559,49 @@ PYBIND11_MODULE(_perseus, m) {
        "these are cup products (computed by Yoneda composition, checked against Alexander-Whitney); basis: the\n"
        "cocycles on the Anick chains, basis[n][i].\n"
        "tools/export_pcgroup.g writes these inputs from GAP; perseus.read_pcgroup(path) reads them.");
+
+    m.def("finite_group", [](long long order, py::list primes, int maxdim, bool homology, int ring, bool all_products) {
+        pcg::SylowData Dt; Dt.order = order;
+        for (auto item : primes) {
+            py::dict d = item.cast<py::dict>(); pcg::SylowPrime S;
+            S.p = d["p"].cast<int>(); S.mult = d["mult"].cast<std::vector<std::vector<int>>>(); S.pcgs = d["pcgs"].cast<std::vector<int>>();
+            S.rel = d["relative_orders"].cast<std::vector<int>>(); S.identity = d["identity"].cast<int>();
+            for (auto c : d["cosets"].cast<py::list>()) {
+                py::dict cd = c.cast<py::dict>(); pcg::SylowCoset C;
+                C.elements = cd["elements"].cast<std::vector<int>>(); C.pcgs = cd["pcgs"].cast<std::vector<int>>(); C.images = cd["images"].cast<std::vector<int>>();
+                S.cosets.push_back(C);
+            }
+            Dt.primes.push_back(S);
+        }
+        pcg::SylowResult R; { py::gil_scoped_release nogil; R = pcg::sylow_compute(Dt, maxdim, homology, ring, all_products); }
+        py::dict res;
+        res["order"] = R.order; res["primes"] = R.primes; res["complete"] = R.complete; res["seconds"] = R.seconds;
+        if (R.has_homology) {
+            py::list H;
+            for (int d = 0; d <= maxdim; ++d) { py::dict h; h["degree"] = d; h["free"] = R.H.free[d]; h["torsion"] = R.H.torsion[d]; H.append(h); }
+            res["homology"] = H;
+        }
+        if (R.has_ring) {
+            py::dict c; c["p"] = R.R.p; c["dims"] = R.R.dims; c["generators_by_degree"] = R.R.indecomposables; c["sylow_dims"] = R.R.sylow_dims;
+            py::list gens; for (auto& g : R.R.generators) gens.append(py::make_tuple(g.first, g.second)); c["generators"] = gens;
+            c["products_of"] = R.R.all_products ? "all basis classes" : "generators";
+            c["basis"] = R.R.basis;
+            py::dict prods; for (auto& kv : R.R.products) prods[py::make_tuple(std::get<0>(kv.first), std::get<1>(kv.first), std::get<2>(kv.first), std::get<3>(kv.first))] = kv.second;
+            c["products"] = prods;
+            res["cohomology"] = c;
+        }
+        return res;
+    }, py::arg("order"), py::arg("primes"), py::arg("maxdim") = 4, py::arg("homology") = true, py::arg("ring") = 0, py::arg("all_products") = false,
+       "Homology and mod-p cohomology of any finite group G from its Sylow subgroups (stable elements; G itself is\n"
+       "never needed, so it need not be solvable). primes: for each prime p, {'p', 'mult', 'pcgs', 'relative_orders',\n"
+       "'identity', 'cosets'}: a Sylow p-subgroup P as in pc_group, and for each double coset P g P with g outside P,\n"
+       "{'elements', 'pcgs', 'images'}: the subgroup Q = P meet g P g^-1 (ids of P's elements), a pcgs of Q, and the images\n"
+       "g^-1 y g of its elements. tools/export_sylow.g writes these; perseus.read_sylow(path) reads them.\n"
+       "homology: H_n(G; Z) for n <= maxdim ('complete' is False when some prime dividing |G| is missing: then only\n"
+       "those p-parts). ring=p: dims of H^n(G; F_p), minimal generators by degree, 'generators' as (degree, basis\n"
+       "index), 'basis'[n]: classes of H^n(G; F_p) as stable vectors in the basis of H^n(P; F_p) ('sylow_dims'), and\n"
+       "products {(a, i, b, j): coordinates of basis[a][i] . basis[b][j] in basis[a + b]}: for (a, i) a generator and\n"
+       "every class (b, j), or with all_products=True for every pair of basis classes, a <= b.");
 
     m.def("simplices", [](std::vector<std::pair<std::vector<int>, double>> simp, int maxdim, py::object coeff, bool classify, int threads,
                           std::vector<uint64_t> fp, std::string mode, py::object seed, double target, bool torsion, std::string classify_by) {

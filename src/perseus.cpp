@@ -12,6 +12,7 @@
 #include "perseus/torsion.hpp"
 #include "perseus/magnitude.hpp"
 #include "perseus/pc_group.hpp"
+#include "perseus/sylow.hpp"
 #include "perseus/laurent.hpp"
 #include <cstdio>
 #include <cstring>
@@ -35,6 +36,8 @@ static const char* USAGE =
 "          laurent                                               chain complex over Z[t, t^-1] (Novikov / twisted)\n"
 "          pcgroup                                               finite solvable group: H_*(G; Z) and the mod-p\n"
 "                                                                cohomology ring (tools/export_pcgroup.g writes these)\n"
+"          sylow                                                 any finite group, through its Sylow subgroups: H_*(G; Z)\n"
+"                                                                and mod-p cohomology rings (tools/export_sylow.g)\n"
 "          (old Perseus 4/5 files: convert them with tools/convert_legacy.py)\n"
 "\n"
 "options:\n"
@@ -75,9 +78,9 @@ static const char* USAGE =
 "  --lmax l         magnitude: lengths 0..l (default 4)\n"
 "  --directed       magnitude: the edges are directed\n"
 "  --pairs s,t,...  magnitude: only these (start, end) pairs\n"
-"  --ring p         pcgroup: also the mod-p cohomology ring through degree maxdim (default maxdim 4)\n"
-"  --no-homology    pcgroup: skip the integral homology\n"
-"  --all-products   pcgroup --ring: every product of basis classes (default: products of the generators with every class)\n"
+"  --ring p         pcgroup, sylow: also the mod-p cohomology ring through degree maxdim (default maxdim 4)\n"
+"  --no-homology    pcgroup, sylow: skip the integral homology\n"
+"  --all-products   pcgroup, sylow --ring: every product of basis classes (default: products of the generators with every class)\n"
 "  --print fmt      ripser | perseus | json | none   (stdout; default ripser unless a prefix is given)\n"
 "  --stats          timing and engine statistics on stderr\n"
 "\n"
@@ -469,6 +472,66 @@ int main(int argc, char** argv) {
                 printf("primes where H_*( ; F_p[t, t^-1]) is not the reduction mod p (%zu candidates):%s\n", L.homology_candidate_primes.size(), L.homology_bad_primes.empty() ? " none" : "");
                 for (auto& kv : L.homology_bad_primes) printf("  p = %llu:\n%s", (unsigned long long)kv.first, hom(kv.second, "L_p").c_str());
                 if (!L.complete) { printf("INCOMPLETE: unfactored integers"); for (auto& u : L.unresolved) printf(" %s", u.c_str()); printf("\n"); }
+            }
+            return 0;
+        }
+        else if (f == "sylow") {
+            std::string text((std::istreambuf_iterator<char>(is)), std::istreambuf_iterator<char>());
+            pcg::SylowData Dt = pcg::parse_sylow(text);
+            int md = o.maxdim >= 0 ? o.maxdim : 4;
+            pcg::SylowResult R = pcg::sylow_compute(Dt, md, o.pc_homology, o.ring, o.all_products);
+            auto inv_str = [](size_t fr, const std::vector<uint64_t>& tors) {
+                std::string s; if (fr) s = fr > 1 ? "Z^" + std::to_string(fr) : "Z";
+                for (auto t : tors) { if (!s.empty()) s += " + "; s += "Z/" + std::to_string(t); }
+                return s.empty() ? std::string("0") : s;
+            };
+            auto vec = [](const std::vector<uint32_t>& x) { std::string s = "["; for (size_t i = 0; i < x.size(); ++i) s += (i ? ", " : "") + std::to_string(x[i]); return s + "]"; };
+            if (o.print == "json") {
+                printf("{\n  \"order\": %lld, \"primes\": [", R.order);
+                for (size_t i = 0; i < R.primes.size(); ++i) printf("%s%d", i ? ", " : "", R.primes[i]);
+                printf("], \"complete\": %s, \"maxdim\": %d, \"seconds\": %.4f", R.complete ? "true" : "false", md, R.seconds);
+                if (R.has_homology) {
+                    printf(",\n  \"homology\": [");
+                    for (int d = 0; d <= md; ++d) {
+                        printf("%s\n    {\"degree\": %d, \"free\": %zu, \"torsion\": [", d ? "," : "", d, R.H.free[d]);
+                        for (size_t i = 0; i < R.H.torsion[d].size(); ++i) printf("%s%llu", i ? ", " : "", (unsigned long long)R.H.torsion[d][i]);
+                        printf("]}");
+                    }
+                    printf("\n  ]");
+                }
+                if (R.has_ring) {
+                    const auto& C = R.R;
+                    printf(",\n  \"cohomology\": {\"p\": %d, \"dims\": [", C.p);
+                    for (size_t i = 0; i < C.dims.size(); ++i) printf("%s%zu", i ? ", " : "", C.dims[i]);
+                    printf("], \"generators_by_degree\": [");
+                    for (size_t i = 0; i < C.indecomposables.size(); ++i) printf("%s%zu", i ? ", " : "", C.indecomposables[i]);
+                    printf("], \"sylow_dims\": [");
+                    for (size_t i = 0; i < C.sylow_dims.size(); ++i) printf("%s%zu", i ? ", " : "", C.sylow_dims[i]);
+                    printf("],\n    \"generators\": [");
+                    for (size_t i = 0; i < C.generators.size(); ++i) printf("%s[%d, %d]", i ? ", " : "", C.generators[i].first, C.generators[i].second);
+                    printf("],\n    \"basis\": [");
+                    for (size_t n = 0; n < C.basis.size(); ++n) { printf("%s[", n ? ", " : ""); for (size_t i = 0; i < C.basis[n].size(); ++i) printf("%s%s", i ? ", " : "", vec(C.basis[n][i]).c_str()); printf("]"); }
+                    printf("],\n    \"products_of\": \"%s\", \"products\": [", C.all_products ? "all basis classes" : "generators");
+                    bool first = true;
+                    for (auto& kv : C.products) { printf("%s\n      [%d, %d, %d, %d, %s]", first ? "" : ",", std::get<0>(kv.first), std::get<1>(kv.first), std::get<2>(kv.first), std::get<3>(kv.first), vec(kv.second).c_str()); first = false; }
+                    printf("\n    ]}");
+                }
+                printf("\n}\n");
+                return 0;
+            }
+            printf("group of order %lld, through its Sylow subgroups for p =", R.order);
+            for (int q : R.primes) printf(" %d", q);
+            printf("%s; %.3f s\n", R.complete ? "" : " (not every prime dividing |G|: homology is only the p-parts for these primes)", R.seconds);
+            if (R.has_homology) {
+                printf("integral homology%s:\n", R.complete ? "" : " (p-parts)");
+                for (int d = 0; d <= md; ++d) printf("  H_%d(G; Z) = %s\n", d, inv_str(R.H.free[d], R.H.torsion[d]).c_str());
+            }
+            if (R.has_ring) {
+                printf("mod-%d cohomology ring through degree %d (stable elements in H^*(P; F_%d)):\n  dim H^n(G; F_%d):", R.R.p, md, R.R.p, R.R.p);
+                for (auto x : R.R.dims) printf(" %zu", x);
+                printf("\n  minimal generators by degree (n = 1..%d):", md);
+                for (int d = 1; d <= md; ++d) printf(" %zu", R.R.indecomposables[d]);
+                printf("\n  (generators, basis and %s: --print json)\n", R.R.all_products ? "all products of basis classes" : "products of the generators with every class");
             }
             return 0;
         }
