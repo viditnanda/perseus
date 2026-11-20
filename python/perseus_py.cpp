@@ -14,6 +14,7 @@
 #include "perseus/magnitude.hpp"
 #include "perseus/pc_group.hpp"
 #include "perseus/sylow.hpp"
+#include "perseus/pc_maps.hpp"
 #include "perseus/laurent.hpp"
 #include "perseus/torsion.hpp"
 #include <thread>
@@ -559,6 +560,34 @@ PYBIND11_MODULE(_perseus, m) {
        "these are cup products (computed by Yoneda composition, checked against Alexander-Whitney); basis: the\n"
        "cocycles on the Anick chains, basis[n][i].\n"
        "tools/export_pcgroup.g writes these inputs from GAP; perseus.read_pcgroup(path) reads them.");
+
+    m.def("pc_series", [](py::list groups, std::vector<std::vector<int>> maps, int maxdim, int p) {
+        std::vector<pcg::PcGroup> G;
+        for (auto item : groups) {
+            py::dict d = item.cast<py::dict>();
+            G.emplace_back(d["mult"].cast<std::vector<std::vector<int>>>(), d["pcgs"].cast<std::vector<int>>(),
+                           d.contains("relative_orders") ? d["relative_orders"].cast<std::vector<int>>() : std::vector<int>{}, d.contains("identity") ? d["identity"].cast<int>() : 0);
+        }
+        pcg::PcSeriesResult R; { py::gil_scoped_release nogil; R = pcg::pc_series(G, maps, maxdim, p); }
+        py::dict res; res["p"] = R.p; res["dims"] = R.dims; res["seconds"] = R.seconds;
+        py::list degs;
+        for (int n = 0; n <= maxdim; ++n) {
+            py::dict d; d["degree"] = n; d["rank"] = R.rank[n];
+            py::list bars; for (auto& b : R.barcode[n]) bars.append(py::make_tuple(b.birth, b.death, b.mult)); d["barcode"] = bars;
+            py::list ms; for (auto& M : R.maps) ms.append(M[n]); d["maps"] = ms;
+            degs.append(d);
+        }
+        res["degrees"] = degs;
+        return res;
+    }, py::arg("groups"), py::arg("maps"), py::arg("maxdim") = 4, py::arg("p") = 2,
+       "Maps on mod-p homology induced by a chain of homomorphisms G_1 -> G_2 -> ... -> G_m of finite solvable groups,\n"
+       "and their persistence (Ellis and King, Persistent homology of groups, J. Group Theory 2011). groups: dicts\n"
+       "{'mult', 'pcgs', 'relative_orders', 'identity'} as in pc_group; maps[i]: the image in G_{i+2} of each element of\n"
+       "G_{i+1} (a homomorphism, checked). Returns dims[g][n] = dim H_n(G_g; F_p) and, for each degree n = 0..maxdim,\n"
+       "'rank'[i][j] = rank of H_n(G_i) -> H_n(G_j) for i <= j (the persistence matrix), 'barcode': (i, j, k) = k\n"
+       "classes born in G_i and alive through G_j, and 'maps'[i]: the matrix of H_n(G_i) -> H_n(G_{i+1}) (rows: target)\n"
+       "in the homology bases dual to pc_group's cohomology bases (its transpose is the map on cohomology).\n"
+       "tools/export_pcseries.g writes quotient and subgroup series; perseus.read_pcseries(path) reads them.");
 
     m.def("finite_group", [](long long order, py::list primes, int maxdim, bool homology, int ring, bool all_products) {
         pcg::SylowData Dt; Dt.order = order;

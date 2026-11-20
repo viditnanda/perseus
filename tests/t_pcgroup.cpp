@@ -6,9 +6,12 @@
 //   4. ground truth from HAP and the Green-King database (tests/fixtures/pcgroups/expected.txt);
 //   5. invalid inputs are rejected;
 //   6. the Sylow route (sylow.hpp): against HAP and the literature for non-solvable groups, against the direct
-//      engine for solvable ones, universal coefficients between its integral and mod-p results, invalid inputs.
+//      engine for solvable ones, universal coefficients between its integral and mod-p results, invalid inputs;
+//   7. induced maps and persistence (pc_maps.hpp): against Ellis-King's example and HAP's persistence matrices,
+//      functoriality, naturality of cup products, invalid maps.
 #include "perseus/pc_group.hpp"
 #include "perseus/sylow.hpp"
+#include "perseus/pc_maps.hpp"
 #include <cstdio>
 #include <fstream>
 #include <sstream>
@@ -370,6 +373,80 @@ int main() {
         { SylowData Dt = load(sd + "a5.txt"); Dt.order = 120;
           CHECK(rejects([&] { sylow_compute(Dt, 3, true, 0); }), "a subgroup that is not Sylow for the stated order is rejected"); }
         CHECK(rejects([&] { parse_sylow("order 60\nprime 2\n4 2\n"); }), "a truncated file is rejected");
+    }
+    // 7. induced maps and persistence
+    {
+        std::string sd = "tests/fixtures/pcseries/";
+        auto load = [&](const std::string& name) { std::ifstream in(sd + name + ".txt"); std::stringstream ss; ss << in.rdbuf(); return parse_pcseries(ss.str()); };
+        std::ifstream ex(sd + "expected.txt"); std::string line;
+        std::map<std::pair<std::string, int>, PcSeriesResult> cache;
+        while (std::getline(ex, line)) {
+            if (line.empty() || line[0] == '#') continue;
+            std::istringstream ls(line); std::string name, spec; int p, n; ls >> name >> p >> n >> spec;
+            std::vector<std::vector<size_t>> want; std::istringstream rs(spec); std::string row;
+            while (std::getline(rs, row, ';')) { std::vector<size_t> r; std::istringstream xs(row); std::string t; while (std::getline(xs, t, ',')) r.push_back(std::stoul(t)); want.push_back(r); }
+            auto key = std::make_pair(name, p);
+            if (!cache.count(key)) { PcSeriesData D = load(name); cache.emplace(key, pc_series(D.groups, D.maps, 3, p)); }
+            const auto& R = cache.at(key); bool ok = R.rank[n].size() == want.size();
+            for (size_t i = 0; ok && i < want.size(); ++i) for (size_t j = i; j < want.size(); ++j) if (R.rank[n][i][j] != want[i][j]) ok = false;
+            CHECK(ok, name + ": persistence matrix in degree " + std::to_string(n) + (name == "d64_L" ? " against Ellis-King's example" : " against HAP"));
+        }
+        // functoriality: the map induced by a composite is the product of the maps; the identity induces the identity
+        {
+            PcSeriesData D = load("q_81_7_L"); int p = 3, Dm = 4;
+            PcSeriesResult R = pc_series(D.groups, D.maps, Dm, p);
+            std::vector<int> comp(D.groups[0].n); for (int x = 0; x < D.groups[0].n; ++x) comp[x] = D.maps[1][D.maps[0][x]];
+            PcSeriesResult R2 = pc_series({D.groups[0], D.groups[2]}, {comp}, Dm, p);
+            std::vector<int> id(D.groups[1].n); for (int x = 0; x < D.groups[1].n; ++x) id[x] = x;
+            PcSeriesResult R3 = pc_series({D.groups[1], D.groups[1]}, {id}, Dm, p);
+            bool fun = true, idok = true;
+            for (int n = 0; n <= Dm; ++n) {
+                const auto &A1 = R.maps[0][n], &A2 = R.maps[1][n], &C = R2.maps[0][n];
+                for (size_t t = 0; t < A2.size(); ++t) for (size_t s2 = 0; s2 < (A1.empty() ? 0 : A1[0].size()); ++s2) {
+                    i64 x = 0; for (size_t u = 0; u < A1.size(); ++u) x = (x + (i64)A2[t][u] * A1[u][s2]) % p;
+                    if ((uint32_t)x != C[t][s2]) fun = false;
+                }
+                const auto& I = R3.maps[0][n];
+                for (size_t t = 0; t < I.size(); ++t) for (size_t s2 = 0; s2 < I[t].size(); ++s2) if (I[t][s2] != (t == s2 ? 1u : 0u)) idok = false;
+            }
+            CHECK(fun, "functoriality: (psi phi)_* = psi_* phi_* on H_n(-; F_3), n <= 4");
+            CHECK(idok, "the identity homomorphism induces the identity matrix");
+        }
+        // naturality of cup products: phi^*(x . y) = phi^* x . phi^* y, phi^* the transpose of phi_*
+        for (auto cs : std::vector<std::pair<std::string, int>>{{"q_32_7_L", 2}, {"s_32_6_L", 2}, {"s_81_9_L", 3}}) {
+            PcSeriesData D = load(cs.first); int p = cs.second, Dm = 4; bool nat = true; size_t tested = 0;
+            PcSeriesResult R = pc_series(D.groups, D.maps, Dm, p);
+            for (size_t g = 0; g + 1 < D.groups.size(); ++g) {
+                CohomologyRing Rs = cohomology_ring(D.groups[g], Dm, p, nullptr, true), Rt = cohomology_ring(D.groups[g + 1], Dm, p, nullptr, true);
+                auto pull = [&](int n, const std::vector<uint32_t>& c) {   // phi^* in coordinates
+                    const auto& M = R.maps[g][n]; std::vector<i64> out(Rs.dims[n], 0);
+                    for (size_t t = 0; t < c.size(); ++t) if (c[t]) for (size_t s2 = 0; s2 < out.size(); ++s2) out[s2] = (out[s2] + (i64)c[t] * M[t][s2]) % p;
+                    return out;
+                };
+                for (auto& kv : Rt.products) {
+                    int a = std::get<0>(kv.first), i = std::get<1>(kv.first), b = std::get<2>(kv.first), j = std::get<3>(kv.first);
+                    auto lhs = pull(a + b, kv.second);
+                    std::vector<uint32_t> ei(Rt.dims[a], 0), ej(Rt.dims[b], 0); ei[i] = 1; ej[j] = 1;
+                    auto x = pull(a, ei), y = pull(b, ej);
+                    std::vector<i64> rhs(Rs.dims[a + b], 0);
+                    for (size_t s1 = 0; s1 < x.size(); ++s1) if (x[s1]) for (size_t s2 = 0; s2 < y.size(); ++s2) if (y[s2]) {
+                        auto it = Rs.products.find(std::make_tuple(a, (int)s1, b, (int)s2));
+                        if (it == Rs.products.end()) { nat = false; continue; }
+                        for (size_t u = 0; u < rhs.size(); ++u) rhs[u] = (rhs[u] + x[s1] * y[s2] % p * it->second[u]) % p;
+                    }
+                    if (lhs != rhs) nat = false;
+                    ++tested;
+                }
+            }
+            CHECK(nat && tested > 0, cs.first + ": phi^* is a ring homomorphism on H^*(-; F_" + std::to_string(p) + ") (" + std::to_string(tested) + " products)");
+        }
+        auto rejects = [](std::function<void()> f) { try { f(); } catch (const std::invalid_argument&) { return true; } return false; };
+        { PcSeriesData D = load("q_32_7_L"); std::swap(D.maps[0][1], D.maps[0][2]);
+          bool hom = true; const PcGroup &A = D.groups[0], &B = D.groups[1];
+          for (int x = 0; x < A.n && hom; ++x) for (int y = 0; y < A.n; ++y) if (D.maps[0][A.mul(x, y)] != B.mul(D.maps[0][x], D.maps[0][y])) { hom = false; break; }
+          if (!hom) CHECK(rejects([&] { pc_series(D.groups, D.maps, 2, 2); }), "a map that is not a homomorphism is rejected"); }
+        { PcSeriesData D = load("q_32_7_L"); D.maps[0].pop_back(); CHECK(rejects([&] { pc_series(D.groups, D.maps, 2, 2); }), "a map missing an image is rejected"); }
+        { PcSeriesData D = load("q_32_7_L"); D.maps.pop_back(); CHECK(rejects([&] { pc_series(D.groups, D.maps, 2, 2); }), "m groups with the wrong number of maps are rejected"); }
     }
     printf("t_pcgroup: %d checks, %d failures\n", checks, fails);
     return fails ? 1 : 0;

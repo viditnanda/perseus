@@ -834,6 +834,244 @@
     1,
     1
    ]
+  },
+  {
+   "group": "SmallGroup(64,138), lower central",
+   "task": "persistence of H_6(-; F_p) along the series (Perseus: all degrees <= 6)",
+   "perseus_s": 0.0122,
+   "export_s": 0.113,
+   "perseus_total_s": 0.1252,
+   "quotients": 3,
+   "hap": {
+    "PersistentHomologyOfQuotientGroupSeries": {
+     "status": "ok",
+     "runtime_s": 8.865,
+     "wall_s": 10.966,
+     "runs": 3
+    }
+   },
+   "hap_best_s": 8.865,
+   "hap_best": "PersistentHomologyOfQuotientGroupSeries",
+   "rank": [
+    [
+     40,
+     23,
+     8
+    ],
+    [
+     0,
+     50,
+     8
+    ],
+    [
+     0,
+     0,
+     28
+    ]
+   ]
+  },
+  {
+   "group": "SmallGroup(64,138), lower central",
+   "task": "persistence of H_8(-; F_p) along the series (Perseus: all degrees <= 8)",
+   "perseus_s": 0.0591,
+   "export_s": 0.113,
+   "perseus_total_s": 0.1721,
+   "quotients": 3,
+   "hap": {
+    "PersistentHomologyOfQuotientGroupSeries": {
+     "status": "ok",
+     "runtime_s": 73.261,
+     "wall_s": 75.869,
+     "runs": 1
+    }
+   },
+   "hap_best_s": 73.261,
+   "hap_best": "PersistentHomologyOfQuotientGroupSeries",
+   "rank": [
+    [
+     71,
+     33,
+     10
+    ],
+    [
+     0,
+     95,
+     10
+    ],
+    [
+     0,
+     0,
+     45
+    ]
+   ]
+  },
+  {
+   "group": "D128, lower central",
+   "task": "persistence of H_8(-; F_p) along the series (Perseus: all degrees <= 8)",
+   "perseus_s": 2.3216,
+   "export_s": 0.031,
+   "perseus_total_s": 2.3526,
+   "quotients": 6,
+   "hap": {
+    "PersistentHomologyOfQuotientGroupSeries": {
+     "status": "ok",
+     "runtime_s": 1.811,
+     "wall_s": 4.151,
+     "runs": 3
+    }
+   },
+   "hap_best_s": 1.811,
+   "hap_best": "PersistentHomologyOfQuotientGroupSeries",
+   "rank": [
+    [
+     9,
+     2,
+     2,
+     2,
+     2,
+     2
+    ],
+    [
+     0,
+     9,
+     2,
+     2,
+     2,
+     2
+    ],
+    [
+     0,
+     0,
+     9,
+     2,
+     2,
+     2
+    ],
+    [
+     0,
+     0,
+     0,
+     9,
+     2,
+     2
+    ],
+    [
+     0,
+     0,
+     0,
+     0,
+     9,
+     2
+    ],
+    [
+     0,
+     0,
+     0,
+     0,
+     0,
+     9
+    ]
+   ]
+  },
+  {
+   "group": "SmallGroup(128,1000), lower 2-central",
+   "task": "persistence of H_6(-; F_p) along the series (Perseus: all degrees <= 6)",
+   "perseus_s": 0.0108,
+   "export_s": 0.036,
+   "perseus_total_s": 0.0468,
+   "quotients": 2,
+   "hap": {
+    "PersistentHomologyOfQuotientGroupSeries": {
+     "status": "ok",
+     "runtime_s": 43.403,
+     "wall_s": 46.186,
+     "runs": 1
+    }
+   },
+   "hap_best_s": 43.403,
+   "hap_best": "PersistentHomologyOfQuotientGroupSeries",
+   "rank": [
+    [
+     130,
+     15
+    ],
+    [
+     0,
+     84
+    ]
+   ]
+  },
+  {
+   "group": "SmallGroup(243,2), lower central",
+   "task": "persistence of H_6(-; F_p) along the series (Perseus: all degrees <= 6)",
+   "perseus_s": 0.004,
+   "export_s": 0.225,
+   "perseus_total_s": 0.229,
+   "quotients": 2,
+   "hap": {
+    "PersistentHomologyOfQuotientGroupSeries": {
+     "status": "ok",
+     "runtime_s": 20.738,
+     "wall_s": 22.987,
+     "runs": 1
+    }
+   },
+   "hap_best_s": 20.738,
+   "hap_best": "PersistentHomologyOfQuotientGroupSeries",
+   "rank": [
+    [
+     22,
+     4
+    ],
+    [
+     0,
+     7
+    ]
+   ]
+  },
+  {
+   "group": "SmallGroup(243,26), lower central",
+   "task": "persistence of H_6(-; F_p) along the series (Perseus: all degrees <= 6)",
+   "perseus_s": 0.0167,
+   "export_s": 0.141,
+   "perseus_total_s": 0.1577,
+   "quotients": 4,
+   "hap": {
+    "PersistentHomologyOfQuotientGroupSeries": {
+     "status": "ok",
+     "runtime_s": 11.55,
+     "wall_s": 13.811,
+     "runs": 1
+    }
+   },
+   "hap_best_s": 11.55,
+   "hap_best": "PersistentHomologyOfQuotientGroupSeries",
+   "rank": [
+    [
+     9,
+     4,
+     3,
+     3
+    ],
+    [
+     0,
+     9,
+     4,
+     3
+    ],
+    [
+     0,
+     0,
+     9,
+     4
+    ],
+    [
+     0,
+     0,
+     0,
+     7
+    ]
+   ]
   }
  ]
 }

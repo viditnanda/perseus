@@ -317,6 +317,15 @@ check("finite_group: the full product table on request agrees with the generator
       and m["cohomology"]["products_of"] == "generators" and ma["cohomology"]["generators_by_degree"] == m["cohomology"]["generators_by_degree"]
       and all(ma["cohomology"]["products"][k] == v for k, v in m["cohomology"]["products"].items() if k in ma["cohomology"]["products"]), ma["cohomology"]["products_of"])
 
+PSF = os.path.join(FIX, "pcseries")
+r = perseus.pc_series(**perseus.read_pcseries(os.path.join(PSF, "d64_L.txt")), maxdim=2, p=2)
+check("pc_series: Ellis-King's lower central persistence matrix of D64 in degree 2",
+      r["degrees"][2]["rank"] == [[3, 2, 2, 2, 2], [0, 3, 2, 2, 2], [0, 0, 3, 2, 2], [0, 0, 0, 3, 2], [0, 0, 0, 0, 3]] and (0, 4, 2) in r["degrees"][2]["barcode"], r["degrees"][2])
+j = json.loads(subprocess.run([PERSEUS, "pcseries", os.path.join(PSF, "q_81_7_L.txt"), "--maxdim", "3", "--print", "json"], capture_output=True, text=True, timeout=600).stdout)
+m = perseus.pc_series(**perseus.read_pcseries(os.path.join(PSF, "q_81_7_L.txt")), maxdim=3, p=3)
+check("command line pcseries agrees with the module (ranks, bars, maps)", j["p"] == 3 and all(
+      a["rank"] == b["rank"] and [list(x) for x in b["barcode"]] == a["barcode"] and a["maps"] == b["maps"] for a, b in zip(j["degrees"], m["degrees"])), j["degrees"][1])
+
 # ---- torsion trajectories and classification by Howell sweeps (torsion.hpp) ---------------------------------
 def smith_torsion(cols, nrows):
     """invariant factors > 1 of the integer matrix with these columns (lists of (row, coef)), by elimination"""
