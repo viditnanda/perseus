@@ -360,6 +360,40 @@ Random metrics have many bad primes. For 450 uniformly random distances (H≤1):
 
 gramag enumerates the paths between all pairs of vertices before computing anything, even when asked for one pair. On the single pair (0̂, 1̂) of the RP^3 and L(3, 1) graphs at l ≤ 7 it ran out of memory after 1–2 minutes; Perseus takes 0.1 s. Where both finish, the ranks agree everywhere. On the inputs with more than 100,000 generators Perseus is 7 to 9 times faster and uses a fraction of the memory.
 
+### Finite groups (measured 20 Nov 2026, 2-core Xeon, wall clock)
+
+`bench/vs_hap.py`, against HAP 1.62 in GAP 4.12.1, each run limited to 300 s. Where both finish, the integral homology agrees; the script fails otherwise. The ring rows are not like for like: HAP's `Mod2CohomologyRingPresentation` also finds relations, which Perseus does not, while Perseus computes every product of basis classes. The reference program for mod-p rings of p-groups, the Green–King package for SageMath, is not compared.
+
+| group | task | Perseus | HAP |
+|---|---|---|---|
+| SmallGroup(16, 14) = (Z/2)^4 | H_n(G; Z), n ≤ 6 | 0.004 s | 3.8 s |
+| SmallGroup(16, 9) = Q16 | H_n(G; Z), n ≤ 8 | 0.013 s | 4.0 s |
+| SmallGroup(32, 51) = (Z/2)^5 | H_n(G; Z), n ≤ 6 | 0.056 s | 20.9 s |
+| SmallGroup(24, 12) = S_4 | H_n(G; Z), n ≤ 6 | 0.010 s | > 300 s |
+| SmallGroup(27, 3) | H_n(G; Z), n ≤ 6 | 0.009 s | > 300 s |
+| SmallGroup(32, 49) | H_n(G; Z), n ≤ 6 | 0.007 s | > 300 s |
+| SmallGroup(64, 138) | H_n(G; Z), n ≤ 8 | 0.146 s | > 300 s |
+| SmallGroup(128, 1000) | H_n(G; Z), n ≤ 6 | 0.031 s | > 300 s |
+| SmallGroup(128, 2000) | H_n(G; Z), n ≤ 6 | 0.049 s | > 300 s |
+| SmallGroup(243, 2) | H_n(G; Z), n ≤ 6 | 0.037 s | > 300 s |
+| SmallGroup(32, 49) | mod-2 ring, degrees ≤ 4 | 0.011 s | > 300 s |
+| SmallGroup(64, 138) | mod-2 ring, degrees ≤ 4 | 0.009 s | > 300 s |
+| SmallGroup(128, 1000) | mod-2 ring, degrees ≤ 4 | 0.012 s | > 300 s |
+
+Perseus alone, further out (one run each):
+
+| group | task | time | Anick chains in the top degree |
+|---|---|---|---|
+| SmallGroup(128, 1000) | H_n(G; Z), n ≤ 10 | 0.29 s | 12376 |
+| SmallGroup(128, 2000) | H_n(G; Z), n ≤ 10 | 4.5 s | 12376 |
+| SmallGroup(256, 500) | H_n(G; Z), n ≤ 8 | 0.19 s | 11440 |
+| S_4 | H_n(G; Z), n ≤ 12 | 1.7 s | 560 |
+| SmallGroup(128, 1000) | mod-2 ring, degrees ≤ 10 | 6.0 s | 12376 |
+| SmallGroup(64, 138) | mod-2 ring, degrees ≤ 10 | 13.5 s | 4368 |
+| SmallGroup(27, 3) | mod-3 ring, degrees ≤ 12 | 0.05 s | 105 |
+
+The mod-2 dimensions of SmallGroup(128, 1000) through degree 10 are the coefficients of 1/((1 + t)(1 − t)^5), its Poincaré series in the Green–King database, and its minimal generators (four in degree 1, four in degree 2) are theirs.
+
 ## Old Perseus files
 
 The Perseus 4/5 input formats (`simtop`, `nmfsimtop`, `cubtop`, `scubtop`, `cellcomp`, `distmat`, `corrmat`, `rips`, `brips`) are not read directly. Convert them:

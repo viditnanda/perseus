@@ -1,0 +1,143 @@
+{
+ "limit_s": 300,
+ "rows": [
+  {
+   "group": "SmallGroup(16, 14)",
+   "task": "H_n(G; Z), n <= 6",
+   "perseus_s": 0.004,
+   "hap_s": 3.809,
+   "hap_cpu_s": 1.384,
+   "agree": true,
+   "chains_top": 120
+  },
+  {
+   "group": "SmallGroup(16, 9)",
+   "task": "H_n(G; Z), n <= 8",
+   "perseus_s": 0.013,
+   "hap_s": 3.978,
+   "hap_cpu_s": 1.461,
+   "agree": true,
+   "chains_top": 220
+  },
+  {
+   "group": "SmallGroup(24, 12)",
+   "task": "H_n(G; Z), n <= 6",
+   "perseus_s": 0.01,
+   "hap_s": null,
+   "hap_cpu_s": null,
+   "agree": null,
+   "chains_top": 120
+  },
+  {
+   "group": "SmallGroup(27, 3)",
+   "task": "H_n(G; Z), n <= 6",
+   "perseus_s": 0.009,
+   "hap_s": null,
+   "hap_cpu_s": null,
+   "agree": null,
+   "chains_top": 36
+  },
+  {
+   "group": "SmallGroup(32, 51)",
+   "task": "H_n(G; Z), n <= 6",
+   "perseus_s": 0.056,
+   "hap_s": 20.934,
+   "hap_cpu_s": 18.137,
+   "agree": true,
+   "chains_top": 330
+  },
+  {
+   "group": "SmallGroup(32, 49)",
+   "task": "H_n(G; Z), n <= 6",
+   "perseus_s": 0.007,
+   "hap_s": null,
+   "hap_cpu_s": null,
+   "agree": null,
+   "chains_top": 330
+  },
+  {
+   "group": "SmallGroup(64, 138)",
+   "task": "H_n(G; Z), n <= 6",
+   "perseus_s": 0.023,
+   "hap_s": null,
+   "hap_cpu_s": null,
+   "agree": null,
+   "chains_top": 792
+  },
+  {
+   "group": "SmallGroup(64, 138)",
+   "task": "H_n(G; Z), n <= 8",
+   "perseus_s": 0.146,
+   "hap_s": null,
+   "hap_cpu_s": null,
+   "agree": null,
+   "chains_top": 2002
+  },
+  {
+   "group": "SmallGroup(128, 1000)",
+   "task": "H_n(G; Z), n <= 6",
+   "perseus_s": 0.031,
+   "hap_s": null,
+   "hap_cpu_s": null,
+   "agree": null,
+   "chains_top": 1716
+  },
+  {
+   "group": "SmallGroup(128, 2000)",
+   "task": "H_n(G; Z), n <= 6",
+   "perseus_s": 0.049,
+   "hap_s": null,
+   "hap_cpu_s": null,
+   "agree": null,
+   "chains_top": 1716
+  },
+  {
+   "group": "SmallGroup(243, 2)",
+   "task": "H_n(G; Z), n <= 6",
+   "perseus_s": 0.037,
+   "hap_s": null,
+   "hap_cpu_s": null,
+   "agree": null,
+   "chains_top": 330
+  },
+  {
+   "group": "SmallGroup(32, 49)",
+   "task": "mod-2 ring, degrees <= 4",
+   "perseus_s": 0.011,
+   "hap_s": null,
+   "hap_cpu_s": null,
+   "perseus_generators_by_degree": [
+    4,
+    0,
+    0,
+    1
+   ]
+  },
+  {
+   "group": "SmallGroup(64, 138)",
+   "task": "mod-2 ring, degrees <= 4",
+   "perseus_s": 0.009,
+   "hap_s": null,
+   "hap_cpu_s": null,
+   "perseus_generators_by_degree": [
+    3,
+    3,
+    1,
+    1
+   ]
+  },
+  {
+   "group": "SmallGroup(128, 1000)",
+   "task": "mod-2 ring, degrees <= 4",
+   "perseus_s": 0.012,
+   "hap_s": null,
+   "hap_cpu_s": null,
+   "perseus_generators_by_degree": [
+    4,
+    4,
+    0,
+    0
+   ]
+  }
+ ]
+}

@@ -90,9 +90,10 @@ def main():
             ours = [h["torsion"] for h in pj["homology"][1:]]
             if ours != [sorted(x) for x in hh]: raise SystemExit("MISMATCH on SmallGroup%s: perseus %s, HAP %s" % (g, ours, hh))
         row = {"group": "SmallGroup(%d, %d)" % g, "task": "H_n(G; Z), n <= %d" % D, "perseus_s": round(pt, 3),
-               "hap_s": None if hh is None else round(ht, 3), "hap_cpu_s": hcpu, "agree": pj is not None and hh is not None,
+               "hap_s": None if hh is None else round(ht, 3), "hap_cpu_s": hcpu, "agree": True if (pj is not None and hh is not None) else None,   # None: not compared (a program did not finish)
                "chains_top": pj["chains"][-1] if pj else None}
         rows.append(row); print(row, flush=True)
+        json.dump({"limit_s": LIMIT, "rows": rows}, open(outpath, "w"), indent=1)
     for g, D in (QUICK_R if quick else RING):
         f = export(g)
         pj, pt = perseus(f, D, ring=2)
@@ -101,6 +102,7 @@ def main():
                "hap_s": None if hr is None else round(ht, 3), "hap_cpu_s": hcpu,
                "perseus_generators_by_degree": pj["cohomology"]["generators_by_degree"][1:] if pj else None}
         rows.append(row); print(row, flush=True)
+        json.dump({"limit_s": LIMIT, "rows": rows}, open(outpath, "w"), indent=1)
     json.dump({"limit_s": LIMIT, "rows": rows}, open(outpath, "w"), indent=1)
 
 
