@@ -8,7 +8,7 @@ One run gives you:
 * the complete list of *bad primes* — the p for which F_p coefficients give a different barcode — and, for each, exactly which intervals change,
 * the exact rational values of all non-unit pivots, which explain where the torsion lives.
 
-Beyond simplicial and cubical complexes, Perseus 6 takes filtered simplicial sets, nerves of finite categories and arbitrary filtered chain complexes over Z, and returns integral information: the torsion of the homology, the image of H_*(K_s; Z) → H_*(K_t; Z), and the F_p barcode of every bad prime. It computes magnitude homology of graphs over Z, torsion included, and handles chain complexes over the Laurent ring Z[t, t^-1] (infinite cyclic covers, Novikov homology). See [Chain complexes over Z and beyond](#chain-complexes-over-z-and-beyond).
+Beyond simplicial and cubical complexes, Perseus 6 takes filtered simplicial sets, nerves of finite categories and arbitrary filtered chain complexes over Z, and returns integral information: the torsion of the homology, the image of H_*(K_s; Z) → H_*(K_t; Z), and the F_p barcode of every bad prime. It computes magnitude homology of graphs over Z, torsion included, and handles chain complexes over the Laurent ring Z[t, t^-1] (infinite cyclic covers, Novikov homology). For finite solvable groups it computes H_*(G; Z) exactly and the mod-p cohomology ring (dimensions, all products, minimal generators) from a polycyclic presentation, through the Anick resolution rather than the bar construction. See [Chain complexes over Z and beyond](#chain-complexes-over-z-and-beyond).
 
 By default the Q reduction runs in exact int64 arithmetic. Then the certificate is a proof, at about the cost of an F_p run. When the numbers outgrow int64, as on torsion-heavy inputs, Perseus switches to a run modulo random 62-bit primes and reports a rigorous bound on the probability of error. `--proved` insists on exact arithmetic throughout. See [docs/CERTIFICATE.md](docs/CERTIFICATE.md).
 
@@ -24,6 +24,7 @@ Executables for Linux, macOS and Windows are attached to each [GitHub release](h
 make                 # builds ./perseus (C++17 with 128-bit integers: g++ or clang; MinGW-w64 on Windows)
 make test            # differential tests (needs Ripser / Perseus 5 / p2ref; skips what is missing)
 make test-chain      # chain complexes over Z, simplicial sets, magnitude homology, Laurent coefficients
+make test-pcgroup    # finite solvable groups: integral homology and mod-p cohomology rings
 cd python && pip install --no-build-isolation .   # Python module `perseus` (needs pybind11, numpy)
 ```
 
@@ -77,6 +78,7 @@ The output states what is guaranteed about the barcode (`proved`, or `probabilis
 | `sset` | finite filtered simplicial set: one nondegenerate simplex per line `dim birth d_0 ... d_dim`; a face is an earlier line `y`, or `y@k1.k2...km` for the degenerate simplex s_k1 s_k2 ... s_km y |
 | `laurent` | filtered based chain complex over Z[t, t^-1]: one cell per line `dim birth face:poly ...`, e.g. `2 0 1:t^2-t+1 2:-1+t^-1` |
 | `magnitude` | a graph, one edge `u v` per line (vertices 0, 1, ...), for magnitude homology |
+| `pcgroup` | a finite solvable group: `n k`, the k pcgs element ids, their relative orders, the identity, then the n × n multiplication table (`tools/export_pcgroup.g` writes it from GAP); `--ring p` adds the mod-p cohomology ring |
 
 `#` starts a comment. Births are arbitrary real numbers. Coefficients default to Q (with the bad-prime certificate); `--coeff p` gives F_p.
 
@@ -121,7 +123,8 @@ Chain complexes over Z, simplicial sets, nerves, magnitude homology and Laurent 
 perseus.cells(cells, integral=True, image=(0, 1))     # r["integral"]: homology, image, bad_prime_barcodes
 perseus.simplicial_set([(0, 0, []), (1, 0, [0, 0]), (2, 1, [1, (0, [0]), 1])], integral=True, image=(0, 1))   # RP^2
 perseus.nerve(src, tgt, identities, composition, weights=w, maxdim=3, integral=True)
-perseus.bar_construction(mult, identity=0, maxdim=5)   # H_k(G; Z) for a finite group G
+perseus.bar_construction(mult, identity=0, maxdim=5)   # B M for a finite monoid M (exponential in maxdim)
+perseus.pc_group(**perseus.read_pcgroup("g.txt"), maxdim=8, ring=2)   # finite solvable G: H_*(G; Z), H^*(G; F_2) ring
 perseus.magnitude(edges, lmax=6)                       # r["table"][(k, l)] = {"free", "torsion": {order: multiplicity}, ...}
 perseus.laurent([(0, 0, []), (1, 0, [(0, "t - 1")])])  # barcode over Q(t), bad irreducibles, homology over Q[t^±1]
 ```
@@ -171,6 +174,18 @@ All of it is exact integer arithmetic (int64 with overflow checks, then bigints)
 **Simplicial sets** (`sset`, `perseus.simplicial_set`). Nondegenerate simplices with their faces, which may be degenerate; degeneracies are normalised away (normalised chains). The simplicial identities are checked. Constructions in the library: nerves of finite categories (`perseus.nerve`), the bar construction BG of a finite group or monoid (`perseus.bar_construction`), quotients X/A, cones, suspensions, and minimal spheres. In a **weighted nerve** a chain (f_1, …, f_n) of composable morphisms is born at the largest weight of a composite f_j ∘ … ∘ f_i of consecutive morphisms, so faces are never born after their simplices.
 
 **Magnitude homology** (`magnitude`, `perseus.magnitude`). MH_{k,l}(G; Z) of a graph (Hepworth–Willerton), directed or not, for lengths l ≤ `--lmax`, with torsion. The complex splits by endpoints (s, t) and length l. Each piece is enumerated in lexicographic order, stored compactly, reduced by the fill-in-free part of the algebraic Morse reduction in place, then by the general reduction and Smith forms. `--pairs s,t,...` restricts to chosen endpoints. The answer is exact; nothing is sampled or reduced mod p. [gramag](https://gramag.readthedocs.io/) computes ranks over F_2 only. On every graph of `bench/vs_gramag.py` where it finishes, they equal Perseus's integral answer reduced by universal coefficients (see [Benchmarks](#magnitude-homology-measured-18-nov-2026-2-core-xeon)).
+
+**Finite solvable groups** (`pcgroup`, `perseus.pc_group`). From the multiplication table of G and a polycyclic generating sequence (GAP's `Pcgs`; `tools/export_pcgroup.g` writes the input, `perseus.read_pcgroup` reads it):
+
+* H_n(G; Z) for n ≤ `--maxdim` (default 4), exactly: free rank and invariant factors;
+* with `--ring p`, the mod-p cohomology ring through degree maxdim: dim H^n(G; F_p), every product of basis classes (`--print json`, or the `products` dictionary in Python), the number of minimal ring generators in each degree, and a choice of them.
+
+```
+gap> Read("tools/export_pcgroup.g"); WritePerseusPcGroup(SmallGroup(128, 1000), "g.txt");
+$ ./perseus pcgroup g.txt --maxdim 8 --ring 2
+```
+
+The bar construction BG has (|G| − 1)^n nondegenerate n-simplices. Perseus never builds it. The pcgs gives a complete rewriting system (collection), and the algebraic Morse matching it induces on the bar resolution has C(n+k−1, k−1) critical cells in degree n, where |G| = r_1 ⋯ r_k (Anick's resolution). The differentials come from a memoised contracting homotopy whose work is polynomial in the degree. For n ≥ 1, |G| annihilates H_n(G; Z), so the computation runs over Z/q^(v+1) for each prime power q^v exactly dividing |G|. That is exact, with no rational arithmetic and nothing to certify. Units are cancelled across the whole complex before the Smith forms. The ring products are Yoneda composites, which are the cup products up to the sign (−1)^(ab). Relations, integral cup products and non-solvable groups are not covered; for those, use a Sylow subgroup with stable elements, or HAP. Details and references: `docs/TECHNIQUES.md` §5.7. `bar_construction` remains for monoids and categories.
 
 **Laurent coefficients** (`laurent`, `perseus.laurent`). Chain complexes over Z[t, t^-1]: infinite cyclic covers, Alexander modules, Novikov homology. Z[t, t^-1] is not a principal ideal domain, so its homology has no barcode and no Smith form. Perseus computes what the principal ideal domains around it see, and says which:
 
@@ -375,6 +390,7 @@ Two things differ from the old programs:
 * **G:** the implicit cubical engines against the explicit complex and against each other (1–4 dimensions, periodic axes, absent cells, zero-length bars, 4D white noise and quantised fields), and the sparse Rips route against the dense engine.
 * **Cubical engines:** `make test-cubical` (`tests/t_cubical_morse.cpp`) runs the discrete-gradient engine against the classic one on random grids with heavy ties, absent cells and nearly distinct values. It compares barcodes over F_2, F_3, F_5 and Q (int64 and multi-modular), with and without zero-length bars, and from every degree with clearing data. It also compares certificates in auto and fast mode. It checks the Morse complex itself: every column is recomputed by recursion over gradient paths, along with the filtration order, δδ = 0, and the apparent pairs. It also covers degenerate shapes (axes of length 0, 1 and 2, very elongated grids, a single cube, grids entirely absent or constant) and the int64 guard: with the bound on path sums lowered, the engine must refuse, and the default must fall back to the classic engine.
 * **Chain complexes, simplicial sets, magnitude, Laurent:** `make test-chain`. `tests/t_chain.cpp`: Smith forms (with the bigint fallback), integral homology and images on RP^2 and two-stage filtrations, minimal spheres, torus, Klein bottle, RP^2 as simplicial sets, BZ/2, BZ/3, BS_3 (H_3 = Z/6), nerves with non-identity endomorphisms, suspensions, weighted poset nerves against order complexes, and on random complexes that the algebraic Morse reduction preserves barcodes over F_2, F_3, F_5 and Q, bad primes, integral homology and every image. `tests/t_magnitude.cpp`: the integral answer reduced by universal coefficients against field reductions of the unreduced complexes (trees, cycles, random graphs, directed and not), and the Z/2 of the Kaneta–Yoshinaga graph of RP^2. `tests/t_laurent.cpp`: Alexander polynomials of knots by Fox calculus, Z[t, t^-1]/(2, t + 1), the cylinder covering the torus, and on random complexes the Q(t) and F_p(t) barcodes against the rank function, the bad irreducibles against evaluation at t = t0 through the explicit engine, and the homology over Q[t, t^-1] and F_p[t, t^-1] against evaluation.
+* **Finite groups:** `make test-pcgroup`. `tests/t_pcgroup.cpp`: closed forms (cyclic groups of composite order, elementary abelian groups and their rings, generalised quaternion groups to order 64, dihedral groups against Handel's formula, S_3), the Künneth formula on direct products (mixed primes and mixed relative orders), universal coefficients between the integral and the mod-p engines for every group and every prime dividing its order, H_n(G; Z) against HAP for 12 groups of orders 8–32 (A_4, S_4 and SL(2,3) among them), mod-2 and mod-3 rings (dimensions and generator degrees) against the Green–King database for SmallGroup(64, 138), (128, 1000), (27, 3) and (27, 4), and rejection of tables that are not groups and sequences that are not pcgs.
 * **Fuzzing:** `tests/fuzz_cubical.py` drives the Python module against the explicit complex (F_2, F_3, and Q with bad primes, with absent cells) and against CubicalRipser (F_2). It uses value distributions built for ties: few integer levels, quantised smooth fields, step functions, ±0, extreme magnitudes, plus degenerate shapes.
 
 The current tree passes all of them.
@@ -386,6 +402,7 @@ The current tree passes all of them.
 * Laurent coefficients cover Q(t), Q[t, t^-1], its residue fields and F_p(t), F_p[t, t^-1], not Z[t, t^-1] itself; images over Q[t, t^-1] are not computed yet. Finite twisted coefficients (Z[t]/(t^n − 1), for Milnor fibres) are planned.
 * Integral homology and images use dense Smith forms on the residual complex; inputs that do not reduce well are limited to residual blocks of about 40 million entries.
 * Checkpointed reruns for candidate primes.
+* Finite groups: solvable groups only (given by a pcgs), no relations for the mod-p ring and no integral cup products. The work is polynomial in the degree, but the Anick resolution of a group of order p^k has C(n+k−1, k−1) generators in degree n, far more than a minimal resolution when the p-rank is small. Maps induced by homomorphisms, and with them persistent homology of groups along a central series (Ellis–King), are the natural next step.
 
 ## Techniques and credits
 
@@ -404,7 +421,8 @@ Vidit Nanda (Perseus, 2010–). Perseus 6 builds on ideas from:
 * *RedZeD*;
 * I. Obayashi and M. Yoshiwaki, field choice and torsion;
 * J. Luo and G. Henselman-Petrusek, interval decomposition over a PID and field choice;
-* J.-D. Boissonnat and C. Maria, multi-field persistence and modular reconstruction.
+* J.-D. Boissonnat and C. Maria, multi-field persistence and modular reconstruction;
+* D. Anick, K. S. Brown, E. Sköldberg, M. Jöllenbeck and V. Welker: Anick resolutions as Morse complexes of rewriting systems (the finite-group engine); G. Ellis's HAP and the Green–King database of cohomology rings, which serve as ground truth.
 
 ## Citing
 

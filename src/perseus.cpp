@@ -10,6 +10,7 @@
 #include "perseus/chain.hpp"
 #include "perseus/simplicial_set.hpp"
 #include "perseus/magnitude.hpp"
+#include "perseus/pc_group.hpp"
 #include "perseus/laurent.hpp"
 #include <cstdio>
 #include <cstring>
@@ -31,6 +32,8 @@ static const char* USAGE =
 "          sset                                                  finite simplicial set (normalised chains)\n"
 "          magnitude                                             magnitude homology of a graph (edge list)\n"
 "          laurent                                               chain complex over Z[t, t^-1] (Novikov / twisted)\n"
+"          pcgroup                                               finite solvable group: H_*(G; Z) and the mod-p\n"
+"                                                                cohomology ring (tools/export_pcgroup.g writes these)\n"
 "          (old Perseus 4/5 files: convert them with tools/convert_legacy.py)\n"
 "\n"
 "options:\n"
@@ -67,6 +70,8 @@ static const char* USAGE =
 "  --lmax l         magnitude: lengths 0..l (default 4)\n"
 "  --directed       magnitude: the edges are directed\n"
 "  --pairs s,t,...  magnitude: only these (start, end) pairs\n"
+"  --ring p         pcgroup: also the mod-p cohomology ring through degree maxdim (default maxdim 4)\n"
+"  --no-homology    pcgroup: skip the integral homology\n"
 "  --print fmt      ripser | perseus | json | none   (stdout; default ripser unless a prefix is given)\n"
 "  --stats          timing and engine statistics on stderr\n"
 "\n"
@@ -82,7 +87,7 @@ struct Opts {
     std::string mode = "proved"; std::string seed;
     bool classify = true, zero = false, stats = false;
     bool integral = false, image = false, reduce = true, directed = false;
-    double img_s = 0, img_t = 0; int lmax = 4;
+    double img_s = 0, img_t = 0; int lmax = 4; int ring = 0; bool pc_homology = true;
     std::vector<std::pair<int, int>> pairs;
 };
 
@@ -296,6 +301,8 @@ int main(int argc, char** argv) {
         else if (a == "--image") { std::string v = val(); for (char& ch : v) if (ch == ',') ch = ' '; auto t = split_ws(v); if (t.size() != 2) { fprintf(stderr, "--image s,t\n"); return 1; } o.image = true; o.img_s = std::stod(t[0]); o.img_t = std::stod(t[1]); }
         else if (a == "--no-reduce") o.reduce = false;
         else if (a == "--lmax") o.lmax = std::stoi(val());
+        else if (a == "--ring") o.ring = std::stoi(val());
+        else if (a == "--no-homology") o.pc_homology = false;
         else if (a == "--directed") o.directed = true;
         else if (a == "--pairs") { std::string v = val(); for (char& ch : v) if (ch == ',') ch = ' '; auto t = split_ws(v); if (t.size() % 2) { fprintf(stderr, "--pairs s,t,...\n"); return 1; } for (size_t i = 0; i < t.size(); i += 2) o.pairs.push_back({std::stoi(t[i]), std::stoi(t[i + 1])}); }
         else if (a == "-h" || a == "--help") { fputs(USAGE, stdout); return 0; }
@@ -384,6 +391,85 @@ int main(int argc, char** argv) {
                 for (auto& kv : L.homology_bad_primes) printf("  p = %llu:\n%s", (unsigned long long)kv.first, hom(kv.second, "L_p").c_str());
                 if (!L.complete) { printf("INCOMPLETE: unfactored integers"); for (auto& u : L.unresolved) printf(" %s", u.c_str()); printf("\n"); }
             }
+            return 0;
+        }
+        else if (f == "pcgroup") {
+            // n k / pcgs element ids / relative orders / identity / n x n multiplication table ('#' lines are comments)
+            std::vector<long long> tok; std::string line;
+            while (std::getline(is, line)) {
+                size_t h = line.find('#'); if (h != std::string::npos) line.resize(h);
+                for (char& ch : line) if (ch == ',') ch = ' ';
+                for (auto& t : split_ws(line)) tok.push_back(std::stoll(t));
+            }
+            size_t at = 0;
+            auto next = [&]() { if (at >= tok.size()) throw std::runtime_error("pcgroup: the file ends early"); return tok[at++]; };
+            int n = (int)next(), k = (int)next();
+            if (n < 1 || k < 0 || n > (1 << 16)) throw std::runtime_error("pcgroup: bad order or pcgs length");
+            std::vector<int> pcgs(k), rel(k);
+            for (auto& x : pcgs) x = (int)next();
+            for (auto& x : rel) x = (int)next();
+            int e = (int)next();
+            std::vector<std::vector<int>> T(n, std::vector<int>(n));
+            for (auto& r : T) for (auto& x : r) x = (int)next();
+            if (at != tok.size()) throw std::runtime_error("pcgroup: trailing data after the multiplication table");
+            pcg::PcGroup G(T, pcgs, rel, e);
+            int md = o.maxdim >= 0 ? o.maxdim : 4;
+            pcg::PcResult R = pcg::pc_group_compute(G, md, o.pc_homology, o.ring);
+            auto group_str = [](size_t fr, const std::vector<uint64_t>& tors) {
+                std::string s; if (fr) s = fr > 1 ? "Z^" + std::to_string(fr) : "Z";
+                std::map<uint64_t, size_t> c; for (auto t : tors) ++c[t];
+                for (auto& kv : c) { if (!s.empty()) s += " + "; s += "(Z/" + std::to_string(kv.first) + ")" + (kv.second > 1 ? "^" + std::to_string(kv.second) : ""); }
+                return s.empty() ? std::string("0") : s;
+            };
+            if (o.print == "json") {
+                printf("{\n  \"order\": %d, \"relative_orders\": [", n);
+                for (int i = 0; i < k; ++i) printf("%s%d", i ? ", " : "", G.rel[i]);
+                printf("], \"maxdim\": %d, \"seconds\": %.4f, \"states\": %zu,\n  \"chains\": [", md, R.seconds, R.states);
+                for (size_t i = 0; i < R.chains.size(); ++i) printf("%s%zu", i ? ", " : "", R.chains[i]);
+                printf("]");
+                if (R.has_homology) {
+                    printf(",\n  \"homology\": [");
+                    for (int d = 0; d <= md; ++d) {
+                        printf("%s\n    {\"degree\": %d, \"free\": %zu, \"torsion\": [", d ? "," : "", d, R.H.free[d]);
+                        for (size_t i = 0; i < R.H.torsion[d].size(); ++i) printf("%s%llu", i ? ", " : "", (unsigned long long)R.H.torsion[d][i]);
+                        printf("]}");
+                    }
+                    printf("\n  ]");
+                }
+                if (R.has_ring) {
+                    printf(",\n  \"cohomology\": {\"p\": %d, \"dims\": [", R.R.p);
+                    for (size_t i = 0; i < R.R.dims.size(); ++i) printf("%s%zu", i ? ", " : "", R.R.dims[i]);
+                    printf("], \"generators_by_degree\": [");
+                    for (size_t i = 0; i < R.R.indecomposables.size(); ++i) printf("%s%zu", i ? ", " : "", R.R.indecomposables[i]);
+                    printf("], \"generators\": [");
+                    for (size_t i = 0; i < R.R.generators.size(); ++i) printf("%s[%d, %d]", i ? ", " : "", R.R.generators[i].first, R.R.generators[i].second);
+                    printf("],\n    \"products\": [");
+                    bool first = true;
+                    for (auto& kv : R.R.products) {
+                        printf("%s\n      [%d, %d, %d, %d, [", first ? "" : ",", std::get<0>(kv.first), std::get<1>(kv.first), std::get<2>(kv.first), std::get<3>(kv.first));
+                        for (size_t i = 0; i < kv.second.size(); ++i) printf("%s%u", i ? ", " : "", kv.second[i]);
+                        printf("]]"); first = false;
+                    }
+                    printf("\n    ]}");
+                }
+                printf("\n}\n");
+                return 0;
+            }
+            printf("group of order %d, pcgs of length %d (relative orders", n, k);
+            for (int i = 0; i < k; ++i) printf(" %d", G.rel[i]);
+            printf("); %.3f s\n", R.seconds);
+            if (R.has_homology) {
+                printf("integral homology:\n");
+                for (int d = 0; d <= md; ++d) printf("  H_%d(G; Z) = %s\n", d, group_str(R.H.free[d], R.H.torsion[d]).c_str());
+            }
+            if (R.has_ring) {
+                printf("mod-%d cohomology ring through degree %d:\n  dim H^n(G; F_%d):", R.R.p, md, R.R.p);
+                for (auto x : R.R.dims) printf(" %zu", x);
+                printf("\n  minimal generators by degree (n = 1..%d):", md);
+                for (int d = 1; d <= md; ++d) printf(" %zu", R.R.indecomposables[d]);
+                printf("\n  (products: --print json; they are Yoneda products, the cup product up to the sign (-1)^(ab))\n");
+            }
+            if (o.stats) { printf("  [Anick chains per degree:"); for (auto c : R.chains) printf(" %zu", c); printf("; %zu homotopy states]\n", R.states); }
             return 0;
         }
         else if (f == "magnitude") {

@@ -275,6 +275,27 @@ check("laurent: command line agrees with the module",
       and [b["polynomial"] for b in j["bad_irreducibles"]] == [b["polynomial"] for b in r["bad_irreducibles"]]
       and j["homology"] == r["homology"] and sorted(map(int, j["bad_primes"])) == sorted(r["bad_primes"]), j)
 
+# ---- finite solvable groups (pc_group) --------------------------------------------------------------------
+PCF = os.path.join(FIX, "pcgroups")
+r = perseus.pc_group(**perseus.read_pcgroup(os.path.join(PCF, "g8_4.txt")), maxdim=6, ring=2)
+check("pc_group Q8: integral homology", [(h["free"], h["torsion"]) for h in r["homology"]] == [(1, []), (0, [2, 2]), (0, []), (0, [8]), (0, []), (0, [2, 2]), (0, [])], r["homology"])
+c = r["cohomology"]
+check("pc_group Q8: mod-2 dims and generators", c["dims"] == [1, 2, 2, 1, 1, 2, 2] and c["generators_by_degree"][1:5] == [2, 0, 0, 1], c)
+x2, xy, y2 = c["products"][(1, 0, 1, 0)], c["products"][(1, 0, 1, 1)], c["products"][(1, 1, 1, 1)]
+check("pc_group Q8: x^2 + xy + y^2 = 0 in H^2(Q8; F_2)", [(a + b + d) % 2 for a, b, d in zip(x2, xy, y2)] == [0, 0], (x2, xy, y2))
+r = perseus.pc_group(**perseus.read_pcgroup(os.path.join(PCF, "g24_3.txt")), maxdim=5)
+check("pc_group SL(2,3): mixed relative orders, against HAP", [h["torsion"] for h in r["homology"]][1:] == [[3], [], [24], [], [3]], r["homology"])
+check("pc_group: relative orders are inferred", perseus.pc_group(**{**perseus.read_pcgroup(os.path.join(PCF, "g24_3.txt")), "relative_orders": []}, maxdim=3)["relative_orders"] == [3, 2, 2, 2])
+try:
+    g = perseus.read_pcgroup(os.path.join(PCF, "g8_3.txt")); perseus.pc_group(g["mult"], g["pcgs"][::-1], g["relative_orders"], g["identity"]); ok = False
+except ValueError: ok = True
+check("pc_group: a reversed pcgs of D8 is rejected", ok)
+j = json.loads(subprocess.run([PERSEUS, "pcgroup", os.path.join(PCF, "g27_3.txt"), "--maxdim", "5", "--ring", "3", "--print", "json"], capture_output=True, text=True, timeout=600).stdout)
+m = perseus.pc_group(**perseus.read_pcgroup(os.path.join(PCF, "g27_3.txt")), maxdim=5, ring=3)
+check("command line pcgroup agrees with the module", [h["torsion"] for h in j["homology"]] == [h["torsion"] for h in m["homology"]]
+      and j["cohomology"]["dims"] == m["cohomology"]["dims"] and j["cohomology"]["generators_by_degree"] == m["cohomology"]["generators_by_degree"]
+      and {tuple(x[:4]): x[4] for x in j["cohomology"]["products"]} == m["cohomology"]["products"], j)
+
 print(f"\n{results['pass']} passed, {results['fail']} failed")
 for f in failures[:30]: print("  ", f)
 sys.exit(1 if results["fail"] else 0)

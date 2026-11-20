@@ -10,3 +10,7 @@ output_*.txt
 /t_chain
 /t_magnitude
 /t_laurent
+/t_exact
+/t_bitcol
+/t_cubical_planar
+/t_pcgroup

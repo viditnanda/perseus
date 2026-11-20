@@ -35,5 +35,11 @@ test-chain: tests/t_chain.cpp tests/t_magnitude.cpp tests/t_laurent.cpp $(HDR)
 	$(CXX) -std=c++17 -O2 -Wall $(INC) tests/t_exact.cpp -o t_exact
 	./t_exact 2000
 
+# finite solvable groups: Anick resolution, integral homology, mod-p cohomology rings (closed forms, Kunneth,
+# universal coefficients, HAP and Green-King ground truth)
+test-pcgroup: tests/t_pcgroup.cpp $(HDR)
+	$(CXX) -std=c++17 -O2 -Wall $(INC) tests/t_pcgroup.cpp -o t_pcgroup
+	./t_pcgroup
+
 clean:
-	rm -f perseus t_cubical_morse t_bitcol t_cubical_planar t_chain t_magnitude t_laurent t_exact
+	rm -f perseus t_cubical_morse t_bitcol t_cubical_planar t_chain t_magnitude t_laurent t_exact t_pcgroup
