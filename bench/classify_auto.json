@@ -1,0 +1,266 @@
+[
+ {
+  "case": "LM n=70, tied",
+  "rerun": {
+   "total_s": 6.566,
+   "small_s": 4.378,
+   "note": "no sweep attempted"
+  },
+  "sweep": {
+   "total_s": 4.386,
+   "small_s": 2.211,
+   "note": "used: 61 sweeps for 202 candidates in 2.210 s (reference 0.057 s, batches predicted 3.327 s)"
+  },
+  "auto": {
+   "total_s": 4.201,
+   "small_s": 2.076,
+   "note": "used: 61 sweeps for 200 candidates in 2.021 s (reference 0.054 s, batches predicted 3.152 s, rerun estimate 8.473067 s)"
+  },
+  "candidates": 205,
+  "bad": 7,
+  "identical": true,
+  "auto_vs_best_small": -0.135
+ },
+ {
+  "case": "LM n=90, tied",
+  "rerun": {
+   "total_s": 120.527,
+   "small_s": 54.19,
+   "note": "no sweep attempted"
+  },
+  "sweep": {
+   "total_s": 92.103,
+   "small_s": 24.218,
+   "note": "used: 124 sweeps for 386 candidates in 24.214 s (reference 0.351 s, batches predicted 42.728 s)"
+  },
+  "auto": {
+   "total_s": 94.034,
+   "small_s": 23.997,
+   "note": "used: 124 sweeps for 384 candidates in 23.705 s (reference 0.407 s, batches predicted 49.509 s, rerun estimate 79.671991 s)"
+  },
+  "candidates": 496,
+  "bad": 6,
+  "identical": true,
+  "auto_vs_best_small": -0.221
+ },
+ {
+  "case": "LM n=40, distinct values",
+  "rerun": {
+   "total_s": 0.015,
+   "small_s": 0.004,
+   "note": "no sweep attempted"
+  },
+  "sweep": {
+   "total_s": 0.016,
+   "small_s": 0.004,
+   "note": "used: 3 sweeps for 6 candidates in 0.004 s (reference 0.002 s, batches predicted 0.002 s)"
+  },
+  "auto": {
+   "total_s": 0.017,
+   "small_s": 0.006,
+   "note": "used: 3 sweeps for 4 candidates in 0.003 s (reference 0.002 s, batches predicted 0.002 s, rerun estimate 0.006578 s)"
+  },
+  "candidates": 6,
+  "bad": 6,
+  "identical": true,
+  "auto_vs_best_small": 0.002
+ },
+ {
+  "case": "LM n=70, distinct values",
+  "rerun": {
+   "total_s": 29.828,
+   "small_s": 18.82,
+   "note": "no sweep attempted"
+  },
+  "sweep": {
+   "total_s": 17.666,
+   "small_s": 6.754,
+   "note": "used: 114 sweeps for 326 candidates in 6.753 s (reference 0.094 s, batches predicted 10.422 s)"
+  },
+  "auto": {
+   "total_s": 17.654,
+   "small_s": 6.893,
+   "note": "used: 113 sweeps for 324 candidates in 6.799 s (reference 0.117 s, batches predicted 12.929 s, rerun estimate 23.078275 s)"
+  },
+  "candidates": 347,
+  "bad": 347,
+  "identical": true,
+  "auto_vs_best_small": 0.139
+ },
+ {
+  "case": "LM d=3 n=25, tied",
+  "rerun": {
+   "total_s": 110.042,
+   "small_s": 74.462,
+   "note": "no sweep attempted"
+  },
+  "sweep": {
+   "total_s": 64.727,
+   "small_s": 29.822,
+   "note": "used: 106 sweeps for 301 candidates in 29.821 s (reference 0.680 s, batches predicted 70.638 s)"
+  },
+  "auto": {
+   "total_s": 64.831,
+   "small_s": 31.695,
+   "note": "used: 105 sweeps for 299 candidates in 31.210 s (reference 0.522 s, batches predicted 53.696 s, rerun estimate 120.950011 s)"
+  },
+  "candidates": 333,
+  "bad": 5,
+  "identical": true,
+  "auto_vs_best_small": 1.873
+ },
+ {
+  "case": "random chain complex 400/900",
+  "rerun": {
+   "total_s": 5.572,
+   "small_s": 0.089,
+   "note": "no sweep attempted"
+  },
+  "sweep": {
+   "total_s": 5.567,
+   "small_s": 0.089,
+   "note": "used: 15 sweeps for 60 candidates in 0.088 s (reference 0.007 s, batches predicted 0.087 s)"
+  },
+  "auto": {
+   "total_s": 6.35,
+   "small_s": 0.117,
+   "note": "not used: declined: 13 sweeps predicted 0.115 s + reference 0.009 s > reruns 0.107 s"
+  },
+  "candidates": 82,
+  "bad": 82,
+  "identical": true,
+  "auto_vs_best_small": 0.028
+ },
+ {
+  "case": "RP^2 Rips 300 points, sparse route, H<=2",
+  "rerun": {
+   "total_s": 23.235,
+   "small_s": 0.518,
+   "note": "no sweep attempted"
+  },
+  "sweep": {
+   "total_s": 67.854,
+   "small_s": 44.888,
+   "note": "used: 5 sweeps for 1 candidates in 44.888 s (reference 24.684 s, batches predicted 24.678 s)"
+  },
+  "auto": {
+   "total_s": 21.884,
+   "small_s": 0.338,
+   "note": "no sweep attempted"
+  },
+  "candidates": 1,
+  "bad": 1,
+  "identical": true,
+  "auto_vs_best_small": -0.18
+ },
+ {
+  "case": "RP^2 Rips 300 points (dim <= 3, 0.9M tetrahedra) + LM n=40 component",
+  "rerun": {
+   "total_s": 3.828,
+   "small_s": 0.173,
+   "note": "no sweep attempted"
+  },
+  "sweep": {
+   "total_s": 5.591,
+   "small_s": 1.69,
+   "note": "used: 4 sweeps for 6 candidates in 1.690 s (reference 1.727 s, batches predicted 0.223 s)"
+  },
+  "auto": {
+   "total_s": 3.754,
+   "small_s": 0.341,
+   "note": "not used: declined: the reference sweeps alone exceeded the rerun estimate 0.256 s"
+  },
+  "candidates": 6,
+  "bad": 6,
+  "identical": true,
+  "auto_vs_best_small": 0.168
+ },
+ {
+  "case": "RP^2 Rips 300 points (dim <= 3, 0.9M tetrahedra) + LM n=70 component",
+  "rerun": {
+   "total_s": 161.703,
+   "small_s": 111.006,
+   "note": "no sweep attempted"
+  },
+  "sweep": {
+   "total_s": 70.489,
+   "small_s": 18.431,
+   "note": "used: 115 sweeps for 326 candidates in 18.430 s (reference 1.585 s, batches predicted 35.429 s)"
+  },
+  "auto": {
+   "total_s": 67.424,
+   "small_s": 18.262,
+   "note": "used: 114 sweeps for 324 candidates in 17.589 s (reference 1.715 s, batches predicted 34.823 s, rerun estimate 184.358004 s)"
+  },
+  "candidates": 347,
+  "bad": 347,
+  "identical": true,
+  "auto_vs_best_small": -0.169
+ },
+ {
+  "case": "cubical noise 40^3, explicit engine",
+  "rerun": {
+   "total_s": 0.432,
+   "small_s": 0.0,
+   "note": "no sweep attempted"
+  },
+  "sweep": {
+   "total_s": 0.435,
+   "small_s": 0.0,
+   "note": "no sweep attempted"
+  },
+  "auto": {
+   "total_s": 0.44,
+   "small_s": 0.0,
+   "note": "no sweep attempted"
+  },
+  "candidates": 0,
+  "bad": 0,
+  "identical": true,
+  "auto_vs_best_small": 0.0
+ },
+ {
+  "case": "fixture crt_alias_1",
+  "rerun": {
+   "total_s": 0.004,
+   "small_s": 0.0,
+   "note": "no sweep attempted"
+  },
+  "sweep": {
+   "total_s": 0.004,
+   "small_s": 0.0,
+   "note": "used: 3 sweeps for 5 candidates in 0.000 s (reference 0.000 s, batches predicted 0.000 s)"
+  },
+  "auto": {
+   "total_s": 0.004,
+   "small_s": 0.0,
+   "note": "not used: declined: the reference sweeps alone exceeded the rerun estimate 0.000 s"
+  },
+  "candidates": 6,
+  "bad": 6,
+  "identical": true,
+  "auto_vs_best_small": 0.0
+ },
+ {
+  "case": "fixture crt_group",
+  "rerun": {
+   "total_s": 0.057,
+   "small_s": 0.0,
+   "note": "no sweep attempted"
+  },
+  "sweep": {
+   "total_s": 0.054,
+   "small_s": 0.0,
+   "note": "no sweep attempted"
+  },
+  "auto": {
+   "total_s": 0.054,
+   "small_s": 0.0,
+   "note": "no sweep attempted"
+  },
+  "candidates": 1,
+  "bad": 1,
+  "identical": true,
+  "auto_vs_best_small": 0.0
+ }
+]

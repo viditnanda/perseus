@@ -119,6 +119,43 @@ the factors (`"every_prime_factor_of": true` in the JSON). It is still complete.
 the parts are classified in turn. Lemma 3 applies whether or not N is prime, so primes above 2^64, which
 Miller–Rabin only identifies as probable primes (`"probable_prime": true`), need no primality proof.
 
+**Classification by Howell sweeps (explicit complexes; the default since 19 Nov 2026).** For simplicial, cell and
+simplicial-set inputs, the candidates below 2^63 are not rerun one by one. They are packed into squarefree moduli
+m < 2^63, and each m is handled by one sweep of a boundary matrix over Z/m (`howell.hpp`, `torsion.hpp`). The sweep
+takes the columns of d_j in filtration order and keeps a Howell basis of their span (Howell, *Spans in the module
+(Z_m)^s*, Linear and Multilinear Algebra 19 (1986); Storjohann's thesis, ETH 2000, ch. 4). There is one vector per
+row, the row of its lowest nonzero entry, whose entry there generates an ideal (d_r), d_r | m. A vector arriving on a
+taken row is reduced when d_r divides its entry, and otherwise combined with the row's vector by an extended gcd.
+Every basis vector u with d_r ≠ 1 also sends its annihilator multiple (m/d_r) u down to lower rows.
+
+**Lemma 5.** Let m be squarefree and p | m. After the first c columns, the rows r with p ∤ d_r are exactly the lows
+of a column reduction over F_p of those c columns. Hence the column at which p stops dividing d_r is the column paired
+with r over F_p.
+
+*Proof.* Z/m is the product of the fields F_q, q | m, and every step of the sweep acts componentwise. Under the
+projection to F_p, a basis vector with p ∤ d_r keeps a unit on row r and zeros below. A vector with p | d_r becomes a
+vector supported on lower rows, and it is a unit multiple of the projection of (m/d_r)u, because m/d_r is a unit mod p.
+That annihilator multiple was inserted. By induction on the insertions, the projections of the basis vectors with
+p ∤ d_r span the F_p-span of the columns so far, and they are in echelon form with distinct lowest rows. The lowest
+rows of an echelon basis of the span of the first c columns are the lows of every column reduction of them. ∎
+
+The F_p pairs of a prime are read off its sweep in the degrees where it divides a pivot value. In every other degree
+they are the pairs of a *reference* sweep, modulo a prime ℓ ∈ [2^62, 2^63) dividing no pivot value. By Lemma 2,
+F_ℓ, F_p in those degrees, and Q all have the same pairs at the level of values. The prime's F_p barcode is assembled
+from these pairs and compared with the Q barcode. Before any prime is judged, the reference's own barcode must equal
+the Q barcode in every degree it covers. If it does not, nothing is claimed and the candidates are rerun. Nothing in
+this is random: it is exact arithmetic modulo known integers. `tests/t_howell.cpp` checks Lemma 5, and the length
+formula of §7, against plain F_p reductions and brute-force enumeration of spans on random integer matrices. The test
+suite checks that sweeps and reruns give identical bad primes and intervals.
+
+*Cost, and when to sweep.* The sweeps cost one run per batch and degree, plus one reference run per degree. They do not use clearing, so they pay only when there are many candidates and the matrices reduce cheaply without it, as on Linial–Meshulam processes. On a Rips complex with a few candidates they can be a hundred times slower than reruns. `--classify-by auto` (the default) therefore decides by measured cost:
+1. It reruns a sample of candidates (one per thread, at least two) and keeps their answers. Their mean time, times the number of remaining candidates, is the budget.
+2. It runs the reference sweeps under that budget, and stops them if they alone exceed it.
+3. It predicts the batch sweeps from the reference times, since they reduce the same matrices, and sweeps only if reference plus prediction beat the budget. A safety deadline abandons batches that run past twice their prediction.
+4. With two candidates or fewer, it simply reruns.
+
+A wrong guess costs at most about one rerun budget. `bench/classify_auto.py` checks this on Linial–Meshulam processes, chain complexes, Rips complexes and mixtures of the two (`docs/ROADMAP.md`, step 4). `--classify-by sweep` always sweeps, and `--classify-by rerun` always reruns. Candidates of at least 2^63, and composites that could not be split, are still settled by runs modulo N (Lemma 3).
+
 ## 4. What the output says
 
 * `mode`: `proved`, `fast`, or `unimodular` (the planar engine, §5: no arithmetic needed).
@@ -128,6 +165,9 @@ Miller–Rabin only identifies as probable primes (`"probable_prime": true`), ne
 * `bad_primes_status`: `complete` (every candidate classified), `candidates only` (`--no-classify`), or
   `incomplete`.
 * `complete`: true when the barcode is certified and the bad primes are completely described.
+* `torsion` (with `--torsion`; explicit complexes): the torsion of H_q(K_t; Z) at every value t where it changes
+  (§7). `proof` there is the certificate's: the sweeps are exact, but the primes they follow come from the
+  candidate list, which `--mode fast` only makes probable.
 
 ## 5. Planar inputs: a proof by total unimodularity
 
@@ -309,5 +349,35 @@ barcode in degree 1, by (a), and in degree 2, by (b). On n = 90 each of the six 
 H_1 interval and one H_2 interval. All six come from transient torsion in H_1(K_t; Z) for t ∈ [3564, 3568).
 The other 490 candidates divide particular minors but no torsion order.
 
-Classifying candidates through torsion orders, rather than by one rerun per candidate, is step 4 of
-`docs/ROADMAP.md`.
+**The torsion trajectory (`--torsion`).** Step 2 and Step 3 with a = −1 give, for every value t and prime p, the
+number of cyclic summands of the p-part of tors H_q(K_t; Z):
+
+    r_Q(t) − r_{F_p}(t),
+
+the ranks of the columns of d_{q+1} born by t. More precisely, let the p-primary exponents be a_1, …, a_s. Over
+Z_(p), d_{q+1} restricted to those columns has Smith form diag(p^{a_i}, units, 0), and coker ⊗ Z/p^k has length
+k(n − r_Q) + Σ_i min(a_i, k), where n is the number of rows. That length is kn − log_p |span mod p^k|. For a Howell
+basis modulo p^k, |span| = ∏_r p^{k − min(k, v_p(d_r))} (Howell, see §3). Therefore
+
+    Σ_i min(a_i, k) = k r_Q(t) − Σ_r (k − min(k, v_p(d_r(t)))),
+
+and the differences in k count the exponents ≥ k. Perseus sweeps modulo p for every prime it follows, then modulo
+p^2, p^3, … (batched below 2^63, big integers beyond). It stops at the first k for which no t has an exponent
+≥ k. r_Q(t) comes from the reference sweep of §3. The primes followed are the bad primes. By Theorem 4, a prime with
+absolute torsion in a degree we report is bad, and only primes dividing a pivot value of degree q can have torsion in
+H_q. Composites that could not be factored ("every prime factor of N") are followed as such, modulo N^k. If a
+pivot ideal splits such an N, the output says the trajectory is incomplete.
+
+The result is exact: every invariant factor of H_q(K_t; Z), at every t where the group changes, for every filtration
+of an explicit complex, with or without ties. It was checked against FLINT Smith forms at every t on:
+* Linial–Meshulam processes in dimensions 2 (n = 18, 24) and 3 (n = 12, 13);
+* 20 random filtered chain complexes over Z, with tied and distinct values, invariant factors up to 1.7·10^7 and
+  primes up to 701.
+
+On the benchmark processes it was checked at 194 values, by exact elimination of unit entries followed by FLINT on
+the residual. These were all t in the torsion windows and samples elsewhere. At n = 70, H_1(K_t; Z) passes through
+Z/2 ⊕ Z/11618403313260425604101352 (2^3 · 3^2 · 43 · 1249 · 23561 · 80447 · 1585183289). At n = 90 it passes
+through a cyclic group of order 1.09·10^50, which includes the 117-bit prime, for three steps before it dies. These
+are the objects of the random-complex torsion studies of Kahle, Lutz, Newman and Parsons (*Cohen–Lenstra heuristics
+for torsion in homology of random complexes*, Exp. Math. 2020), here at every step of the process rather than at its
+end.

@@ -27,13 +27,15 @@ test-cubical: tests/t_cubical_morse.cpp tests/t_cubical_planar.cpp $(HDR)
 	PERSEUS_PLANAR_COMPRESS=1 ./t_cubical_planar 200 2
 
 # chain complexes over Z, simplicial sets, integral outputs, magnitude homology, Laurent coefficients
-test-chain: tests/t_chain.cpp tests/t_magnitude.cpp tests/t_laurent.cpp $(HDR)
+test-chain: tests/t_chain.cpp tests/t_magnitude.cpp tests/t_laurent.cpp tests/t_howell.cpp $(HDR)
 	$(CXX) -std=c++17 -O2 -Wall -pthread $(INC) tests/t_chain.cpp -o t_chain
 	$(CXX) -std=c++17 -O2 -Wall -pthread $(INC) tests/t_magnitude.cpp -o t_magnitude
 	$(CXX) -std=c++17 -O2 -Wall -pthread $(INC) tests/t_laurent.cpp -o t_laurent
 	./t_chain 200 && ./t_magnitude && ./t_laurent 60
 	$(CXX) -std=c++17 -O2 -Wall $(INC) tests/t_exact.cpp -o t_exact
 	./t_exact 2000
+	$(CXX) -std=c++17 -O2 -Wall -Wextra $(INC) tests/t_howell.cpp -o t_howell
+	./t_howell 2000
 
 # finite solvable groups: Anick resolution, integral homology, mod-p cohomology rings (closed forms, Kunneth,
 # universal coefficients, HAP and Green-King ground truth)
@@ -42,4 +44,4 @@ test-pcgroup: tests/t_pcgroup.cpp $(HDR)
 	./t_pcgroup
 
 clean:
-	rm -f perseus t_cubical_morse t_bitcol t_cubical_planar t_chain t_magnitude t_laurent t_exact t_pcgroup
+	rm -f perseus t_cubical_morse t_bitcol t_cubical_planar t_chain t_magnitude t_laurent t_exact t_howell t_pcgroup
