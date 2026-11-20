@@ -12,6 +12,7 @@
 #include <functional>
 #include <array>
 #include <map>
+#include <set>
 using namespace perseus::pcg;
 
 static int fails = 0, checks = 0;
@@ -221,6 +222,44 @@ int main() {
         CHECK(r[1] == 0, ng.first + ": a product agrees only with (-1)^(ab) times the cup product");
         if (ng.first == "(Z/3)^2" || ng.first == "(Z/5)^2") CHECK(r[0] > 0, ng.first + ": no pair where the sign is visible was tested");
     }
+    // 3c. the F_p splitting behind the cohomology bases, and the two product modes
+    for (auto ng : std::vector<std::tuple<std::string, Grp, int, int>>{{"Q8", metacyclic(4, true, "Q8"), 2, 6}, {"SmallGroup(27,3)", read_fixture("tests/fixtures/pcgroups/g27_3.txt"), 3, 6},
+                                                                       {"SmallGroup(64,138)", read_fixture("tests/fixtures/pcgroups/g64_138.txt"), 2, 6}, {"S4 mod 2", read_fixture("tests/fixtures/pcgroups/g24_12.txt"), 2, 6},
+                                                                       {"S4 mod 3", read_fixture("tests/fixtures/pcgroups/g24_12.txt"), 3, 6}, {"(Z/3)^3", elem_abelian(3, 3), 3, 5}}) {
+        const std::string& nm = std::get<0>(ng); const Grp& g = std::get<1>(ng); int p = std::get<2>(ng), D = std::get<3>(ng);
+        PcGroup P(g.T, g.pcgs, g.rel, g.e);
+        Anick A(P, D + 1, p); FpSplit F = fp_split(A, D, p);
+        bool cyc = true, coc = true, dual = true;
+        for (int n = 0; n <= D; ++n) {
+            auto Ep = A.eps(n + 1);                                    // eps(d_{n+1}) as columns over chains_n
+            auto Ed = n ? A.eps(n) : decltype(Ep)();
+            auto cocs = fp_cocycles(F, n, A.C.size(n));
+            std::vector<SV> reps; for (int32_t c : F.S[n]) reps.push_back(n == 0 ? SV{{c, 1u}} : F.E[n].trans[c]);
+            for (auto& r : reps) if (n) {                               // eps(d_n) f0(s) = 0
+                std::map<int32_t, i64> acc; for (auto& kv : r) for (auto& e : Ed[kv.first]) acc[e.first] = (acc[e.first] + e.second * kv.second) % p;
+                for (auto& kv : acc) if (kv.second) cyc = false;
+            }
+            for (size_t i = 0; i < cocs.size(); ++i) {
+                std::vector<i64> phi(A.C.size(n), 0); for (auto& kv : cocs[i]) phi[kv.first] = kv.second;
+                for (auto& col : Ep) { i64 t = 0; for (auto& e : col) t += phi[e.first] * e.second; if (t % p) coc = false; }   // phi o eps(d_{n+1}) = 0
+                for (size_t j = 0; j < reps.size(); ++j) { i64 t = 0; for (auto& kv : reps[j]) t += phi[kv.first] * kv.second; if ((t % p) != (i == j ? 1 : 0)) dual = false; }
+            }
+        }
+        CHECK(cyc, nm + ": the representatives f0(s) are cycles");
+        CHECK(coc, nm + ": the basis cochains g0^*(s) are cocycles");
+        CHECK(dual, nm + ": the cocycles and the representatives are dual bases");
+        CohomologyRing Rg = cohomology_ring(P, D, p), Ra = cohomology_ring(P, D, p, nullptr, true);
+        CHECK(Rg.dims == Ra.dims && Rg.indecomposables == Ra.indecomposables && Rg.generators == Ra.generators, nm + ": generators-only and all-products modes find the same generators");
+        std::set<std::pair<int, int>> gens(Rg.generators.begin(), Rg.generators.end());
+        bool keys = true, same = true; size_t common = 0;
+        for (auto& kv : Rg.products) {
+            if (!gens.count({std::get<0>(kv.first), std::get<1>(kv.first)})) keys = false;
+            auto it = Ra.products.find(kv.first); if (it != Ra.products.end()) { ++common; if (it->second != kv.second) same = false; }
+        }
+        for (auto& gn : gens) for (int b = 1; gn.first + b <= D; ++b) for (size_t j = 0; j < Rg.dims[b]; ++j) if (!Rg.products.count(std::make_tuple(gn.first, gn.second, b, (int)j))) keys = false;
+        CHECK(keys, nm + ": generators-only mode lists exactly the products of each generator with every class");
+        CHECK(same && common > 0, nm + ": the two modes agree on their common products");
+    }
     // 4. HAP and Green-King ground truth
     std::string dir = "tests/fixtures/pcgroups/";
     std::ifstream ex(dir + "expected.txt"); std::string line;
@@ -238,7 +277,7 @@ int main() {
         } else if (kind == "R") {
             int p; std::string w; std::vector<size_t> dims, gens; ls >> p;
             while (ls >> w) { std::string list; ls >> list; std::istringstream xs(list); std::string t; while (std::getline(xs, t, ',')) (w == "dims" ? dims : gens).push_back(std::stoul(t)); }
-            int D = G.T.size() >= 128 ? 7 : 9;
+            int D = 10;                           // the whole Green-King range in the fixtures
             PcGroup P(G.T, G.pcgs, G.rel, G.e); CohomologyRing R = cohomology_ring(P, D, p);
             for (int n = 0; n <= D; ++n) CHECK(R.dims[n] == dims[n], g + ": dim H^" + std::to_string(n) + "(F_" + std::to_string(p) + ") against Green-King");
             for (int n = 1; n <= D; ++n) CHECK(R.indecomposables[n] == gens[n - 1], g + ": generators in degree " + std::to_string(n) + " against Green-King");

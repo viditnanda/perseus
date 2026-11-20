@@ -295,6 +295,12 @@ m = perseus.pc_group(**perseus.read_pcgroup(os.path.join(PCF, "g27_3.txt")), max
 check("command line pcgroup agrees with the module", [h["torsion"] for h in j["homology"]] == [h["torsion"] for h in m["homology"]]
       and j["cohomology"]["dims"] == m["cohomology"]["dims"] and j["cohomology"]["generators_by_degree"] == m["cohomology"]["generators_by_degree"]
       and {tuple(x[:4]): x[4] for x in j["cohomology"]["products"]} == m["cohomology"]["products"], j)
+ja = json.loads(subprocess.run([PERSEUS, "pcgroup", os.path.join(PCF, "g27_3.txt"), "--maxdim", "5", "--ring", "3", "--all-products", "--print", "json"], capture_output=True, text=True, timeout=600).stdout)
+ma = perseus.pc_group(**perseus.read_pcgroup(os.path.join(PCF, "g27_3.txt")), maxdim=5, ring=3, all_products=True)
+check("pc_group: the full product table on request, from the command line and the module alike",
+      m["cohomology"]["products_of"] == "generators" and ma["cohomology"]["products_of"] == "all basis classes" == ja["cohomology"]["products_of"]
+      and {tuple(x[:4]): x[4] for x in ja["cohomology"]["products"]} == ma["cohomology"]["products"]
+      and all(ma["cohomology"]["products"][k] == v for k, v in m["cohomology"]["products"].items() if k in ma["cohomology"]["products"]), (m["cohomology"]["products_of"], ma["cohomology"]["products_of"]))
 
 # ---- torsion trajectories and classification by Howell sweeps (torsion.hpp) ---------------------------------
 def smith_torsion(cols, nrows):
