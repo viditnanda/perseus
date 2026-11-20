@@ -12,6 +12,7 @@
 #include "perseus/chain.hpp"
 #include "perseus/simplicial_set.hpp"
 #include "perseus/magnitude.hpp"
+#include "perseus/pc_group.hpp"
 #include "perseus/laurent.hpp"
 #include "perseus/torsion.hpp"
 #include <thread>
@@ -449,7 +450,8 @@ PYBIND11_MODULE(_perseus, m) {
         return solve_chain(S.chains(), maxdim, false, "auto", reduce, integral, py::none(), o);
     }, py::arg("mult"), py::arg("identity") = 0, py::arg("maxdim") = 3, py::arg("reduce") = true, py::arg("integral") = true, COMMON_ARGS,
        "B M for a finite monoid M (mult[a][b] = a * b), truncated above maxdim + 1; for a group this is BG, so with\n"
-       "integral=True the result carries H_k(G; Z) for k <= maxdim.");
+       "integral=True the result carries H_k(G; Z) for k <= maxdim. It has (|M| - 1)^n simplices in degree n; for a\n"
+       "solvable group, pc_group is exponentially cheaper in the degree.");
 
     m.def("laurent", [](py::list cells, int maxdim, bool classify, bool homology) {
         laurent::LaurentComplex X;
@@ -521,6 +523,40 @@ PYBIND11_MODULE(_perseus, m) {
        py::arg("pairs") = std::vector<std::pair<int, int>>(),
        "Magnitude homology MH_{k,l} over Z of a graph (Hepworth-Willerton), split by (s, t) pairs and lengths:\n"
        "table[(k, l)] = {'free': rank, 'torsion': {order: multiplicity}, 'generators': ..., 'after_reduction': ...}.");
+
+    m.def("pc_group", [](std::vector<std::vector<int>> mult, std::vector<int> pcgs, std::vector<int> relative_orders, int identity,
+                         int maxdim, bool homology, int ring) {
+        pcg::PcGroup G(mult, pcgs, relative_orders, identity);
+        pcg::PcResult R; { py::gil_scoped_release nogil; R = pcg::pc_group_compute(G, maxdim, homology, ring); }
+        py::dict res;
+        res["order"] = G.n; res["relative_orders"] = G.rel; res["chains"] = R.chains; res["states"] = R.states; res["seconds"] = R.seconds;
+        if (R.has_homology) {
+            py::list H;
+            for (int d = 0; d <= maxdim; ++d) { py::dict h; h["degree"] = d; h["free"] = R.H.free[d]; h["torsion"] = R.H.torsion[d]; H.append(h); }
+            res["homology"] = H;
+        }
+        if (R.has_ring) {
+            py::dict c; c["p"] = R.R.p; c["dims"] = R.R.dims;
+            std::vector<size_t> g(R.R.indecomposables); c["generators_by_degree"] = g;
+            py::list gens; for (auto& x : R.R.generators) gens.append(py::make_tuple(x.first, x.second)); c["generators"] = gens;
+            py::dict prods; for (auto& kv : R.R.products) prods[py::make_tuple(std::get<0>(kv.first), std::get<1>(kv.first), std::get<2>(kv.first), std::get<3>(kv.first))] = kv.second;
+            c["products"] = prods;
+            py::list basis; for (auto& deg : R.R.basis) { py::list l; for (auto& v : deg) { py::list cv; for (auto& kv : v) cv.append(py::make_tuple(kv.first, kv.second)); l.append(cv); } basis.append(l); }
+            c["basis"] = basis;
+            res["cohomology"] = c;
+        }
+        return res;
+    }, py::arg("mult"), py::arg("pcgs"), py::arg("relative_orders") = std::vector<int>(), py::arg("identity") = 0,
+       py::arg("maxdim") = 4, py::arg("homology") = true, py::arg("ring") = 0,
+       "Homology and mod-p cohomology of a finite solvable group, from its multiplication table (mult[a][b] = a * b)\n"
+       "and a polycyclic generating sequence: element ids f_1, ..., f_k with relative orders r_i (inferred when\n"
+       "omitted). Uses the Anick resolution of the collection rewriting system, never the bar construction.\n"
+       "homology: H_n(G; Z) for n <= maxdim, as {'degree', 'free', 'torsion': invariant factors}.\n"
+       "ring=p: the mod-p cohomology ring through degree maxdim: dims, minimal generators by degree, a choice of\n"
+       "generators (degree, basis index), and products {(a, i, b, j): coordinates in the basis of H^{a+b}} for a <= b;\n"
+       "these are cup products (computed by Yoneda composition, checked against Alexander-Whitney); basis: the\n"
+       "cocycles on the Anick chains, basis[n][i].\n"
+       "tools/export_pcgroup.g writes these inputs from GAP; perseus.read_pcgroup(path) reads them.");
 
     m.def("simplices", [](std::vector<std::pair<std::vector<int>, double>> simp, int maxdim, py::object coeff, bool classify, int threads,
                           std::vector<uint64_t> fp, std::string mode, py::object seed, double target, bool torsion, std::string classify_by) {
