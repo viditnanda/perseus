@@ -360,25 +360,28 @@ Random metrics have many bad primes. For 450 uniformly random distances (H≤1):
 
 gramag enumerates the paths between all pairs of vertices before computing anything, even when asked for one pair. On the single pair (0̂, 1̂) of the RP^3 and L(3, 1) graphs at l ≤ 7 it ran out of memory after 1–2 minutes; Perseus takes 0.1 s. Where both finish, the ranks agree everywhere. On the inputs with more than 100,000 generators Perseus is 7 to 9 times faster and uses a fraction of the memory.
 
-### Finite groups (measured 20 Nov 2026, 2-core Xeon, wall clock)
+### Finite groups (measured 20 Nov 2026, 2-core Xeon)
 
-`bench/vs_hap.py`, against HAP 1.62 in GAP 4.12.1, each run limited to 300 s. Where both finish, the integral homology agrees; the script fails otherwise. The ring rows are not like for like: HAP's `Mod2CohomologyRingPresentation` also finds relations, which Perseus does not, while Perseus computes every product of basis classes. The reference program for mod-p rings of p-groups, the Green–King package for SageMath, is not compared.
+`bench/vs_hap.py`, against HAP 1.62 in GAP 4.12.1. For integral homology HAP is timed with `GroupHomology` (HAP chooses the method) and, for nilpotent groups, `ResolutionNilpotentGroup`; the faster is shown. `ResolutionNilpotentGroup` builds a resolution of the same size as Perseus's Anick resolution, so this compares implementations of the same idea, not algorithms. For mod-2 rings HAP runs `ModPCohomologyRing` with `ModPRingGenerators` (structure constants and minimal generators, no relations), which matches what Perseus computes. Times are each program's own clock: HAP's `Runtime()`, so GAP's start-up is excluded, and Perseus's best of three. Each HAP run is limited to 300 s. Every answer agrees, homology groups and generator degrees alike; the script fails otherwise. The reference for mod-p rings of p-groups, the Green–King package for SageMath, is not compared.
 
-| group | task | Perseus | HAP |
-|---|---|---|---|
-| SmallGroup(16, 14) = (Z/2)^4 | H_n(G; Z), n ≤ 6 | 0.004 s | 3.8 s |
-| SmallGroup(16, 9) = Q16 | H_n(G; Z), n ≤ 8 | 0.013 s | 4.0 s |
-| SmallGroup(32, 51) = (Z/2)^5 | H_n(G; Z), n ≤ 6 | 0.056 s | 20.9 s |
-| SmallGroup(24, 12) = S_4 | H_n(G; Z), n ≤ 6 | 0.010 s | > 300 s |
-| SmallGroup(27, 3) | H_n(G; Z), n ≤ 6 | 0.009 s | > 300 s |
-| SmallGroup(32, 49) | H_n(G; Z), n ≤ 6 | 0.007 s | > 300 s |
-| SmallGroup(64, 138) | H_n(G; Z), n ≤ 8 | 0.146 s | > 300 s |
-| SmallGroup(128, 1000) | H_n(G; Z), n ≤ 6 | 0.031 s | > 300 s |
-| SmallGroup(128, 2000) | H_n(G; Z), n ≤ 6 | 0.049 s | > 300 s |
-| SmallGroup(243, 2) | H_n(G; Z), n ≤ 6 | 0.037 s | > 300 s |
-| SmallGroup(32, 49) | mod-2 ring, degrees ≤ 4 | 0.011 s | > 300 s |
-| SmallGroup(64, 138) | mod-2 ring, degrees ≤ 4 | 0.009 s | > 300 s |
-| SmallGroup(128, 1000) | mod-2 ring, degrees ≤ 4 | 0.012 s | > 300 s |
+| group | task | Perseus | HAP (best routine) | ratio |
+|---|---|---|---|---|
+| SmallGroup(16, 14) | H_n(G; Z), n <= 6 | 0.0012 s | 0.044 s (`ResolutionNilpotentGroup`) | 37× |
+| SmallGroup(16, 9) | H_n(G; Z), n <= 8 | 0.0134 s | 2.11 s (`GroupHomology`) | 157× |
+| SmallGroup(24, 12) | H_n(G; Z), n <= 6 | 0.0069 s | 0.385 s (`GroupHomology`) | 56× |
+| SmallGroup(27, 3) | H_n(G; Z), n <= 6 | 0.0006 s | 0.058 s (`ResolutionNilpotentGroup`) | 97× |
+| SmallGroup(32, 51) | H_n(G; Z), n <= 6 | 0.0023 s | 0.18 s (`ResolutionNilpotentGroup`) | 78× |
+| SmallGroup(32, 49) | H_n(G; Z), n <= 6 | 0.0045 s | 0.591 s (`ResolutionNilpotentGroup`) | 131× |
+| SmallGroup(64, 138) | H_n(G; Z), n <= 6 | 0.0146 s | 3.96 s (`ResolutionNilpotentGroup`) | 271× |
+| SmallGroup(64, 138) | H_n(G; Z), n <= 8 | 0.145 s | 160 s (`ResolutionNilpotentGroup`) | 1099× |
+| SmallGroup(128, 1000) | H_n(G; Z), n <= 6 | 0.0162 s | 4.65 s (`ResolutionNilpotentGroup`) | 287× |
+| SmallGroup(128, 2000) | H_n(G; Z), n <= 6 | 0.0617 s | 50.3 s (`ResolutionNilpotentGroup`) | 815× |
+| SmallGroup(243, 2) | H_n(G; Z), n <= 6 | 0.004 s | 0.86 s (`ResolutionNilpotentGroup`) | 215× |
+| SmallGroup(32, 49) | mod-2 ring, degrees <= 4 | 0.0014 s | 0.135 s (`ModPCohomologyRing`) | 96× |
+| SmallGroup(64, 138) | mod-2 ring, degrees <= 4 | 0.0036 s | 0.211 s (`ModPCohomologyRing`) | 59× |
+| SmallGroup(128, 1000) | mod-2 ring, degrees <= 4 | 0.0039 s | 2.55 s (`ModPCohomologyRing`) | 653× |
+| SmallGroup(64, 138) | mod-2 ring, degrees <= 8 | 0.828 s | 21.7 s (`ModPCohomologyRing`) | 26× |
+| SmallGroup(128, 1000) | mod-2 ring, degrees <= 8 | 0.47 s | > 300 s |  |
 
 Perseus alone, further out (one run each):
 

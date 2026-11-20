@@ -4,109 +4,142 @@
   {
    "group": "SmallGroup(16, 14)",
    "task": "H_n(G; Z), n <= 6",
-   "perseus_s": 0.004,
-   "hap_s": 3.809,
-   "hap_cpu_s": 1.384,
-   "agree": true,
-   "chains_top": 120
+   "perseus_s": 0.0012,
+   "hap_times_s": {
+    "GroupHomology": 1.627,
+    "ResolutionNilpotentGroup": 0.044
+   },
+   "hap_best_s": 0.044,
+   "hap_best": "ResolutionNilpotentGroup",
+   "anick_chains_top": 120
   },
   {
    "group": "SmallGroup(16, 9)",
    "task": "H_n(G; Z), n <= 8",
-   "perseus_s": 0.013,
-   "hap_s": 3.978,
-   "hap_cpu_s": 1.461,
-   "agree": true,
-   "chains_top": 220
+   "perseus_s": 0.0134,
+   "hap_times_s": {
+    "GroupHomology": 2.11,
+    "ResolutionNilpotentGroup": 6.631
+   },
+   "hap_best_s": 2.11,
+   "hap_best": "GroupHomology",
+   "anick_chains_top": 220
   },
   {
    "group": "SmallGroup(24, 12)",
    "task": "H_n(G; Z), n <= 6",
-   "perseus_s": 0.01,
-   "hap_s": null,
-   "hap_cpu_s": null,
-   "agree": null,
-   "chains_top": 120
+   "perseus_s": 0.0069,
+   "hap_times_s": {
+    "GroupHomology": 0.385,
+    "ResolutionNilpotentGroup": null
+   },
+   "hap_best_s": 0.385,
+   "hap_best": "GroupHomology",
+   "anick_chains_top": 120
   },
   {
    "group": "SmallGroup(27, 3)",
    "task": "H_n(G; Z), n <= 6",
-   "perseus_s": 0.009,
-   "hap_s": null,
-   "hap_cpu_s": null,
-   "agree": null,
-   "chains_top": 36
+   "perseus_s": 0.0006,
+   "hap_times_s": {
+    "GroupHomology": 0.685,
+    "ResolutionNilpotentGroup": 0.058
+   },
+   "hap_best_s": 0.058,
+   "hap_best": "ResolutionNilpotentGroup",
+   "anick_chains_top": 36
   },
   {
    "group": "SmallGroup(32, 51)",
    "task": "H_n(G; Z), n <= 6",
-   "perseus_s": 0.056,
-   "hap_s": 20.934,
-   "hap_cpu_s": 18.137,
-   "agree": true,
-   "chains_top": 330
+   "perseus_s": 0.0023,
+   "hap_times_s": {
+    "GroupHomology": 9.722,
+    "ResolutionNilpotentGroup": 0.18
+   },
+   "hap_best_s": 0.18,
+   "hap_best": "ResolutionNilpotentGroup",
+   "anick_chains_top": 330
   },
   {
    "group": "SmallGroup(32, 49)",
    "task": "H_n(G; Z), n <= 6",
-   "perseus_s": 0.007,
-   "hap_s": null,
-   "hap_cpu_s": null,
-   "agree": null,
-   "chains_top": 330
+   "perseus_s": 0.0045,
+   "hap_times_s": {
+    "GroupHomology": 3.302,
+    "ResolutionNilpotentGroup": 0.591
+   },
+   "hap_best_s": 0.591,
+   "hap_best": "ResolutionNilpotentGroup",
+   "anick_chains_top": 330
   },
   {
    "group": "SmallGroup(64, 138)",
    "task": "H_n(G; Z), n <= 6",
-   "perseus_s": 0.023,
-   "hap_s": null,
-   "hap_cpu_s": null,
-   "agree": null,
-   "chains_top": 792
+   "perseus_s": 0.0146,
+   "hap_times_s": {
+    "GroupHomology": 5.039,
+    "ResolutionNilpotentGroup": 3.955
+   },
+   "hap_best_s": 3.955,
+   "hap_best": "ResolutionNilpotentGroup",
+   "anick_chains_top": 792
   },
   {
    "group": "SmallGroup(64, 138)",
    "task": "H_n(G; Z), n <= 8",
-   "perseus_s": 0.146,
-   "hap_s": null,
-   "hap_cpu_s": null,
-   "agree": null,
-   "chains_top": 2002
+   "perseus_s": 0.1452,
+   "hap_times_s": {
+    "GroupHomology": 203.395,
+    "ResolutionNilpotentGroup": 159.582
+   },
+   "hap_best_s": 159.582,
+   "hap_best": "ResolutionNilpotentGroup",
+   "anick_chains_top": 2002
   },
   {
    "group": "SmallGroup(128, 1000)",
    "task": "H_n(G; Z), n <= 6",
-   "perseus_s": 0.031,
-   "hap_s": null,
-   "hap_cpu_s": null,
-   "agree": null,
-   "chains_top": 1716
+   "perseus_s": 0.0162,
+   "hap_times_s": {
+    "GroupHomology": 11.462,
+    "ResolutionNilpotentGroup": 4.647
+   },
+   "hap_best_s": 4.647,
+   "hap_best": "ResolutionNilpotentGroup",
+   "anick_chains_top": 1716
   },
   {
    "group": "SmallGroup(128, 2000)",
    "task": "H_n(G; Z), n <= 6",
-   "perseus_s": 0.049,
-   "hap_s": null,
-   "hap_cpu_s": null,
-   "agree": null,
-   "chains_top": 1716
+   "perseus_s": 0.0617,
+   "hap_times_s": {
+    "GroupHomology": null,
+    "ResolutionNilpotentGroup": 50.286
+   },
+   "hap_best_s": 50.286,
+   "hap_best": "ResolutionNilpotentGroup",
+   "anick_chains_top": 1716
   },
   {
    "group": "SmallGroup(243, 2)",
    "task": "H_n(G; Z), n <= 6",
-   "perseus_s": 0.037,
-   "hap_s": null,
-   "hap_cpu_s": null,
-   "agree": null,
-   "chains_top": 330
+   "perseus_s": 0.004,
+   "hap_times_s": {
+    "GroupHomology": 9.065,
+    "ResolutionNilpotentGroup": 0.86
+   },
+   "hap_best_s": 0.86,
+   "hap_best": "ResolutionNilpotentGroup",
+   "anick_chains_top": 330
   },
   {
    "group": "SmallGroup(32, 49)",
    "task": "mod-2 ring, degrees <= 4",
-   "perseus_s": 0.011,
-   "hap_s": null,
-   "hap_cpu_s": null,
-   "perseus_generators_by_degree": [
+   "perseus_s": 0.0014,
+   "hap_best_s": 0.135,
+   "hap_best": "ModPCohomologyRing + ModPRingGenerators",
+   "generators_by_degree": [
     4,
     0,
     0,
@@ -116,10 +149,10 @@
   {
    "group": "SmallGroup(64, 138)",
    "task": "mod-2 ring, degrees <= 4",
-   "perseus_s": 0.009,
-   "hap_s": null,
-   "hap_cpu_s": null,
-   "perseus_generators_by_degree": [
+   "perseus_s": 0.0036,
+   "hap_best_s": 0.211,
+   "hap_best": "ModPCohomologyRing + ModPRingGenerators",
+   "generators_by_degree": [
     3,
     3,
     1,
@@ -129,12 +162,46 @@
   {
    "group": "SmallGroup(128, 1000)",
    "task": "mod-2 ring, degrees <= 4",
-   "perseus_s": 0.012,
-   "hap_s": null,
-   "hap_cpu_s": null,
-   "perseus_generators_by_degree": [
+   "perseus_s": 0.0039,
+   "hap_best_s": 2.547,
+   "hap_best": "ModPCohomologyRing + ModPRingGenerators",
+   "generators_by_degree": [
     4,
     4,
+    0,
+    0
+   ]
+  },
+  {
+   "group": "SmallGroup(64, 138)",
+   "task": "mod-2 ring, degrees <= 8",
+   "perseus_s": 0.8283,
+   "hap_best_s": 21.658,
+   "hap_best": "ModPCohomologyRing + ModPRingGenerators",
+   "generators_by_degree": [
+    3,
+    3,
+    1,
+    1,
+    0,
+    0,
+    0,
+    0
+   ]
+  },
+  {
+   "group": "SmallGroup(128, 1000)",
+   "task": "mod-2 ring, degrees <= 8",
+   "perseus_s": 0.4697,
+   "hap_best_s": null,
+   "hap_best": "ModPCohomologyRing + ModPRingGenerators",
+   "generators_by_degree": [
+    4,
+    4,
+    0,
+    0,
+    0,
+    0,
     0,
     0
    ]
