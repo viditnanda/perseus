@@ -13,17 +13,27 @@
 #
 # File format (whitespace separated; lines starting with # are comments):
 #   groups m
-#   m groups, each as in a pcgroup file: n k / f_1 ... f_k / r_1 ... r_k / e / n rows of n entries
+#   m groups, each as in a pcgroup file: n k / f_1 ... f_k / r_1 ... r_k / e / n rows of n entries, each followed
+#   optionally by "alternative k' / pcgs / relative orders" (another pcgs; Perseus keeps the cheaper)
 #   maps
 #   m - 1 lines: the images in group i + 1 of the n_i elements of group i
 # (elements of each group are numbered by position in AsSortedList)
 
+if not IsBoundGlobal("PERSEUS_DIR_OF_") then
+    BindGlobal("PERSEUS_DIR_OF_", function(f) local i; i := Length(f); while i > 0 and f[i] <> '/' do i := i - 1; od; if i = 0 then return "./"; fi; return f{[1..i]}; end);
+fi;
+if not IsBoundGlobal("PerseusShortPcgs") then      # tools/perseus_pcgs.g, next to this file
+    Read(Concatenation(PERSEUS_DIR_OF_(INPUT_FILENAME()), "perseus_pcgs.g"));
+fi;
+
 PerseusWriteGroupBlock_ := function(out, G, el)
-    local pc, n, row, ids;
-    pc := Pcgs(G); n := Length(el);
+    local pc, n, row, ids, alt;
+    pc := PerseusPcgs(G); n := Length(el);
     ids := l -> JoinStringsWithSeparator(List(l, x -> String(Position(el, x) - 1)), " ");
-    AppendTo(out, n, " ", Length(pc), "\n", ids(pc), "\n", JoinStringsWithSeparator(List(RelativeOrders(pc), String), " "), "\n", Position(el, One(G)) - 1, "\n");
+    AppendTo(out, n, " ", Length(pc), "\n", ids(pc), "\n", JoinStringsWithSeparator(List(PerseusRelativeOrders(G, pc), String), " "), "\n", Position(el, One(G)) - 1, "\n");
     for row in el do AppendTo(out, JoinStringsWithSeparator(List(el, y -> String(Position(el, row * y) - 1)), " "), "\n"); od;
+    alt := PerseusAlternativePcgs(G, pc);
+    if alt <> fail then AppendTo(out, "alternative ", Length(alt), "\n", ids(alt), "\n", JoinStringsWithSeparator(List(PerseusRelativeOrders(G, alt), String), " "), "\n"); fi;
 end;
 
 WritePerseusHoms := function(homs, file)

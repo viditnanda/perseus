@@ -64,12 +64,14 @@ inline std::vector<std::vector<std::vector<uint32_t>>> induced_homology_map(Ring
     return M;
 }
 
-inline PcSeriesResult pc_series(const std::vector<PcGroup>& groups, const std::vector<std::vector<int>>& maps, int maxdim, int p) {
+inline PcSeriesResult pc_series(const std::vector<PcGroup>& groups_in, const std::vector<std::vector<int>>& maps, int maxdim, int p, bool choose = true, const std::vector<PcgsList>& alternatives = {}) {
     auto t0 = std::chrono::steady_clock::now();
     if (p < 2) throw std::invalid_argument("pc_maps: needs a prime");
     for (i64 d = 2; d * d <= p; ++d) if (p % d == 0) throw std::invalid_argument("pc_maps: needs a prime");
     if (maxdim < 0) throw std::invalid_argument("pc_maps: maxdim must be >= 0");
-    size_t m = groups.size();
+    size_t m = groups_in.size();
+    std::vector<PcGroup> groups;                       // the cheapest pcgs of each group (element ids, so the maps, unchanged)
+    for (size_t g = 0; g < groups_in.size(); ++g) groups.push_back(choose ? choose_pcgs(groups_in[g], maxdim, p, nullptr, g < alternatives.size() ? alternatives[g] : PcgsList{}) : groups_in[g]);
     if (m == 0 || maps.size() + 1 != m) throw std::invalid_argument("pc_maps: m groups need m - 1 maps");
     PcSeriesResult R; R.p = p; R.maxdim = maxdim;
     std::vector<std::unique_ptr<RingCtx>> X;
@@ -102,7 +104,7 @@ inline PcSeriesResult pc_series(const std::vector<PcGroup>& groups, const std::v
 }
 
 // ---- parsing the pcseries format -----------------------------------------------------------------------------------
-struct PcSeriesData { std::vector<PcGroup> groups; std::vector<std::vector<int>> maps; };
+struct PcSeriesData { std::vector<PcGroup> groups; std::vector<std::vector<int>> maps; std::vector<PcgsList> alternatives; };
 inline PcSeriesData parse_pcseries(const std::string& text) {
     std::vector<std::string> tok; size_t pos = 0;
     while (pos <= text.size()) {
@@ -124,6 +126,12 @@ inline PcSeriesData parse_pcseries(const std::string& text) {
         int e = (int)num();
         std::vector<std::vector<int>> T(n, std::vector<int>(n)); for (auto& r : T) for (auto& x : r) x = (int)num();
         D.groups.emplace_back(T, pcgs, rel, e);
+        PcgsList alts;
+        while (at < tok.size() && tok[at] == "alternative") {      // alternative k / pcgs / relative orders
+            ++at; int ka = (int)num(); std::vector<int> pa(ka), ra(ka); for (auto& x : pa) x = (int)num(); for (auto& x : ra) x = (int)num();
+            alts.push_back({pa, ra});
+        }
+        D.alternatives.push_back(alts);
     }
     word("maps");
     for (long long g = 0; g + 1 < m; ++g) { std::vector<int> im(D.groups[g].n); for (auto& x : im) x = (int)num(); D.maps.push_back(im); }

@@ -527,11 +527,16 @@ PYBIND11_MODULE(_perseus, m) {
        "table[(k, l)] = {'free': rank, 'torsion': {order: multiplicity}, 'generators': ..., 'after_reduction': ...}.");
 
     m.def("pc_group", [](std::vector<std::vector<int>> mult, std::vector<int> pcgs, std::vector<int> relative_orders, int identity,
-                         int maxdim, bool homology, int ring, bool all_products) {
+                         int maxdim, bool homology, int ring, bool all_products, py::object alternatives, bool keep_pcgs) {
         pcg::PcGroup G(mult, pcgs, relative_orders, identity);
-        pcg::PcResult R; { py::gil_scoped_release nogil; R = pcg::pc_group_compute(G, maxdim, homology, ring, all_products); }
+        auto to_alts = [](py::object o) { pcg::PcgsList L; if (o.is_none()) return L; for (auto a : o.cast<py::list>()) { auto t = a.cast<py::sequence>(); L.push_back({t[0].cast<std::vector<int>>(), t[1].cast<std::vector<int>>()}); } return L; };
+        pcg::PcgsList alts = to_alts(alternatives);
+        pcg::PcResult R; { py::gil_scoped_release nogil; R = pcg::pc_group_compute(G, maxdim, homology, ring, all_products, !keep_pcgs, alts); }
         py::dict res;
         res["order"] = G.n; res["relative_orders"] = G.rel; res["chains"] = R.chains; res["states"] = R.states; res["seconds"] = R.seconds;
+        auto used = [](const pcg::PcUsed& u) { py::dict d; d["choice"] = u.choice; d["pcgs"] = u.pcgs; d["relative_orders"] = u.rel; return d; };
+        if (R.has_homology) res["pcgs_homology"] = used(R.used_homology);
+        if (R.has_ring) res["pcgs_ring"] = used(R.used_ring);
         if (R.has_homology) {
             py::list H;
             for (int d = 0; d <= maxdim; ++d) { py::dict h; h["degree"] = d; h["free"] = R.H.free[d]; h["torsion"] = R.H.torsion[d]; H.append(h); }
@@ -550,6 +555,7 @@ PYBIND11_MODULE(_perseus, m) {
         return res;
     }, py::arg("mult"), py::arg("pcgs"), py::arg("relative_orders") = std::vector<int>(), py::arg("identity") = 0,
        py::arg("maxdim") = 4, py::arg("homology") = true, py::arg("ring") = 0, py::arg("all_products") = false,
+       py::arg("alternatives") = py::none(), py::arg("keep_pcgs") = false,
        "Homology and mod-p cohomology of a finite solvable group, from its multiplication table (mult[a][b] = a * b)\n"
        "and a polycyclic generating sequence: element ids f_1, ..., f_k with relative orders r_i (inferred when\n"
        "omitted). Uses the Anick resolution of the collection rewriting system, never the bar construction.\n"
@@ -561,14 +567,16 @@ PYBIND11_MODULE(_perseus, m) {
        "cocycles on the Anick chains, basis[n][i].\n"
        "tools/export_pcgroup.g writes these inputs from GAP; perseus.read_pcgroup(path) reads them.");
 
-    m.def("pc_series", [](py::list groups, std::vector<std::vector<int>> maps, int maxdim, int p) {
-        std::vector<pcg::PcGroup> G;
+    m.def("pc_series", [](py::list groups, std::vector<std::vector<int>> maps, int maxdim, int p, bool keep_pcgs) {
+        auto to_alts = [](py::object o) { pcg::PcgsList L; if (o.is_none()) return L; for (auto a : o.cast<py::list>()) { auto t = a.cast<py::sequence>(); L.push_back({t[0].cast<std::vector<int>>(), t[1].cast<std::vector<int>>()}); } return L; };
+        std::vector<pcg::PcGroup> G; std::vector<pcg::PcgsList> alts;
         for (auto item : groups) {
             py::dict d = item.cast<py::dict>();
             G.emplace_back(d["mult"].cast<std::vector<std::vector<int>>>(), d["pcgs"].cast<std::vector<int>>(),
                            d.contains("relative_orders") ? d["relative_orders"].cast<std::vector<int>>() : std::vector<int>{}, d.contains("identity") ? d["identity"].cast<int>() : 0);
+            alts.push_back(d.contains("alternatives") ? to_alts(d["alternatives"]) : pcg::PcgsList{});
         }
-        pcg::PcSeriesResult R; { py::gil_scoped_release nogil; R = pcg::pc_series(G, maps, maxdim, p); }
+        pcg::PcSeriesResult R; { py::gil_scoped_release nogil; R = pcg::pc_series(G, maps, maxdim, p, !keep_pcgs, alts); }
         py::dict res; res["p"] = R.p; res["dims"] = R.dims; res["seconds"] = R.seconds;
         py::list degs;
         for (int n = 0; n <= maxdim; ++n) {
@@ -579,7 +587,7 @@ PYBIND11_MODULE(_perseus, m) {
         }
         res["degrees"] = degs;
         return res;
-    }, py::arg("groups"), py::arg("maps"), py::arg("maxdim") = 4, py::arg("p") = 2,
+    }, py::arg("groups"), py::arg("maps"), py::arg("maxdim") = 4, py::arg("p") = 2, py::arg("keep_pcgs") = false,
        "Maps on mod-p homology induced by a chain of homomorphisms G_1 -> G_2 -> ... -> G_m of finite solvable groups,\n"
        "and their persistence (Ellis and King, Persistent homology of groups, J. Group Theory 2011). groups: dicts\n"
        "{'mult', 'pcgs', 'relative_orders', 'identity'} as in pc_group; maps[i]: the image in G_{i+2} of each element of\n"
@@ -589,20 +597,23 @@ PYBIND11_MODULE(_perseus, m) {
        "in the homology bases dual to pc_group's cohomology bases (its transpose is the map on cohomology).\n"
        "tools/export_pcseries.g writes quotient and subgroup series; perseus.read_pcseries(path) reads them.");
 
-    m.def("finite_group", [](long long order, py::list primes, int maxdim, bool homology, int ring, bool all_products) {
+    m.def("finite_group", [](long long order, py::list primes, int maxdim, bool homology, int ring, bool all_products, bool keep_pcgs) {
+        auto to_alts = [](py::object o) { pcg::PcgsList L; if (o.is_none()) return L; for (auto a : o.cast<py::list>()) { auto t = a.cast<py::sequence>(); L.push_back({t[0].cast<std::vector<int>>(), t[1].cast<std::vector<int>>()}); } return L; };
         pcg::SylowData Dt; Dt.order = order;
         for (auto item : primes) {
             py::dict d = item.cast<py::dict>(); pcg::SylowPrime S;
             S.p = d["p"].cast<int>(); S.mult = d["mult"].cast<std::vector<std::vector<int>>>(); S.pcgs = d["pcgs"].cast<std::vector<int>>();
             S.rel = d["relative_orders"].cast<std::vector<int>>(); S.identity = d["identity"].cast<int>();
+            if (d.contains("alternatives")) S.alternatives = to_alts(d["alternatives"]);
             for (auto c : d["cosets"].cast<py::list>()) {
                 py::dict cd = c.cast<py::dict>(); pcg::SylowCoset C;
                 C.elements = cd["elements"].cast<std::vector<int>>(); C.pcgs = cd["pcgs"].cast<std::vector<int>>(); C.images = cd["images"].cast<std::vector<int>>();
+                if (cd.contains("alternatives")) C.alternatives = cd["alternatives"].cast<std::vector<std::vector<int>>>();
                 S.cosets.push_back(C);
             }
             Dt.primes.push_back(S);
         }
-        pcg::SylowResult R; { py::gil_scoped_release nogil; R = pcg::sylow_compute(Dt, maxdim, homology, ring, all_products); }
+        pcg::SylowResult R; { py::gil_scoped_release nogil; R = pcg::sylow_compute(Dt, maxdim, homology, ring, all_products, !keep_pcgs); }
         py::dict res;
         res["order"] = R.order; res["primes"] = R.primes; res["complete"] = R.complete; res["seconds"] = R.seconds;
         if (R.has_homology) {
@@ -620,7 +631,7 @@ PYBIND11_MODULE(_perseus, m) {
             res["cohomology"] = c;
         }
         return res;
-    }, py::arg("order"), py::arg("primes"), py::arg("maxdim") = 4, py::arg("homology") = true, py::arg("ring") = 0, py::arg("all_products") = false,
+    }, py::arg("order"), py::arg("primes"), py::arg("maxdim") = 4, py::arg("homology") = true, py::arg("ring") = 0, py::arg("all_products") = false, py::arg("keep_pcgs") = false,
        "Homology and mod-p cohomology of any finite group G from its Sylow subgroups (stable elements; G itself is\n"
        "never needed, so it need not be solvable). primes: for each prime p, {'p', 'mult', 'pcgs', 'relative_orders',\n"
        "'identity', 'cosets'}: a Sylow p-subgroup P as in pc_group, and for each double coset P g P with g outside P,\n"

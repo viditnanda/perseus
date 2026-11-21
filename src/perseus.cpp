@@ -84,7 +84,8 @@ static const char* USAGE =
 "  --pairs s,t,...  magnitude: only these (start, end) pairs\n"
 "  --ring p         pcgroup, sylow: also the mod-p cohomology ring through degree maxdim (default maxdim 4)\n"
 "  --no-homology    pcgroup, sylow: skip the integral homology\n"
-"  --all-products   pcgroup, sylow --ring: every product of basis classes (default: products of the generators with every class)\n"
+"  --all-products   pcgroup, sylow --ring: every product of basis classes (default: products of the generators with every class)\n""  --keep-pcgs      pcgroup, sylow, pcseries: run on the given pcgs (default: the cheapest of it, its prime refinement and\n"
+"                   its coarsening, by the work of a short trial resolution)\n"
 "  --print fmt      ripser | perseus | json | none   (stdout; default ripser unless a prefix is given)\n"
 "  --stats          timing and engine statistics on stderr\n"
 "\n"
@@ -101,7 +102,7 @@ struct Opts {
     bool classify = true, zero = false, stats = false;
     bool integral = false, image = false, reduce = true, directed = false, torsion = false;
     std::string classify_by = "auto";
-    double img_s = 0, img_t = 0; int lmax = 4; int ring = 0; bool pc_homology = true; bool all_products = false;
+    double img_s = 0, img_t = 0; int lmax = 4; int ring = 0; bool pc_homology = true; bool all_products = false; bool keep_pcgs = false;
     std::vector<std::pair<int, int>> pairs;
 };
 
@@ -389,6 +390,7 @@ int main(int argc, char** argv) {
         else if (a == "--ring") o.ring = std::stoi(val());
         else if (a == "--no-homology") o.pc_homology = false;
         else if (a == "--all-products") o.all_products = true;
+        else if (a == "--keep-pcgs") o.keep_pcgs = true;
         else if (a == "--directed") o.directed = true;
         else if (a == "--pairs") { std::string v = val(); for (char& ch : v) if (ch == ',') ch = ' '; auto t = split_ws(v); if (t.size() % 2) { fprintf(stderr, "--pairs s,t,...\n"); return 1; } for (size_t i = 0; i < t.size(); i += 2) o.pairs.push_back({std::stoi(t[i]), std::stoi(t[i + 1])}); }
         else if (a == "-h" || a == "--help") { fputs(USAGE, stdout); return 0; }
@@ -490,7 +492,7 @@ int main(int argc, char** argv) {
                 if (ps.size() != 1) { fprintf(stderr, "pcseries: the groups are not p-groups of a single prime; give the field with --coeff p\n"); return 2; }
                 p = *ps.begin();
             }
-            pcg::PcSeriesResult R = pcg::pc_series(Dt.groups, Dt.maps, md, p);
+            pcg::PcSeriesResult R = pcg::pc_series(Dt.groups, Dt.maps, md, p, !o.keep_pcgs, Dt.alternatives);
             size_t m = Dt.groups.size();
             if (o.print == "json") {
                 printf("{\n  \"p\": %d, \"groups\": [", p);
@@ -533,7 +535,7 @@ int main(int argc, char** argv) {
             std::string text((std::istreambuf_iterator<char>(is)), std::istreambuf_iterator<char>());
             pcg::SylowData Dt = pcg::parse_sylow(text);
             int md = o.maxdim >= 0 ? o.maxdim : 4;
-            pcg::SylowResult R = pcg::sylow_compute(Dt, md, o.pc_homology, o.ring, o.all_products);
+            pcg::SylowResult R = pcg::sylow_compute(Dt, md, o.pc_homology, o.ring, o.all_products, !o.keep_pcgs);
             auto inv_str = [](size_t fr, const std::vector<uint64_t>& tors) {
                 std::string s; if (fr) s = fr > 1 ? "Z^" + std::to_string(fr) : "Z";
                 for (auto t : tors) { if (!s.empty()) s += " + "; s += "Z/" + std::to_string(t); }
@@ -607,10 +609,15 @@ int main(int argc, char** argv) {
             int e = (int)next();
             std::vector<std::vector<int>> T(n, std::vector<int>(n));
             for (auto& r : T) for (auto& x : r) x = (int)next();
-            if (at != tok.size()) throw std::runtime_error("pcgroup: trailing data after the multiplication table");
+            pcg::PcgsList alts;                       // optional alternative pcgs after the table: k / elements / relative orders
+            while (at < tok.size()) {
+                int ka = (int)next(); if (ka < 0 || ka > 64) throw std::runtime_error("pcgroup: bad alternative pcgs length");
+                std::vector<int> pa(ka), ra(ka); for (auto& x : pa) x = (int)next(); for (auto& x : ra) x = (int)next();
+                alts.push_back({pa, ra});
+            }
             pcg::PcGroup G(T, pcgs, rel, e);
             int md = o.maxdim >= 0 ? o.maxdim : 4;
-            pcg::PcResult R = pcg::pc_group_compute(G, md, o.pc_homology, o.ring, o.all_products);
+            pcg::PcResult R = pcg::pc_group_compute(G, md, o.pc_homology, o.ring, o.all_products, !o.keep_pcgs, alts);
             auto group_str = [](size_t fr, const std::vector<uint64_t>& tors) {
                 std::string s; if (fr) s = fr > 1 ? "Z^" + std::to_string(fr) : "Z";
                 std::map<uint64_t, size_t> c; for (auto t : tors) ++c[t];
@@ -620,7 +627,15 @@ int main(int argc, char** argv) {
             if (o.print == "json") {
                 printf("{\n  \"order\": %d, \"relative_orders\": [", n);
                 for (int i = 0; i < k; ++i) printf("%s%d", i ? ", " : "", G.rel[i]);
-                printf("], \"maxdim\": %d, \"seconds\": %.4f, \"states\": %zu,\n  \"chains\": [", md, R.seconds, R.states);
+                printf("], \"maxdim\": %d, \"seconds\": %.4f, \"states\": %zu,", md, R.seconds, R.states);
+                auto used = [](const char* what, const pcg::PcUsed& u) {
+                    printf("\n  \"pcgs_%s\": {\"choice\": \"%s\", \"pcgs\": [", what, u.choice.c_str());
+                    for (size_t i = 0; i < u.pcgs.size(); ++i) printf("%s%d", i ? ", " : "", u.pcgs[i]);
+                    printf("], \"relative_orders\": ["); for (size_t i = 0; i < u.rel.size(); ++i) printf("%s%d", i ? ", " : "", u.rel[i]); printf("]},");
+                };
+                if (R.has_homology) used("homology", R.used_homology);
+                if (R.has_ring) used("ring", R.used_ring);
+                printf("\n  \"chains\": [");
                 for (size_t i = 0; i < R.chains.size(); ++i) printf("%s%zu", i ? ", " : "", R.chains[i]);
                 printf("]");
                 if (R.has_homology) {

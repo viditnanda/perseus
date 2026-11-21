@@ -28,8 +28,8 @@
 namespace perseus {
 namespace pcg {
 
-struct SylowCoset { std::vector<int> elements, pcgs, images; };          // ids of P's elements
-struct SylowPrime { int p = 0; std::vector<std::vector<int>> mult; std::vector<int> pcgs, rel; int identity = 0; std::vector<SylowCoset> cosets; };
+struct SylowCoset { std::vector<int> elements, pcgs, images; std::vector<std::vector<int>> alternatives; };   // ids of P's elements
+struct SylowPrime { int p = 0; std::vector<std::vector<int>> mult; std::vector<int> pcgs, rel; int identity = 0; std::vector<SylowCoset> cosets; PcgsList alternatives; };
 struct SylowData { long long order = 0; std::vector<SylowPrime> primes; };
 
 struct StableRing {
@@ -71,12 +71,17 @@ inline SylowData parse_sylow(const std::string& text) {
         S.identity = (int)num();
         S.mult.assign(n, std::vector<int>(n));
         for (auto& r : S.mult) for (auto& x : r) x = (int)num();
+        while (at < tok.size() && tok[at] == "alternative") {       // alternative k / pcgs / relative orders
+            ++at; int ka = (int)num(); std::vector<int> pa(ka), ra(ka); for (auto& x : pa) x = (int)num(); for (auto& x : ra) x = (int)num();
+            S.alternatives.push_back({pa, ra});
+        }
         word("cosets"); int m = (int)num();
         for (int c = 0; c < m; ++c) {
             SylowCoset C; int q = (int)num(), kq = (int)num();
             for (int i = 0; i < q; ++i) C.elements.push_back((int)num());
             for (int i = 0; i < kq; ++i) C.pcgs.push_back((int)num());
             for (int i = 0; i < q; ++i) C.images.push_back((int)num());
+            while (at < tok.size() && tok[at] == "alternative") { ++at; int ka = (int)num(); std::vector<int> pa(ka); for (auto& x : pa) x = (int)num(); C.alternatives.push_back(pa); }
             S.cosets.push_back(C);
         }
         D.primes.push_back(S);
@@ -86,7 +91,7 @@ inline SylowData parse_sylow(const std::string& text) {
 
 // ---- a subgroup of P as a pc group, and the two maps into P ---------------------------------------------------
 struct SubgroupMaps { PcGroup Q; std::vector<int> iota, kappa; };
-inline SubgroupMaps make_subgroup(const PcGroup& P, const SylowCoset& C) {
+inline SubgroupMaps make_subgroup(const PcGroup& P, const SylowCoset& C, int maxdim = 0, i64 modulus = 0) {
     int q = (int)C.elements.size();
     std::vector<int> pos(P.n, -1);
     for (int i = 0; i < q; ++i) {
@@ -104,6 +109,11 @@ inline SubgroupMaps make_subgroup(const PcGroup& P, const SylowCoset& C) {
     for (int g : C.pcgs) { if (g < 0 || g >= P.n || pos[g] < 0) throw std::invalid_argument("sylow: a pcgs element of Q is not in Q"); pcgs.push_back(pos[g]); }
     if (pos[P.e] < 0) throw std::invalid_argument("sylow: the subgroup has no identity");
     SubgroupMaps S{PcGroup(T, pcgs, {}, pos[P.e]), C.elements, C.images};
+    if (modulus) {                                           // the cheapest pcgs of Q for this computation
+        PcgsList alts;
+        for (auto& a : C.alternatives) { std::vector<int> q; bool ok = true; for (int g : a) { if (g < 0 || g >= P.n || pos[g] < 0) ok = false; else q.push_back(pos[g]); } if (ok) alts.push_back({q, {}}); }
+        S.Q = choose_pcgs(S.Q, maxdim, modulus, nullptr, alts);
+    }
     std::vector<char> seen(P.n, 0);
     for (int i = 0; i < q; ++i) {
         int y = S.kappa[i]; if (y < 0 || y >= P.n || seen[y]++) throw std::invalid_argument("sylow: the conjugation map is not injective");
@@ -201,12 +211,13 @@ inline std::vector<CV> residual(const FpSplit& F, int n) {
 }
 
 // ---- the p-part of H_n(G; Z), n = 1..D ---------------------------------------------------------------------------
-inline std::vector<std::vector<u64>> stable_homology(const SylowPrime& S, int D, bool stats = false) {
+inline std::vector<std::vector<u64>> stable_homology(const SylowPrime& S, int D, bool stats = false, bool choose = true) {
     PcGroup P(S.mult, S.pcgs, S.rel, S.identity);
     const i64 p = S.p; int v = 0; { long long x = P.n; while (x % p == 0) { x /= p; ++v; } if (x != 1) throw std::invalid_argument("sylow: P is not a p-group"); }
     std::vector<std::vector<u64>> A(D + 1);
     if (v == 0) return A;
     i64 M = 1; for (int i = 0; i < v; ++i) M *= p;
+    if (choose) P = choose_pcgs(P, D + 1, M, nullptr, S.alternatives);
     auto t0 = std::chrono::steady_clock::now();
     Anick AP(P, D + 2, M);
     struct Cos {                                         // owns Q: the Anick resolution keeps a reference to its group
@@ -216,7 +227,7 @@ inline std::vector<std::vector<u64>> stable_homology(const SylowPrime& S, int D,
     std::vector<std::unique_ptr<Cos>> cos;
     for (auto& C : S.cosets) {
         if (C.elements.size() <= 1) continue;
-        std::unique_ptr<Cos> c(new Cos(make_subgroup(P, C)));
+        std::unique_ptr<Cos> c(new Cos(make_subgroup(P, C, D, choose ? M : 0)));
         c->AQ.reset(new Anick(c->S.Q, D + 1, M));
         auto fi = chain_map_eps(*c->AQ, AP, c->S.iota, D), fk = chain_map_eps(*c->AQ, AP, c->S.kappa, D);
         c->delta.resize(D + 1);
@@ -302,8 +313,9 @@ inline std::vector<size_t> rref(std::vector<std::vector<i64>>& R, size_t ncols, 
     R.resize(r);
     return piv;
 }
-inline StableRing stable_ring(const SylowPrime& S, int D, bool stats = false, bool all_products = false) {
+inline StableRing stable_ring(const SylowPrime& S, int D, bool stats = false, bool all_products = false, bool choose = true) {
     PcGroup P(S.mult, S.pcgs, S.rel, S.identity);
+    if (choose) P = choose_pcgs(P, D, S.p, nullptr, S.alternatives);
     const i64 p = S.p;
     auto t0 = std::chrono::steady_clock::now();
     RingCtx X(P, D, p);
@@ -313,7 +325,7 @@ inline StableRing stable_ring(const SylowPrime& S, int D, bool stats = false, bo
     std::vector<std::vector<std::vector<i64>>> rows(D + 1);
     for (auto& C : S.cosets) {
         if (C.elements.size() <= 1) continue;
-        SubgroupMaps sm = make_subgroup(P, C);
+        SubgroupMaps sm = make_subgroup(P, C, D, choose ? p : 0);
         Anick AQ(sm.Q, D + 1, p);
         FpSplit F = fp_split(AQ, D, p);
         auto fi = chain_map_eps(AQ, X.A, sm.iota, D), fk = chain_map_eps(AQ, X.A, sm.kappa, D);
@@ -376,7 +388,7 @@ inline StableRing stable_ring(const SylowPrime& S, int D, bool stats = false, bo
     return R;
 }
 
-inline SylowResult sylow_compute(const SylowData& Dt, int maxdim, bool homology, int ring_prime, bool all_products = false) {
+inline SylowResult sylow_compute(const SylowData& Dt, int maxdim, bool homology, int ring_prime, bool all_products = false, bool choose = true) {
     auto t0 = std::chrono::steady_clock::now();
     bool stats = std::getenv("PERSEUS_PC_STATS") != nullptr;
     if (maxdim < 0) throw std::invalid_argument("sylow: maxdim must be >= 0");
@@ -393,7 +405,7 @@ inline SylowResult sylow_compute(const SylowData& Dt, int maxdim, bool homology,
         res.has_homology = true;
         res.ppart.assign(maxdim + 1, {});
         std::vector<std::vector<std::vector<u64>>> parts;
-        for (auto& S : Dt.primes) parts.push_back(stable_homology(S, maxdim, stats));
+        for (auto& S : Dt.primes) parts.push_back(stable_homology(S, maxdim, stats, choose));
         res.H.free.assign(maxdim + 1, 0); res.H.free[0] = 1; res.H.torsion.assign(maxdim + 1, {});
         for (int n = 1; n <= maxdim; ++n) {
             size_t len = 0;
@@ -407,7 +419,7 @@ inline SylowResult sylow_compute(const SylowData& Dt, int maxdim, bool homology,
     if (ring_prime) {
         const SylowPrime* S = nullptr; for (auto& x : Dt.primes) if (x.p == ring_prime) S = &x;
         if (!S) throw std::invalid_argument("sylow: no Sylow subgroup for the ring prime in the input");
-        res.R = stable_ring(*S, maxdim, stats, all_products); res.has_ring = true;
+        res.R = stable_ring(*S, maxdim, stats, all_products, choose); res.has_ring = true;
     }
     res.seconds = std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count();
     return res;
