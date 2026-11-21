@@ -7,7 +7,8 @@
 #
 # PerseusShortPcgs(G) builds one greedily, from the top: at each step, with H the current subgroup, it takes the
 # largest cyclic quotient of H, of order e = exponent of H / H', and among the normal subgroups N of H with H / N
-# cyclic of order e (preimages of complements of cyclic subgroups of order e of H / H') it keeps the one whose
+# cyclic of order e (preimages of complements of cyclic subgroups of order e of H / H', at most 4 of each: more did not shorten the
+# pcgs of any group of order 64) it keeps the one whose
 # abelianisation has fewest cyclic factors, then the one of largest exponent. It is a heuristic, not a proven
 # minimum; Perseus checks the pcgs it is given. Set PerseusUseShortPcgs := false; to have the exporters use GAP's
 # Pcgs (prime steps) instead.
@@ -15,6 +16,9 @@
 
 BindGlobal("PerseusShortPcgs", function(G)
     local seq, H, D, nat, A, e, Zs, seen, a, Z, C, N, sc, best, bestsc, bestx, comps, cnt;
+    # a pcgs with cyclic steps has at least d(G) steps (it generates G); for a p-group whose GAP pcgs already has
+    # d(G) = rank of G / Frattini steps there is nothing to gain
+    if IsPGroup(G) and Size(G) > 1 and RankPGroup(G) = Length(Pcgs(G)) then return AsList(Pcgs(G)); fi;
     seq := []; H := G;
     while Size(H) > 1 do
         D := DerivedSubgroup(H);
@@ -26,14 +30,14 @@ BindGlobal("PerseusShortPcgs", function(G)
             if Order(a) = e then
                 Z := Subgroup(A, [a]);
                 if not ForAny(seen, z -> z = Z) then Add(seen, Z); Add(Zs, a); fi;
-                if Length(Zs) >= 64 then break; fi;
+                if Length(Zs) >= 4 then break; fi;
             fi;
         od;
         best := fail; bestsc := fail; bestx := fail;
         for a in Zs do
             comps := ComplementClassesRepresentatives(A, Subgroup(A, [a])); cnt := 0;
             for C in comps do
-                cnt := cnt + 1; if cnt > 64 then break; fi;
+                cnt := cnt + 1; if cnt > 4 then break; fi;
                 N := PreImage(nat, C);
                 sc := [Length(AbelianInvariants(N)), -Exponent(N)];
                 if bestsc = fail or sc < bestsc then bestsc := sc; best := N; bestx := PreImagesRepresentative(nat, a); fi;

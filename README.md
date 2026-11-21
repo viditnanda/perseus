@@ -205,7 +205,7 @@ gap> Read("tools/export_pcgroup.g"); WritePerseusPcGroup(SmallGroup(128, 1000), 
 $ ./perseus pcgroup g.txt --maxdim 8 --ring 2
 ```
 
-The bar construction BG has (|G| − 1)^n nondegenerate n-simplices. Perseus never builds it. The pcgs gives a complete rewriting system (collection), and the algebraic Morse matching it induces on the bar resolution has C(n+k−1, k−1) critical cells in degree n, where |G| = r_1 ⋯ r_k (Anick's resolution). The steps need not have prime order, and fewer steps mean fewer chains, but a step of composite order makes the differentials denser; which pcgs is cheaper depends on the group (`docs/TECHNIQUES.md` §5.10). So the exporters write a short pcgs with cyclic steps and GAP's own pcgs as an alternative, and Perseus builds a trial resolution for each of them and their prime refinements and coarsenings and keeps the one with the least work (`--keep-pcgs` turns this off; the output records the pcgs used). On the dihedral group of order 128 the short pcgs [s, r] makes homology through degree 8 365 times faster; on SmallGroup(128, 2000) GAP's pcgs is 7 times faster than the short one, and that is what Perseus picks. The differentials come from a memoised contracting homotopy whose work is polynomial in the degree. For n ≥ 1, |G| annihilates H_n(G; Z), so the computation runs over Z/q^(v+1) for each prime power q^v exactly dividing |G|. That is exact, with no rational arithmetic and nothing to certify. Units are cancelled across the whole complex before the Smith forms. For the ring, F_p ⊗ P is split once across degrees by Gaussian elimination, which gives dual bases of cocycles and cycles at the size of H^*; products are Yoneda composites, and only the minimal generators are lifted, since by associativity their products span the decomposables. The products are the cup products (pulled back to the bar resolution they agree with the Alexander–Whitney cup product, which the tests check). Relations and integral cup products are not covered. Groups that are not solvable go through their Sylow subgroups (`sylow`, below). Details and references: `docs/TECHNIQUES.md` §5.7. `bar_construction` remains for monoids and categories.
+The bar construction BG has (|G| − 1)^n nondegenerate n-simplices. Perseus never builds it. The pcgs gives a complete rewriting system (collection), and the algebraic Morse matching it induces on the bar resolution has C(n+k−1, k−1) critical cells in degree n, where |G| = r_1 ⋯ r_k (Anick's resolution). The steps need not have prime order, and fewer steps mean fewer chains, but a step of composite order makes the differentials denser; which pcgs is cheaper depends on the group (`docs/TECHNIQUES.md` §5.10). So the exporters write a short pcgs with cyclic steps and GAP's own pcgs as an alternative, and Perseus builds a trial resolution for each of them and their prime refinements and coarsenings and keeps the one with the least work (`--keep-pcgs` turns this off; the output records the pcgs used). On the dihedral group of order 128 the short pcgs [s, r] makes homology through degree 8 take 0.013 s, search included, against 5.5 s on GAP's pcgs; on SmallGroup(128, 2000) GAP's pcgs is 7 times faster than the short one, and that is what Perseus picks. The differentials come from a memoised contracting homotopy whose work is polynomial in the degree. For n ≥ 1, |G| annihilates H_n(G; Z), so the computation runs over Z/q^(v+1) for each prime power q^v exactly dividing |G|. That is exact, with no rational arithmetic and nothing to certify. Units are cancelled across the whole complex before the Smith forms. For the ring, F_p ⊗ P is split once across degrees by Gaussian elimination, which gives dual bases of cocycles and cycles at the size of H^*; products are Yoneda composites, and only the minimal generators are lifted, since by associativity their products span the decomposables. The products are the cup products (pulled back to the bar resolution they agree with the Alexander–Whitney cup product, which the tests check). Relations and integral cup products are not covered. Groups that are not solvable go through their Sylow subgroups (`sylow`, below). Details and references: `docs/TECHNIQUES.md` §5.7. `bar_construction` remains for monoids and categories.
 
 **Any finite group** (`sylow`, `perseus.finite_group`), through its Sylow subgroups, as HAP's `GroupHomology` does (`PrimePartDerivedFunctor`). G need not be solvable: only its Sylow subgroups, which are p-groups, are resolved, and G itself is never read.
 
@@ -410,91 +410,89 @@ Random metrics have many bad primes. For 450 uniformly random distances (H≤1):
 
 gramag enumerates the paths between all pairs of vertices before computing anything, even when asked for one pair. On the single pair (0̂, 1̂) of the RP^3 and L(3, 1) graphs at l ≤ 7 it ran out of memory after 1–2 minutes; Perseus takes 0.1 s. Where both finish, the ranks agree everywhere. On the inputs with more than 100,000 generators Perseus is 7 to 9 times faster and uses a fraction of the memory.
 
-### Finite groups (measured 20 Nov 2026, 2-core Xeon)
+### Finite groups (measured 21 Nov 2026, 2-core Xeon)
 
-`bench/vs_hap.py`, against HAP 1.62 in GAP 4.12.1. For integral homology HAP is timed with a single call `GroupHomology(G, D)` (HAP chooses the method) and, for nilpotent groups, with `ResolutionNilpotentGroup` followed by the homology of the tensored complex; the faster is shown. `ResolutionNilpotentGroup` builds a resolution of the same size as Perseus's Anick resolution, so this compares implementations of the same idea, not algorithms. For mod-2 rings HAP runs `ModPCohomologyRing` with `ModPRingGenerators` (structure constants and minimal generators, no relations), which matches what Perseus computes. Each program is timed by its own clock around the computation alone: HAP's `Runtime()`, excluding GAP's start-up, package loading and `SmallGroup`; Perseus's reported seconds, excluding reading and validating the table. Both sides take the best of three runs, except HAP runs over 10 s, which run once. Each HAP process is limited to 300 s of wall clock; "timeout" means that limit stopped the timed computation itself (the limit includes start-up and, for `GroupHomology`, the untimed lower-degree calls of the cross-check; if it falls in the cross-check, the timed figure is kept and only the top degree is compared). A GAP failure would be reported as an error; none occurred. Every answer agrees, homology groups and generator degrees alike; the script fails otherwise. The reference for mod-p rings of p-groups, the Green–King package for SageMath, is not compared.
+`bench/vs_hap.py`, against HAP 1.62 in GAP 4.12.1. For integral homology HAP is timed with a single call `GroupHomology(G, D)` (HAP chooses the method) and, for nilpotent groups, with `ResolutionNilpotentGroup` followed by the homology of the tensored complex; the faster is shown. `ResolutionNilpotentGroup` builds a resolution of the same size as Perseus's Anick resolution, so this compares implementations of the same idea, not algorithms. For mod-2 rings HAP runs `ModPCohomologyRing` with `ModPRingGenerators` (structure constants and minimal generators, no relations), which matches what Perseus computes. Each program is timed by its own clock around the computation alone: HAP's `Runtime()`, excluding GAP's start-up, package loading and `SmallGroup`; Perseus's reported seconds, excluding reading and validating the input. HAP starts from G; Perseus starts from a file written by the GAP exporters, which also choose a short pcgs (`tools/perseus_pcgs.g`) and, for the Sylow route and for series, compute Sylow subgroups, double cosets, quotients and maps. That export is timed in GAP (`Runtime()`, best of three) and added in: *ratio* is HAP's time over Perseus's total, *compute ratio* over Perseus's own time alone. The export is done once per group and serves every degree, prime and ring; for small jobs it is most of the total, and the ratios near or below 1 come from it. Both sides take the best of three runs, except HAP runs over 10 s, which run once. Each HAP process is limited to 300 s of wall clock; "timeout" means that limit stopped the timed computation itself (the limit includes start-up and, for `GroupHomology`, the untimed lower-degree calls of the cross-check; if it falls in the cross-check, the timed figure is kept and only the top degree is compared). A GAP failure would be reported as an error; none occurred. Every answer agrees, homology groups and generator degrees alike; the script fails otherwise. The reference for mod-p rings of p-groups, the Green–King package for SageMath, is not compared.
 
-| group | task | Perseus | HAP (best routine) | ratio |
-|---|---|---|---|---|
-| SmallGroup(16, 14) | H_n(G; Z), n <= 6 | 0.0012 s | 0.046 s (`ResolutionNilpotentGroup`) | 38× * |
-| SmallGroup(16, 9) | H_n(G; Z), n <= 8 | 0.011 s | 0.846 s (`GroupHomology`) | 77× |
-| SmallGroup(24, 12) | H_n(G; Z), n <= 6 | 0.007 s | 0.104 s (`GroupHomology`) | 15× |
-| SmallGroup(27, 3) | H_n(G; Z), n <= 6 | 0.0007 s | 0.056 s (`ResolutionNilpotentGroup`) | 80× * |
-| SmallGroup(32, 51) | H_n(G; Z), n <= 6 | 0.0021 s | 0.204 s (`ResolutionNilpotentGroup`) | 97× |
-| SmallGroup(32, 49) | H_n(G; Z), n <= 6 | 0.0039 s | 0.582 s (`ResolutionNilpotentGroup`) | 149× |
-| SmallGroup(64, 138) | H_n(G; Z), n <= 6 | 0.0225 s | 3.58 s (`GroupHomology`) | 159× |
-| SmallGroup(64, 138) | H_n(G; Z), n <= 8 | 0.118 s | 173 s (`GroupHomology`) | 1470× |
-| SmallGroup(128, 1000) | H_n(G; Z), n <= 6 | 0.013 s | 3.53 s (`ResolutionNilpotentGroup`) | 271× |
-| SmallGroup(128, 2000) | H_n(G; Z), n <= 6 | 0.0404 s | 47 s (`ResolutionNilpotentGroup`; `GroupHomology` †) | 1163× |
-| SmallGroup(243, 2) | H_n(G; Z), n <= 6 | 0.0042 s | 0.543 s (`ResolutionNilpotentGroup`) | 129× |
-| SmallGroup(32, 49) | mod-2 ring, degrees <= 4 | 0.0016 s (0.0014 s) | 0.108 s (`ModPCohomologyRing`) | 68× * |
-| SmallGroup(64, 138) | mod-2 ring, degrees <= 4 | 0.0019 s (0.0019 s) | 0.172 s (`ModPCohomologyRing`) | 91× * |
-| SmallGroup(128, 1000) | mod-2 ring, degrees <= 4 | 0.0028 s (0.0026 s) | 1.83 s (`ModPCohomologyRing`) | 653× |
-| SmallGroup(64, 138) | mod-2 ring, degrees <= 8 | 0.101 s (0.0789 s) | 15.7 s (`ModPCohomologyRing`) | 156× |
-| SmallGroup(128, 1000) | mod-2 ring, degrees <= 8 | 0.179 s (0.0905 s) | timeout at 300 s |  |
+Groups given by a pcgs (`perseus pcgroup`):
 
+| group | task | Perseus | export | total | HAP | ratio | compute ratio |
+|---|---|---|---|---|---|---|---|
+| SmallGroup(16, 14) | H_n(G; Z), n <= 6 | 0.6 ms | 1.0 ms | 1.6 ms | 27 ms (`ResolutionNilpotentGroup`) | 17× | 45× \* |
+| SmallGroup(16, 9) | H_n(G; Z), n <= 8 | 0.7 ms | 12 ms | 13 ms | 562 ms (`GroupHomology`) | 44× | 803× \* |
+| SmallGroup(24, 12) | H_n(G; Z), n <= 6 | 6.5 ms | 12 ms | 18 ms | 59 ms (`GroupHomology`) | 3.2× | 9.1× |
+| SmallGroup(27, 3) | H_n(G; Z), n <= 6 | 1.0 ms | 26 ms | 27 ms | 36 ms (`ResolutionNilpotentGroup`) | 1.3× | 36× \* |
+| SmallGroup(32, 51) | H_n(G; Z), n <= 6 | 2.1 ms | 3.0 ms | 5.1 ms | 110 ms (`ResolutionNilpotentGroup`) | 22× | 52× |
+| SmallGroup(32, 49) | H_n(G; Z), n <= 6 | 5.0 ms | 63 ms | 68 ms | 310 ms (`ResolutionNilpotentGroup`) | 4.6× | 62× |
+| SmallGroup(64, 138) | H_n(G; Z), n <= 6 | 15 ms | 145 ms | 160 ms | 2.06 s (`GroupHomology`) | 13× | 137× |
+| SmallGroup(64, 138) | H_n(G; Z), n <= 8 | 86 ms | 145 ms | 231 ms | 101 s (`GroupHomology`) | 436× | 1171× |
+| SmallGroup(128, 1000) | H_n(G; Z), n <= 6 | 5.0 ms | 139 ms | 144 ms | 2.12 s (`ResolutionNilpotentGroup`) | 15× | 423× |
+| SmallGroup(128, 2000) | H_n(G; Z), n <= 6 | 39 ms | 432 ms | 471 ms | 32.3 s (`ResolutionNilpotentGroup`) † | 69× | 824× |
+| SmallGroup(243, 2) | H_n(G; Z), n <= 6 | 7.4 ms | 232 ms | 239 ms | 355 ms (`ResolutionNilpotentGroup`) | 1.5× | 48× |
+| SmallGroup(32, 49) | mod-2 ring, degrees <= 4 | 2.0 ms (1.8 ms) | 63 ms | 65 ms | 72 ms (`ModPCohomologyRing`) | 1.1× | 36× |
+| SmallGroup(64, 138) | mod-2 ring, degrees <= 4 | 4.7 ms (4.7 ms) | 145 ms | 150 ms | 119 ms (`ModPCohomologyRing`) | 0.8× | 25× |
+| SmallGroup(128, 1000) | mod-2 ring, degrees <= 4 | 4.9 ms (4.8 ms) | 139 ms | 144 ms | 1.45 s (`ModPCohomologyRing`) | 10× | 295× |
+| SmallGroup(64, 138) | mod-2 ring, degrees <= 8 | 84 ms (62 ms) | 145 ms | 229 ms | 9.88 s (`ModPCohomologyRing`) | 43× | 118× |
+| SmallGroup(128, 1000) | mod-2 ring, degrees <= 8 | 54 ms (23 ms) | 139 ms | 193 ms | timeout at 300 s |  |  |
 
-Any finite group through its Sylow subgroups (`perseus sylow`). HAP starts from G; Perseus starts from the Sylow data, which `tools/export_sylow.g` computes in GAP (Sylow subgroups, double cosets, intersections), so the export is timed too (GAP's `Runtime()`, best of three) and the ratio is HAP's time over Perseus's total. The first three groups are solvable but not nilpotent, the rest are not solvable. Integral homology, against HAP's `GroupHomology(G, D)`, timed and cross-checked as above:
+\* Perseus times under 2 ms are close to the resolution of its clock, so these compute ratios are indicative only.
 
-| group | task | Perseus | export | total | HAP | ratio |
-|---|---|---|---|---|---|---|
-| GL(2,3) | H_n(G; Z), n <= 6 | 5.6 ms | 5.0 ms | 11 ms | 328 ms | 31× |
-| (S3 x S3) : C2 | H_n(G; Z), n <= 6 | 2.0 ms | 5.0 ms | 7.0 ms | 92 ms | 13× |
-| (C4 x C4) : S3 | H_n(G; Z), n <= 6 | 15 ms | 33 ms | 48 ms | 564 ms | 12× |
-| (C4 x C4) : S3 | H_n(G; Z), n <= 10 | 252 ms | 33 ms | 285 ms | timeout at 300 s |  |
-| A5 | H_n(G; Z), n <= 8 | 1.1 ms | 11 ms | 12 ms | 64 ms | 5× |
-| PSL(2,7) | H_n(G; Z), n <= 8 | 2.3 ms | 20 ms | 22 ms | 206 ms | 9× |
-| A6 | H_n(G; Z), n <= 8 | 3.1 ms | 22 ms | 25 ms | 238 ms | 9× |
-| A7 | H_n(G; Z), n <= 8 | 4.8 ms | 92 ms | 97 ms | 261 ms | 3× |
-| M11 | H_n(G; Z), n <= 8 | 27 ms | 126 ms | 153 ms | 4.53 s | 30× |
-| M12 | H_n(G; Z), n <= 6 | 145 ms | 838 ms | 983 ms | 61.3 s | 62× |
-| PSL(3,4) | H_n(G; Z), n <= 6 | 216 ms | 395 ms | 611 ms | 114 s | 186× |
+For the rings, the Perseus time is with `--all-products`, which gives the same output as HAP (every product of basis classes, and the generators); in brackets, the default, which multiplies only the generators by every class.
+
+† `GroupHomology(G, 6)` alone takes 556 s (HAP's `Runtime()`, one run without the limit; its answer agrees with Perseus), so the limit stops the timed call itself, not the cross-check; the HAP time shown is `ResolutionNilpotentGroup`'s.
+
+Any finite group through its Sylow subgroups (`perseus sylow`). The first three groups are solvable but not nilpotent, the rest are not solvable. Integral homology, against HAP's `GroupHomology(G, D)`, timed and cross-checked as above:
+
+| group | task | Perseus | export | total | HAP | ratio | compute ratio |
+|---|---|---|---|---|---|---|---|
+| GL(2,3) | H_n(G; Z), n <= 6 | 1.7 ms | 15 ms | 17 ms | 241 ms (`GroupHomology`) | 14× | 142× \* |
+| (S3 x S3) : C2 | H_n(G; Z), n <= 6 | 1.5 ms | 15 ms | 16 ms | 76 ms (`GroupHomology`) | 4.6× | 51× \* |
+| (C4 x C4) : S3 | H_n(G; Z), n <= 6 | 3.4 ms | 68 ms | 71 ms | 373 ms (`GroupHomology`) | 5.2× | 110× |
+| (C4 x C4) : S3 | H_n(G; Z), n <= 10 | 8.6 ms | 68 ms | 77 ms | timeout at 300 s |  |  |
+| A5 | H_n(G; Z), n <= 8 | 0.9 ms | 9.0 ms | 9.9 ms | 46 ms (`GroupHomology`) | 4.6× | 51× \* |
+| PSL(2,7) | H_n(G; Z), n <= 8 | 1.6 ms | 28 ms | 30 ms | 145 ms (`GroupHomology`) | 4.9× | 91× \* |
+| A6 | H_n(G; Z), n <= 8 | 2.1 ms | 28 ms | 30 ms | 189 ms (`GroupHomology`) | 6.3× | 90× |
+| A7 | H_n(G; Z), n <= 8 | 3.6 ms | 85 ms | 89 ms | 196 ms (`GroupHomology`) | 2.2× | 54× |
+| M11 | H_n(G; Z), n <= 8 | 7.4 ms | 125 ms | 132 ms | 3.4 s (`GroupHomology`) | 26× | 459× |
+| M12 | H_n(G; Z), n <= 6 | 137 ms | 738 ms | 875 ms | 47.2 s (`GroupHomology`) | 54× | 345× |
+| PSL(3,4) | H_n(G; Z), n <= 6 | 166 ms | 360 ms | 526 ms | 81.6 s (`GroupHomology`) | 155× | 493× |
 
 Mod-p rings of groups that are not p-groups, against HAP's `ModPCohomologyRing(G, p, D)` with `ModPRingGenerators` (Perseus with `--all-products`, the same output; generator degrees cross-checked):
 
-| group | task | Perseus | export | total | HAP | ratio |
-|---|---|---|---|---|---|---|
-| A5 | mod-2 ring, degrees <= 8 | 0.5 ms | 11 ms | 12 ms | 543 ms | 47× |
-| PSL(2,7) | mod-2 ring, degrees <= 8 | 1.3 ms | 20 ms | 21 ms | 1.03 s | 49× |
-| S4 | mod-3 ring, degrees <= 8 | 0.1 ms | 8.0 ms | 8.1 ms | 227 ms | 28× |
-| A6 | mod-3 ring, degrees <= 6 | 0.5 ms | 22 ms | 22 ms | 461 ms | 20× |
-| M11 | mod-2 ring, degrees <= 6 | 3.2 ms | 126 ms | 129 ms | 727 ms | 6× |
-| M11 | mod-2 ring, degrees <= 8 | 8.2 ms | 126 ms | 134 ms | 1.27 s | 9× |
-| M12 | mod-2 ring, degrees <= 6 | 49 ms | 838 ms | 887 ms | 196 s | 221× |
-
-
-Persistence along a quotient series (`perseus pcseries`, export by `tools/export_pcseries.g` timed and added as above) against HAP's `PersistentHomologyOfQuotientGroupSeries(S, n)`, every matrix cross-checked. HAP computes degree n only, Perseus every degree up to n. HAP 1.62 needs a one-line fix for this routine (`docs/TECHNIQUES.md` §5.9), loaded into the GAP session by the script.
-
-| group, series | quotients | n | Perseus | export | total | HAP | ratio |
+| group | task | Perseus | export | total | HAP | ratio | compute ratio |
 |---|---|---|---|---|---|---|---|
-| SmallGroup(64,138), lower central | 3 | 6 | 12 ms | 113 ms | 125 ms | 8.87 s | 70× |
-| SmallGroup(64,138), lower central | 3 | 8 | 59 ms | 113 ms | 172 ms | 73.3 s | 425× |
-| D128, lower central | 6 | 8 | 2.32 s | 31 ms | 2.35 s | 1.81 s | 0.8× |
-| SmallGroup(128,1000), lower 2-central | 2 | 6 | 11 ms | 36 ms | 47 ms | 43.4 s | 927× |
-| SmallGroup(243,2), lower central | 2 | 6 | 4.0 ms | 225 ms | 229 ms | 20.7 s | 90× |
-| SmallGroup(243,26), lower central | 4 | 6 | 17 ms | 141 ms | 158 ms | 11.6 s | 73× |
+| A5 | mod-2 ring, degrees <= 8 | 0.4 ms | 9.0 ms | 9.4 ms | 393 ms (`ModPCohomologyRing`) | 42× | 982× \* |
+| PSL(2,7) | mod-2 ring, degrees <= 8 | 0.7 ms | 28 ms | 29 ms | 839 ms (`ModPCohomologyRing`) | 29× | 1199× \* |
+| S4 | mod-3 ring, degrees <= 8 | 0.1 ms | 17 ms | 17 ms | 153 ms (`ModPCohomologyRing`) | 8.9× | 1530× \* |
+| A6 | mod-3 ring, degrees <= 6 | 0.4 ms | 28 ms | 28 ms | 343 ms (`ModPCohomologyRing`) | 12× | 858× \* |
+| M11 | mod-2 ring, degrees <= 6 | 1.0 ms | 125 ms | 126 ms | 600 ms (`ModPCohomologyRing`) | 4.8× | 600× \* |
+| M11 | mod-2 ring, degrees <= 8 | 1.5 ms | 125 ms | 126 ms | 869 ms (`ModPCohomologyRing`) | 6.9× | 579× \* |
+| M12 | mod-2 ring, degrees <= 6 | 65 ms | 738 ms | 803 ms | 162 s (`ModPCohomologyRing`) | 202× | 2497× |
 
-On D_128 HAP is faster: the exported pcgs has 7 steps of order 2, so the Anick resolution has C(n+6, 6) generators in degree n, while a minimal resolution of a dihedral group has n + 1. With the pcgs [s, r] of length 2 (relative orders 2 and 64, which Perseus accepts), D_128 itself takes 0.026 s through degree 8 instead of 9.4 s, with the same answers; the exporters do not choose such a pcgs yet.
+Persistence along a quotient series (`perseus pcseries`) against HAP's `PersistentHomologyOfQuotientGroupSeries(S, n)`, every matrix cross-checked. HAP computes degree n only, Perseus every degree up to n. HAP 1.62 needs a one-line fix for this routine (`docs/TECHNIQUES.md` §5.9), loaded into the GAP session by the script. On D_128 HAP used to be faster (0.8×), when the export wrote GAP's pcgs with 7 steps of order 2; with the short pcgs [s, r] the resolutions are tiny.
 
-\* Perseus times under 2 ms are close to the resolution of its clock, so these ratios are indicative only.
+| group, series | quotients | n | Perseus | export | total | HAP | ratio | compute ratio |
+|---|---|---|---|---|---|---|---|---|
+| SmallGroup(64,138), lower central | 3 | 6 | 19 ms | 180 ms | 199 ms | 7.59 s | 38× | 391× |
+| SmallGroup(64,138), lower central | 3 | 8 | 56 ms | 180 ms | 236 ms | 62.1 s | 263× | 1101× |
+| D128, lower central | 6 | 8 | 8.7 ms | 100 ms | 109 ms | 1.4 s | 13× | 161× |
+| SmallGroup(128,1000), lower 2-central | 2 | 6 | 4.8 ms | 136 ms | 141 ms | 34.9 s | 248× | 7265× |
+| SmallGroup(243,2), lower central | 2 | 6 | 6.3 ms | 252 ms | 258 ms | 12.2 s | 47× | 1942× |
+| SmallGroup(243,26), lower central | 4 | 6 | 22 ms | 198 ms | 220 ms | 8.84 s | 40× | 407× |
 
-For the rings, the Perseus time is with `--all-products`, which gives the same output as HAP (every product of basis classes, and the generators); in brackets, the default, which multiplies only the generators by every class. The rings were rerun on 20 Nov 2026 after the F_p splitting and generator-only lifting (`bench/vs_hap.py --rings`); the homology rows are from the earlier run, the code they time being unchanged.
+Perseus alone, further out (one run each, with the pcgs Perseus chose from the export):
 
-† `GroupHomology(G, 6)` alone takes 556 s (HAP's `Runtime()`, one run without the limit; its answer agrees with Perseus), so the limit stops the timed call itself, not the cross-check.
-
-Perseus alone, further out (one run each):
-
-| group | task | time | Anick chains in the top degree |
-|---|---|---|---|
-| SmallGroup(128, 1000) | H_n(G; Z), n ≤ 10 | 0.29 s | 12376 |
-| SmallGroup(128, 2000) | H_n(G; Z), n ≤ 10 | 4.5 s | 12376 |
-| SmallGroup(256, 500) | H_n(G; Z), n ≤ 8 | 0.19 s | 11440 |
-| S_4 | H_n(G; Z), n ≤ 12 | 1.7 s | 560 |
-| SmallGroup(128, 1000) | mod-2 ring, degrees ≤ 10 | 0.42 s (`--all-products`: 1.2 s) | 12376 |
-| SmallGroup(128, 1000) | mod-2 ring, degrees ≤ 14 | 5.0 s | 54264 |
-| SmallGroup(64, 138) | mod-2 ring, degrees ≤ 10 | 0.52 s (`--all-products`: 1.1 s) | 4368 |
-| SmallGroup(64, 138) | mod-2 ring, degrees ≤ 14 | 12.1 s | 15504 |
-| SmallGroup(27, 3) | mod-3 ring, degrees ≤ 12 | 0.02 s | 105 |
+| group | task | time | pcgs (relative orders) | Anick chains in the top degree |
+|---|---|---|---|---|
+| SmallGroup(128, 1000) | H_n(G; Z), n ≤ 10 | 0.029 s | 4, 4, 2, 2, 2 | 1365 |
+| SmallGroup(128, 2000) | H_n(G; Z), n ≤ 10 | 3.2 s | 2, 2, 2, 2, 2, 2, 2 (GAP's) | 12376 |
+| SmallGroup(256, 500) | H_n(G; Z), n ≤ 8 | 0.012 s | 2, 2, 2, 32 | 220 |
+| S_4 | H_n(G; Z), n ≤ 12 | 1.2 s | 2, 3, 2, 2 (GAP's) | 560 |
+| SmallGroup(128, 1000) | mod-2 ring, degrees ≤ 10 | 0.074 s (`--all-products`: 0.35 s) | 4, 4, 2, 2, 2 | 1365 |
+| SmallGroup(128, 1000) | mod-2 ring, degrees ≤ 14 | 0.90 s | 4, 4, 2, 2, 2 | 3876 |
+| SmallGroup(64, 138) | mod-2 ring, degrees ≤ 10 | 0.45 s (`--all-products`: 0.89 s) | 2, 2, 2, 2, 2, 2 (GAP's) | 4368 |
+| SmallGroup(64, 138) | mod-2 ring, degrees ≤ 14 | 10.6 s | 2, 2, 2, 2, 2, 2 (GAP's) | 15504 |
+| SmallGroup(27, 3) | mod-3 ring, degrees ≤ 12 | 0.011 s | 3, 3, 3 (GAP's) | 105 |
 
 The mod-2 dimensions of SmallGroup(128, 1000) through degree 10 are the coefficients of 1/((1 + t)(1 − t)^5), its Poincaré series in the Green–King database, and its minimal generators (four in degree 1, four in degree 2) are theirs.
 

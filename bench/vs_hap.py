@@ -35,7 +35,8 @@ p-groups against ModPCohomologyRing(G, p, D) and ModPRingGenerators, with perseu
 output) and generator degrees cross-checked.
 
 Needs: ./perseus (make), GAP with HAP on the PATH (run with GAP 4.12.1, HAP 1.62). Groups are SmallGroup(n, i),
-written for perseus by tools/export_pcgroup.g. Not compared: the Green-King package for SageMath, the reference
+written for perseus by tools/export_pcgroup.g, which chooses a short pcgs in GAP; that export is timed like the Sylow
+and series exports (export_s, best of three) and perseus_total_s = perseus_s + export_s. Not compared: the Green-King package for SageMath, the reference
 for mod-p cohomology rings of p-groups.
 """
 import collections, json, os, re, subprocess, sys, tempfile, time
@@ -112,15 +113,25 @@ def gap(body):
     return r
 
 
+EXPORT_S = {}
+
+
 def export(g):
+    """Write SmallGroup(g) with tools/export_pcgroup.g (a short pcgs, and GAP's as the alternative). The export is timed
+    like the Sylow and series exports (GAP's Runtime() around WritePerseusPcGroup, best of three), since choosing the
+    short pcgs is GAP-side work; EXPORT_S[g] holds the time."""
     f = os.path.join(TMP, "g%d_%d.txt" % g)
-    if not os.path.exists(f):
-        subprocess.run(["gap", "-q"], input='Read("%s");; WritePerseusPcGroup(SmallGroup(%d, %d), "%s");; QUIT;\n' % (EXPORT, g[0], g[1], f), text=True, capture_output=True)
-        if not os.path.exists(f): raise RuntimeError("export failed for SmallGroup%s" % (g,))
+    if g not in EXPORT_S:
+        best = None
+        for _ in range(3):
+            p = subprocess.run(["gap", "-q"], input='Read("%s");; G := SmallGroup(%d, %d);; t := Runtime();; WritePerseusPcGroup(G, "%s");; Print("MS ", Runtime() - t, "\\n");; QUIT;\n'
+                               % (EXPORT, g[0], g[1], f), text=True, capture_output=True)
+            m = re.search(r"MS (\d+)", p.stdout)
+            if not m or not os.path.exists(f): raise RuntimeError("export failed for SmallGroup%s: %s" % (g, p.stderr[-300:]))
+            t = int(m.group(1)) / 1000; best = t if best is None else min(best, t)
+        EXPORT_S[g] = best
     return f
 
-
-EXPORT_S = {}
 
 
 def export_sylow(expr):
@@ -288,7 +299,7 @@ def main():
         runs["ResolutionNilpotentGroup"] = r
         if r["status"] == "ok" and [prime_powers(x) for x in r["result"]] != ours: raise SystemExit("MISMATCH (ResolutionNilpotentGroup) on SmallGroup%s" % (g,))
         ok = {k: v["runtime_s"] for k, v in runs.items() if v["status"] == "ok"}
-        save({"group": "SmallGroup(%d, %d)" % g, "task": "H_n(G; Z), n <= %d" % D, "perseus_s": round(pt, 4),
+        save({"group": "SmallGroup(%d, %d)" % g, "task": "H_n(G; Z), n <= %d" % D, "perseus_s": round(pt, 4), "export_s": round(EXPORT_S[g], 4), "perseus_total_s": round(pt + EXPORT_S[g], 4),
               "hap": {k: {kk: vv for kk, vv in v.items() if kk != "result"} for k, v in runs.items()},
               "hap_best_s": min(ok.values()) if ok else None, "hap_best": min(ok, key=ok.get) if ok else None,
               "anick_chains_top": pj["chains"][-1]})
@@ -302,7 +313,7 @@ def main():
         if r["status"] == "ok":
             c = collections.Counter(d for d in r["result"] if d > 0)
             if [c.get(n, 0) for n in range(1, D + 1)] != ours[1:]: raise SystemExit("MISMATCH (ring generators) on SmallGroup%s" % (g,))
-        save({"group": "SmallGroup(%d, %d)" % g, "task": "mod-2 ring, degrees <= %d" % D, "perseus_s": round(pt, 4), "perseus_generators_only_s": round(ptg, 4),
+        save({"group": "SmallGroup(%d, %d)" % g, "task": "mod-2 ring, degrees <= %d" % D, "perseus_s": round(pt, 4), "perseus_generators_only_s": round(ptg, 4), "export_s": round(EXPORT_S[g], 4), "perseus_total_s": round(pt + EXPORT_S[g], 4),
               "hap": {"ModPCohomologyRing + ModPRingGenerators": {kk: vv for kk, vv in r.items() if kk != "result"}},
               "hap_best_s": r.get("runtime_s"), "hap_best": "ModPCohomologyRing + ModPRingGenerators" if r["status"] == "ok" else None,
               "generators_by_degree": ours[1:]})

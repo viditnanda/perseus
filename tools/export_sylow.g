@@ -52,10 +52,8 @@ WritePerseusSylow := function(arg)
         for g in reps do
             Q := Intersection(P, P^(g^-1));              # y in P with g^-1 y g in P
             qel := AsSortedList(Q);
-            qpc := PerseusPcgs(Q);
+            if Size(Q) = 1 then qpc := []; else qpc := AsList(Pcgs(Q)); fi;   # Perseus coarsens or refines it if that is cheaper
             AppendTo(out, Length(qel), " ", Length(qpc), "\n", ids(qel), "\n", ids(qpc), "\n", ids(List(qel, y -> y^g)), "\n");
-            alt := PerseusAlternativePcgs(Q, qpc);
-            if alt <> fail then AppendTo(out, "alternative ", Length(alt), "\n", ids(alt), "\n"); fi;
         od;
     od;
     CloseStream(out);
