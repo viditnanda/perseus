@@ -326,6 +326,14 @@ m = perseus.pc_series(**perseus.read_pcseries(os.path.join(PSF, "q_81_7_L.txt"))
 check("command line pcseries agrees with the module (ranks, bars, maps)", j["p"] == 3 and all(
       a["rank"] == b["rank"] and [list(x) for x in b["barcode"]] == a["barcode"] and a["maps"] == b["maps"] for a, b in zip(j["degrees"], m["degrees"])), j["degrees"][1])
 
+d = perseus.read_pcgroup(os.path.join(PCF, "alt_d128.txt"))
+r = perseus.pc_group(**d, maxdim=8, ring=2); rk = perseus.pc_group(**d, maxdim=8, ring=2, keep_pcgs=True)
+j = json.loads(subprocess.run([PERSEUS, "pcgroup", os.path.join(PCF, "alt_d128.txt"), "--maxdim", "8", "--ring", "2", "--print", "json"], capture_output=True, text=True, timeout=600).stdout)
+check("pc_group: GAP's pcgs read as an alternative; the cheaper pcgs is chosen and reported, the answers do not change",
+      len(d["alternatives"]) == 1 and r["pcgs_homology"]["relative_orders"] == [2, 64] and r["pcgs_ring"]["relative_orders"] == [2, 64]
+      and [h["torsion"] for h in r["homology"]] == [h["torsion"] for h in rk["homology"]] == [h["torsion"] for h in j["homology"]]
+      and r["cohomology"]["dims"] == rk["cohomology"]["dims"] and j["pcgs_homology"] == r["pcgs_homology"], (r["pcgs_homology"], j.get("pcgs_homology")))
+
 # ---- torsion trajectories and classification by Howell sweeps (torsion.hpp) ---------------------------------
 def smith_torsion(cols, nrows):
     """invariant factors > 1 of the integer matrix with these columns (lists of (row, coef)), by elimination"""

@@ -8,7 +8,8 @@
 //   6. the Sylow route (sylow.hpp): against HAP and the literature for non-solvable groups, against the direct
 //      engine for solvable ones, universal coefficients between its integral and mod-p results, invalid inputs;
 //   7. induced maps and persistence (pc_maps.hpp): against Ellis-King's example and HAP's persistence matrices,
-//      functoriality, naturality of cup products, invalid maps.
+//      functoriality, naturality of cup products, invalid maps;
+//   8. choosing the pcgs: refinement and coarsening, the choice, and the same answers whichever pcgs is used.
 #include "perseus/pc_group.hpp"
 #include "perseus/sylow.hpp"
 #include "perseus/pc_maps.hpp"
@@ -447,6 +448,38 @@ int main() {
           if (!hom) CHECK(rejects([&] { pc_series(D.groups, D.maps, 2, 2); }), "a map that is not a homomorphism is rejected"); }
         { PcSeriesData D = load("q_32_7_L"); D.maps[0].pop_back(); CHECK(rejects([&] { pc_series(D.groups, D.maps, 2, 2); }), "a map missing an image is rejected"); }
         { PcSeriesData D = load("q_32_7_L"); D.maps.pop_back(); CHECK(rejects([&] { pc_series(D.groups, D.maps, 2, 2); }), "m groups with the wrong number of maps are rejected"); }
+    }
+    // 8. choosing the pcgs
+    {
+        auto pg = [](const Grp& g) { return PcGroup(g.T, g.pcgs, g.rel, g.e); };
+        PcGroup D128 = pg(metacyclic(64, false, "D128")), Q64 = pg(metacyclic(32, true, "Q64")), C64 = pg(cyclic(64));
+        CHECK(pc_coarsen(D128).second == std::vector<int>({2, 64}), "D128: the prime pcgs coarsens to steps of orders 2, 64");
+        CHECK(pc_coarsen(Q64).second == std::vector<int>({2, 32}), "Q64: the prime pcgs coarsens to steps of orders 2, 32");
+        CHECK(pc_coarsen(C64).second == std::vector<int>({64}), "C64: the prime pcgs coarsens to one step of order 64");
+        { auto c = pc_coarsen(D128); PcGroup S = pc_with(D128, c.first, c.second); auto r = pc_refine_prime(S);
+          CHECK(r.second == std::vector<int>(7, 2) && pc_with(D128, r.first, r.second).k == 7, "D128: the prime refinement of the short pcgs is a pcgs with 7 steps of order 2"); }
+        { std::string n1, n2; PcGroup A = choose_pcgs(D128, 8, 256, &n1), B = choose_pcgs(D128, 8, 256, &n2);
+          CHECK(A.gen == B.gen && n1 == n2 && A.k == 2, "D128: the choice is the 2-step pcgs, and the same on every run (" + n1 + ")"); }
+        // the answers do not depend on the pcgs: chosen against given, on exporter files with an alternative
+        auto load_alt = [](const std::string& path, PcgsList& alts) {
+            std::ifstream in(path); std::string line, all;
+            while (std::getline(in, line)) { size_t h = line.find('#'); if (h != std::string::npos) line.resize(h); all += line + " "; }
+            std::istringstream is(all); int n, k; is >> n >> k; std::vector<int> pc(k), rel(k); for (auto& x : pc) is >> x; for (auto& x : rel) is >> x; int e; is >> e;
+            std::vector<std::vector<int>> T(n, std::vector<int>(n)); for (auto& r : T) for (auto& x : r) is >> x;
+            int ka; while (is >> ka) { std::vector<int> pa(ka), ra(ka); for (auto& x : pa) is >> x; for (auto& x : ra) is >> x; alts.push_back({pa, ra}); }
+            return PcGroup(T, pc, rel, e);
+        };
+        for (std::string g : {"alt_96_64", "alt_128_1000", "alt_64_138", "alt_81_7", "alt_d128"}) {
+            PcgsList alts; PcGroup G = load_alt("tests/fixtures/pcgroups/" + g + ".txt", alts);
+            int p = G.n % 2 == 0 ? 2 : 3, D = 6;
+            CHECK(alts.size() == 1, g + ": the exporter wrote GAP's pcgs as an alternative");
+            PcResult A = pc_group_compute(G, D, true, p, false, true, alts), K = pc_group_compute(G, D, true, p, false, false);
+            PcGroup Galt = pc_with(G, alts[0].first, alts[0].second); PcResult B = pc_group_compute(Galt, D, true, p, false, false);
+            CHECK(A.H.torsion == K.H.torsion && A.H.torsion == B.H.torsion && A.R.dims == K.R.dims && A.R.dims == B.R.dims && A.R.indecomposables == K.R.indecomposables && A.R.indecomposables == B.R.indecomposables,
+                  g + ": homology and ring agree on the chosen, the given and the alternative pcgs (chosen: " + A.used_homology.choice + ", " + A.used_ring.choice + ")");
+        }
+        { PcgsList bad{{{1, 2}, {2, 2}}}; std::string n; PcGroup A = choose_pcgs(D128, 4, 2, &n, bad);
+          CHECK(A.n == D128.n, "an alternative that is not a pcgs is skipped"); }
     }
     printf("t_pcgroup: %d checks, %d failures\n", checks, fails);
     return fails ? 1 : 0;

@@ -47,10 +47,17 @@ def read_pcgroup(path):
             tok += [int(t) for t in line.split()]
     n, k = tok[0], tok[1]
     pcgs = tok[2:2 + k]; rel = tok[2 + k:2 + 2 * k]; e = tok[2 + 2 * k]
-    flat = tok[3 + 2 * k:]
+    at = 3 + 2 * k
+    flat = tok[at:at + n * n]
     if len(flat) != n * n:
         raise ValueError("read_pcgroup: expected an %d x %d multiplication table" % (n, n))
-    return {"mult": [flat[i * n:(i + 1) * n] for i in range(n)], "pcgs": pcgs, "relative_orders": rel, "identity": e}
+    at += n * n; alts = []
+    while at < len(tok):          # optional alternative pcgs: k / elements / relative orders
+        ka = tok[at]; alts.append((tok[at + 1:at + 1 + ka], tok[at + 1 + ka:at + 1 + 2 * ka])); at += 1 + 2 * ka
+    out = {"mult": [flat[i * n:(i + 1) * n] for i in range(n)], "pcgs": pcgs, "relative_orders": rel, "identity": e}
+    if alts:
+        out["alternatives"] = alts
+    return out
 
 
 def read_sylow(path):
@@ -75,12 +82,21 @@ def read_sylow(path):
         word("prime"); p = int(nxt()); n, k = int(nxt()), int(nxt())
         pcgs = [int(nxt()) for _ in range(k)]; rel = [int(nxt()) for _ in range(k)]; e = int(nxt())
         mult = [[int(nxt()) for _ in range(n)] for _ in range(n)]
+        alts = []
+        while at < len(tok) and tok[at] == "alternative":
+            nxt(); ka = int(nxt()); alts.append(([int(nxt()) for _ in range(ka)], [int(nxt()) for _ in range(ka)]))
         word("cosets"); cosets = []
         for _ in range(int(nxt())):
             q, kq = int(nxt()), int(nxt())
             el = [int(nxt()) for _ in range(q)]; qp = [int(nxt()) for _ in range(kq)]; im = [int(nxt()) for _ in range(q)]
-            cosets.append({"elements": el, "pcgs": qp, "images": im})
-        primes.append({"p": p, "mult": mult, "pcgs": pcgs, "relative_orders": rel, "identity": e, "cosets": cosets})
+            c = {"elements": el, "pcgs": qp, "images": im}
+            while at < len(tok) and tok[at] == "alternative":
+                nxt(); ka = int(nxt()); c.setdefault("alternatives", []).append([int(nxt()) for _ in range(ka)])
+            cosets.append(c)
+        pr = {"p": p, "mult": mult, "pcgs": pcgs, "relative_orders": rel, "identity": e, "cosets": cosets}
+        if alts:
+            pr["alternatives"] = alts
+        primes.append(pr)
     return {"order": order, "primes": primes}
 
 
@@ -103,7 +119,10 @@ def read_pcseries(path):
     for _ in range(int(nxt())):
         n, k = int(nxt()), int(nxt())
         pcgs = [int(nxt()) for _ in range(k)]; rel = [int(nxt()) for _ in range(k)]; e = int(nxt())
-        groups.append({"mult": [[int(nxt()) for _ in range(n)] for _ in range(n)], "pcgs": pcgs, "relative_orders": rel, "identity": e})
+        g = {"mult": [[int(nxt()) for _ in range(n)] for _ in range(n)], "pcgs": pcgs, "relative_orders": rel, "identity": e}
+        while at < len(tok) and tok[at] == "alternative":
+            nxt(); ka = int(nxt()); g.setdefault("alternatives", []).append(([int(nxt()) for _ in range(ka)], [int(nxt()) for _ in range(ka)]))
+        groups.append(g)
     if nxt() != "maps":
         raise ValueError("read_pcseries: expected 'maps'")
     maps = [[int(nxt()) for _ in range(len(groups[i]["mult"]))] for i in range(len(groups) - 1)]
