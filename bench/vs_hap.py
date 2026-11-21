@@ -20,7 +20,12 @@ seconds of wall clock (default 300), start-up and cross-check included; a run is
 limit stops it during the timed computation, and as "error", with the tail of GAP's output, when GAP fails. If the
 limit falls in GroupHomology's untimed cross-check, the timed call's figure stands and only H_D is compared.
 
-    python3 bench/vs_hap.py [--quick] [--rings | --sylow] [--out bench/vs_hap.json]   (rerun only the ring / Sylow rows)
+    python3 bench/vs_hap.py [--quick] [--rings | --sylow | --series] [--out bench/vs_hap.json]   (rerun only those rows)
+
+Series rows: persistence of mod-p homology along a quotient series (perseus pcseries, export by
+tools/export_pcseries.g timed and added as for the Sylow rows) against HAP's PersistentHomologyOfQuotientGroupSeries
+(S, n), which gives degree n only; Perseus computes every degree <= n. HAP 1.62 needs a one-line fix for this routine
+(see hap_patch), applied in the GAP session only.
 
 Sylow rows: any finite group, perseus sylow against HAP, which starts from G itself. Perseus starts from the Sylow
 data that tools/export_sylow.g computes in GAP (Sylow subgroups, double cosets, intersections), so that export is
@@ -55,6 +60,13 @@ SYLOW = [("SmallGroup(48, 29)", "GL(2,3)", 6), ("SmallGroup(72, 40)", "(S3 x S3)
 SYLOW_RING = [("AlternatingGroup(5)", "A5", 2, 8), ("PSL(2, 7)", "PSL(2,7)", 2, 8), ("SymmetricGroup(4)", "S4", 3, 8),
               ("AlternatingGroup(6)", "A6", 3, 6), ("MathieuGroup(11)", "M11", 2, 6), ("MathieuGroup(11)", "M11", 2, 8),
               ("MathieuGroup(12)", "M12", 2, 6)]
+# persistence along a series (perseus pcseries): (GAP group, series, name, n)
+SERIES = [("SmallGroup(64, 138)", "LowerCentralSeries(G)", "SmallGroup(64,138), lower central", 6),
+          ("SmallGroup(64, 138)", "LowerCentralSeries(G)", "SmallGroup(64,138), lower central", 8),
+          ("DihedralGroup(128)", "LowerCentralSeries(G)", "D128, lower central", 8),
+          ("SmallGroup(128, 1000)", "PCentralSeries(G, 2)", "SmallGroup(128,1000), lower 2-central", 6),
+          ("SmallGroup(243, 2)", "LowerCentralSeries(G)", "SmallGroup(243,2), lower central", 6),
+          ("SmallGroup(243, 26)", "LowerCentralSeries(G)", "SmallGroup(243,26), lower central", 6)]
 QUICK_H = [((16, 14), 6), ((27, 3), 6), ((64, 138), 6)]
 QUICK_R = [((32, 49), 4)]
 
@@ -129,6 +141,35 @@ def export_sylow(expr):
     return f, EXPORT_S[expr]
 
 
+def hap_patch():
+    """HAP 1.62's HomologyVectorSpace has the branches of its first test swapped (line 15 of
+    lib/Homology/modularHomologyVectSpace.gi: C:=X for a chain map, Source(X) otherwise), which breaks
+    PersistentHomologyOfQuotientGroupSeries. Returns GAP code loading a corrected copy, or "" if not needed."""
+    src = "/usr/share/gap/pkg/HAP/lib/Homology/modularHomologyVectSpace.gi"
+    bad = "if IsHapChainMap(X) then C:=X; else C:=Source(X); fi;"
+    if not os.path.exists(src) or bad not in open(src).read(): return ""
+    fixed = os.path.join(TMP, "hvs_fixed.gi")
+    open(fixed, "w").write(open(src).read().replace(bad, "if IsHapChainMap(X) then C:=Source(X); else C:=X; fi;"))
+    return ('MakeReadWriteGlobal("HomologyVectorSpace");; UnbindGlobal("HomologyVectorSpace");; '
+            'DeclareGlobalFunction("HomologyVectorSpace");; Read("%s");; ' % fixed)
+
+
+def export_series(gexpr, sexpr):
+    key = gexpr + "|" + sexpr
+    f = os.path.join(TMP, "ps_%s.txt" % re.sub(r"[^A-Za-z0-9]", "_", key))
+    if key not in EXPORT_S:
+        best = None
+        for _ in range(3):
+            p = subprocess.run(["gap", "-q"], input='Read("%s");; G := %s;; S := %s;; t := Runtime();; WritePerseusQuotientSeries(G, S, "%s");; Print("MS ", Runtime() - t, "\\n");; QUIT;\n'
+                               % (os.path.join(ROOT, "tools", "export_pcseries.g"), gexpr, sexpr, f), text=True, capture_output=True)
+            m = re.search(r"MS (\d+)", p.stdout)
+            if not m or not os.path.exists(f): raise RuntimeError("series export failed for " + key + ": " + p.stderr[-500:])
+            t = int(m.group(1)) / 1000; best = t if best is None else min(best, t)
+            if best >= 10: break
+        EXPORT_S[key] = best
+    return f, EXPORT_S[key]
+
+
 def perseus_sylow(f, D, extra=()):
     best = None
     for _ in range(3):
@@ -167,14 +208,36 @@ def main():
     rows = []
     rings_only = "--rings" in sys.argv
     sylow_only = "--sylow" in sys.argv
+    series_only = "--series" in sys.argv
     if rings_only:   # rerun the ring rows only, keeping the other rows already in outpath
         rows = [r for r in json.load(open(outpath))["rows"] if not r["task"].startswith("mod-")]
     if sylow_only:   # rerun the Sylow rows only
         rows = [r for r in json.load(open(outpath))["rows"] if "Sylow" not in r["task"]]
+    if series_only:  # rerun the series rows only
+        rows = [r for r in json.load(open(outpath))["rows"] if "persistence" not in r["task"]]
     def save(row):
         rows.append(row); print(json.dumps(row), flush=True)
         json.dump({"limit_s": LIMIT, "rows": rows}, open(outpath, "w"), indent=1)
-    for expr, name, D in (SYLOW if sylow_only or not (quick or rings_only) else []):
+    patch = hap_patch()
+    for gexpr, sexpr, name, n in (SERIES if series_only or not (quick or rings_only or sylow_only) else []):
+        f, ex = export_series(gexpr, sexpr)
+        best = None
+        for _ in range(3):
+            p = subprocess.run([PERSEUS, "pcseries", f, "--maxdim", str(n), "--print", "json"], capture_output=True, text=True)
+            if p.returncode: raise RuntimeError(p.stderr)
+            pj = json.loads(p.stdout); best = pj["seconds"] if best is None else min(best, pj["seconds"])
+        ours = pj["degrees"][n]["rank"]
+        r = gap(patch + 'G := %s;; S := %s;; t := Runtime();; P := PersistentHomologyOfQuotientGroupSeries(S, %d);; Print("MS ", Runtime() - t, " RES ", P, " END\\n");' % (gexpr, sexpr, n))
+        if r["status"] == "ok":
+            P = r["result"]; m = len(ours)
+            if [[P[i][j] if j >= i else 0 for j in range(m)] for i in range(m)] != [[ours[i][j] if j >= i else 0 for j in range(m)] for i in range(m)]:
+                raise SystemExit("MISMATCH (persistence) on " + name)
+        save({"group": name, "task": "persistence of H_%d(-; F_p) along the series (Perseus: all degrees <= %d)" % (n, n), "perseus_s": round(best, 4),
+              "export_s": round(ex, 4), "perseus_total_s": round(best + ex, 4), "quotients": len(ours),
+              "hap": {"PersistentHomologyOfQuotientGroupSeries": {k: v for k, v in r.items() if k != "result"}},
+              "hap_best_s": r.get("runtime_s") if r["status"] == "ok" else None, "hap_best": "PersistentHomologyOfQuotientGroupSeries" if r["status"] == "ok" else None,
+              "rank": ours})
+    for expr, name, D in (SYLOW if sylow_only or not (quick or rings_only or series_only) else []):
         f, ex = export_sylow(expr); pj, pt = perseus_sylow(f, D)
         ours = [prime_powers(h["torsion"]) for h in pj["homology"][1:]]
         r = gap('G := %s;; t := Runtime();; top := GroupHomology(G, %d);; ms := Runtime() - t;; AppendTo("%s", "MS ", ms, " RES ", top, " END\\n");; H := Concatenation(List([1..%d], k -> GroupHomology(G, k)), [top]);; '
@@ -187,7 +250,7 @@ def main():
               "hap": {"GroupHomology": {k: v for k, v in r.items() if k != "result"}},
               "hap_best_s": r.get("runtime_s") if r["status"] == "ok" else None, "hap_best": "GroupHomology" if r["status"] == "ok" else None,
               "answer": [",".join(map(str, x)) for x in ours]})
-    for expr, name, p, D in (SYLOW_RING if sylow_only or not (quick or rings_only) else []):
+    for expr, name, p, D in (SYLOW_RING if sylow_only or not (quick or rings_only or series_only) else []):
         f, ex = export_sylow(expr)
         pj, pt = perseus_sylow(f, D, ["--ring", str(p), "--no-homology", "--all-products"])
         pg, ptg = perseus_sylow(f, D, ["--ring", str(p), "--no-homology"])
@@ -203,7 +266,7 @@ def main():
               "hap": {"ModPCohomologyRing": {k: v for k, v in r.items() if k != "result"}},
               "hap_best_s": r.get("runtime_s") if r["status"] == "ok" else None, "hap_best": "ModPCohomologyRing" if r["status"] == "ok" else None,
               "generators_by_degree": ours})
-    for g, D in ([] if rings_only or sylow_only else QUICK_H if quick else HOMOLOGY):
+    for g, D in ([] if rings_only or sylow_only or series_only else QUICK_H if quick else HOMOLOGY):
         f = export(g); pj, pt = perseus(f, D)
         ours = [prime_powers(h["torsion"]) for h in pj["homology"][1:]]
         G = "G := SmallGroup(%d, %d);;" % g
@@ -229,7 +292,7 @@ def main():
               "hap": {k: {kk: vv for kk, vv in v.items() if kk != "result"} for k, v in runs.items()},
               "hap_best_s": min(ok.values()) if ok else None, "hap_best": min(ok, key=ok.get) if ok else None,
               "anick_chains_top": pj["chains"][-1]})
-    for g, D in ([] if sylow_only else QUICK_R if quick else RING):
+    for g, D in ([] if sylow_only or series_only else QUICK_R if quick else RING):
         f = export(g); pj, pt = perseus(f, D, ring=2, extra=["--all-products"])
         pg, ptg = perseus(f, D, ring=2)
         if pg["cohomology"]["generators_by_degree"] != pj["cohomology"]["generators_by_degree"]: raise SystemExit("MISMATCH (product modes) on SmallGroup%s" % (g,))

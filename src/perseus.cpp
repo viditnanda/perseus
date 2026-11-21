@@ -13,6 +13,7 @@
 #include "perseus/magnitude.hpp"
 #include "perseus/pc_group.hpp"
 #include "perseus/sylow.hpp"
+#include "perseus/pc_maps.hpp"
 #include "perseus/laurent.hpp"
 #include <cstdio>
 #include <cstring>
@@ -36,6 +37,9 @@ static const char* USAGE =
 "          laurent                                               chain complex over Z[t, t^-1] (Novikov / twisted)\n"
 "          pcgroup                                               finite solvable group: H_*(G; Z) and the mod-p\n"
 "                                                                cohomology ring (tools/export_pcgroup.g writes these)\n"
+"          pcseries                                              a chain of homomorphisms of finite solvable groups: the\n"
+"                                                                maps on H_*(-; F_p) and their persistence (Ellis-King;\n"
+"                                                                tools/export_pcseries.g writes normal and subgroup series)\n"
 "          sylow                                                 any finite group, through its Sylow subgroups: H_*(G; Z)\n"
 "                                                                and mod-p cohomology rings (tools/export_sylow.g)\n"
 "          (old Perseus 4/5 files: convert them with tools/convert_legacy.py)\n"
@@ -473,6 +477,56 @@ int main(int argc, char** argv) {
                 for (auto& kv : L.homology_bad_primes) printf("  p = %llu:\n%s", (unsigned long long)kv.first, hom(kv.second, "L_p").c_str());
                 if (!L.complete) { printf("INCOMPLETE: unfactored integers"); for (auto& u : L.unresolved) printf(" %s", u.c_str()); printf("\n"); }
             }
+            return 0;
+        }
+        else if (f == "pcseries") {
+            std::string text((std::istreambuf_iterator<char>(is)), std::istreambuf_iterator<char>());
+            pcg::PcSeriesData Dt = pcg::parse_pcseries(text);
+            int md = o.maxdim >= 0 ? o.maxdim : 4;
+            int p = 0;
+            if (!o.coeff.empty() && o.coeff != "Q" && o.coeff != "q") p = (int)std::stoul(o.coeff);
+            else {                                         // the prime of the groups, when they are p-groups of one prime
+                std::set<int> ps; for (auto& G : Dt.groups) { int n = G.n; for (int q = 2; q <= n; ++q) if (n % q == 0) { ps.insert(q); while (n % q == 0) n /= q; } }
+                if (ps.size() != 1) { fprintf(stderr, "pcseries: the groups are not p-groups of a single prime; give the field with --coeff p\n"); return 2; }
+                p = *ps.begin();
+            }
+            pcg::PcSeriesResult R = pcg::pc_series(Dt.groups, Dt.maps, md, p);
+            size_t m = Dt.groups.size();
+            if (o.print == "json") {
+                printf("{\n  \"p\": %d, \"groups\": [", p);
+                for (size_t g = 0; g < m; ++g) printf("%s%d", g ? ", " : "", Dt.groups[g].n);
+                printf("], \"maxdim\": %d, \"seconds\": %.4f,\n  \"dims\": [", md, R.seconds);
+                for (size_t g = 0; g < m; ++g) { printf("%s[", g ? ", " : ""); for (int n = 0; n <= md; ++n) printf("%s%zu", n ? ", " : "", R.dims[g][n]); printf("]"); }
+                printf("],\n  \"degrees\": [");
+                for (int n = 0; n <= md; ++n) {
+                    printf("%s\n    {\"degree\": %d, \"rank\": [", n ? "," : "", n);
+                    for (size_t i = 0; i < m; ++i) { printf("%s[", i ? ", " : ""); for (size_t j = 0; j < m; ++j) printf("%s%zu", j ? ", " : "", R.rank[n][i][j]); printf("]"); }
+                    printf("], \"barcode\": [");
+                    for (size_t b = 0; b < R.barcode[n].size(); ++b) printf("%s[%d, %d, %zu]", b ? ", " : "", R.barcode[n][b].birth, R.barcode[n][b].death, R.barcode[n][b].mult);
+                    printf("], \"maps\": [");
+                    for (size_t i = 0; i + 1 < m; ++i) {
+                        printf("%s[", i ? ", " : "");
+                        const auto& M = R.maps[i][n];
+                        for (size_t t = 0; t < M.size(); ++t) { printf("%s[", t ? ", " : ""); for (size_t s2 = 0; s2 < M[t].size(); ++s2) printf("%s%u", s2 ? ", " : "", M[t][s2]); printf("]"); }
+                        printf("]");
+                    }
+                    printf("]}");
+                }
+                printf("\n  ]\n}\n");
+                return 0;
+            }
+            printf("chain of %zu groups (orders", m);
+            for (auto& G : Dt.groups) printf(" %d", G.n);
+            printf("), homology with F_%d coefficients through degree %d; %.3f s\n", p, md, R.seconds);
+            for (int n = 0; n <= md; ++n) {
+                printf("degree %d: dims", n); for (size_t g = 0; g < m; ++g) printf(" %zu", R.dims[g][n]);
+                printf("\n  persistence matrix (rank of H_%d(G_i) -> H_%d(G_j), i <= j):\n", n, n);
+                for (size_t i = 0; i < m; ++i) { printf("   "); for (size_t j = 0; j < m; ++j) { if (j < i) printf("   ."); else printf(" %3zu", R.rank[n][i][j]); } printf("\n"); }
+                printf("  barcode (groups numbered from 1; [i, j] x k: k classes born in G_i, alive through G_j):");
+                for (auto& b : R.barcode[n]) printf(" [%d, %d]x%zu", b.birth + 1, b.death + 1, b.mult);
+                printf("\n");
+            }
+            printf("  (the matrices of the maps: --print json)\n");
             return 0;
         }
         else if (f == "sylow") {

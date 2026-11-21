@@ -1,0 +1,61 @@
+# Ground truth for tests/t_pcgroup.cpp, section 7: persistence matrices (rank of H_n(G_i; F_p) -> H_n(G_j; F_p),
+# i <= j) from HAP 1.62, PersistentHomologyOfQuotientGroupSeries(S, n) / PersistentHomologyOfSubGroupSeries(S, n),
+# with HomologyVectorSpace patched (line 15 of lib/Homology/modularHomologyVectSpace.gi has its two branches
+# swapped in 1.62). q_<order>_<id>_<series>: quotients of SmallGroup(order, id) by the lower central (L), lower
+# p-central (Lp), derived (D) or upper central (Z) series; s_...: the subgroups of the lower central series.
+# Format: name p n matrix-rows-separated-by-;
+d64_L 2 2 3,2,2,2,2;0,3,2,2,2;0,0,3,2,2;0,0,0,3,2;0,0,0,0,3
+q_16_11_Z 2 1 3,2;0,2
+q_16_11_Z 2 2 6,2;0,3
+q_16_11_Z 2 3 10,2;0,4
+q_16_3_D 2 1 2,2;0,2
+q_16_3_D 2 2 4,2;0,3
+q_16_3_D 2 3 6,3;0,4
+q_16_3_L 2 1 2,2;0,2
+q_16_3_L 2 2 4,2;0,3
+q_16_3_L 2 3 6,3;0,4
+q_16_3_Lp 2 1 2,2;0,2
+q_16_3_Lp 2 2 4,1;0,3
+q_16_3_Lp 2 3 6,1;0,4
+q_27_3_D 3 1 2,2;0,2
+q_27_3_D 3 2 4,2;0,3
+q_27_3_D 3 3 6,3;0,4
+q_27_3_L 3 1 2,2;0,2
+q_27_3_L 3 2 4,2;0,3
+q_27_3_L 3 3 6,3;0,4
+q_27_3_Lp 3 1 2,2;0,2
+q_27_3_Lp 3 2 4,2;0,3
+q_27_3_Lp 3 3 6,3;0,4
+q_27_3_Z 3 1 2,2;0,2
+q_27_3_Z 3 2 4,2;0,3
+q_27_3_Z 3 3 6,3;0,4
+q_32_43_Z 2 1 3,3,2;0,3,2;0,0,2
+q_32_43_Z 2 2 5,5,2;0,6,2;0,0,3
+q_32_43_Z 2 3 7,6,2;0,10,2;0,0,4
+q_32_5_D 2 1 2,2;0,2
+q_32_5_D 2 2 4,2;0,3
+q_32_5_D 2 3 6,3;0,4
+q_32_7_L 2 1 2,2,2;0,2,2;0,0,2
+q_32_7_L 2 2 3,3,2;0,4,2;0,0,3
+q_32_7_L 2 3 5,3,2;0,6,3;0,0,4
+q_32_7_Lp 2 1 2,2,2;0,2,2;0,0,2
+q_32_7_Lp 2 2 3,3,1;0,4,1;0,0,3
+q_32_7_Lp 2 3 5,3,1;0,6,1;0,0,4
+q_81_3_D 3 1 2,2;0,2
+q_81_3_D 3 2 4,2;0,3
+q_81_3_D 3 3 6,3;0,4
+q_81_7_L 3 1 2,2,2;0,2,2;0,0,2
+q_81_7_L 3 2 3,3,2;0,4,2;0,0,3
+q_81_7_L 3 3 5,3,2;0,6,3;0,0,4
+q_81_7_Lp 3 1 2,2,2;0,2,2;0,0,2
+q_81_7_Lp 3 2 3,3,2;0,4,2;0,0,3
+q_81_7_Lp 3 3 5,3,2;0,6,3;0,0,4
+q_81_7_Z 3 1 2,2,2;0,2,2;0,0,2
+q_81_7_Z 3 2 3,3,2;0,4,2;0,0,3
+q_81_7_Z 3 3 5,3,2;0,6,3;0,0,4
+s_32_6_L 2 1 1,1,0;0,2,0;0,0,2
+s_32_6_L 2 2 1,1,0;0,3,1;0,0,4
+s_32_6_L 2 3 1,1,0;0,4,1;0,0,6
+s_81_9_L 3 1 1,1,0;0,2,0;0,0,2
+s_81_9_L 3 2 1,1,0;0,3,1;0,0,4
+s_81_9_L 3 3 1,1,0;0,4,1;0,0,6
