@@ -302,17 +302,15 @@ static py::dict solve_rips(RipsInput& R, int maxdim, const std::string& engine, 
         ExplicitBackend be(P, maxdim, auto_direction(P, maxdim));
         return solve(be, o);
     }
-    if (!E.empty() && o.fp.empty() && o.coeff != "Q" && o.coeff != "q" && o.coeff != "0" && maxdim >= 0) {
-        uint64_t prime = std::stoull(o.coeff);
-        if (!is_prime64(prime)) throw std::invalid_argument("coeff must be 'Q' or a prime");
+    if (auto prime = component_prime(E, o.coeff, maxdim, o.fp, false, o.torsion)) {
         std::optional<Barcode> bars;
         {
             py::gil_scoped_release nogil;
-            bars = component_field(R.n, E, R.threshold, maxdim, prime, collapse == "full" ? "off" : collapse, o.threads);
+            bars = component_field(R, E, maxdim, *prime, collapse == "full" ? "off" : collapse, o.threads);
         }
         if (bars) {
             py::dict result;
-            result["coefficients"] = py::int_(prime);
+            result["coefficients"] = py::int_(*prime);
             result["barcode"] = bars_to_py(*bars);
             return result;
         }

@@ -753,15 +753,18 @@ int main(int argc, char** argv) {
                 lap("prepare");
                 return solve(be, o);
             }
-            if (!E.empty() && !qmode_of(o) && o.fp.empty() && !o.zero && !o.torsion) {
-                uint64_t prime = std::stoull(o.coeff);
-                if (is_prime64(prime)) {
-                    auto bars = component_field(R.n, E, R.threshold, md, prime, o.collapse, o.threads, o.stats);
-                    if (bars) {
-                        lap("component field barcodes");
-                        output_barcode(o, *bars, Certificate(), false, "");
-                        return 0;
+            if (auto prime = component_prime(E, o.coeff, md, o.fp, o.zero, o.torsion)) {
+                auto start = std::chrono::steady_clock::now();
+                auto bars = component_field(R, E, md, *prime, o.collapse, o.threads, o.stats);
+                if (bars) {
+                    auto computed = std::chrono::steady_clock::now();
+                    output_barcode(o, *bars, Certificate(), false, "");
+                    if (o.stats) {
+                        double solve = std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
+                        double field = std::chrono::duration<double>(computed - start).count();
+                        fprintf(stderr, "  [solve %.3f s: field run %.3f s including component setup]\n", solve, field);
                     }
+                    return 0;
                 }
             }
             std::vector<WEdge>().swap(E);

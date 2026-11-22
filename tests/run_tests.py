@@ -467,7 +467,11 @@ def section_G(trials=60):
     expected = Counter({(0, "0", "1"): 6, (0, "0", "inf"): 1282, (1, "1", "inf"): 2})
     for threads, prime in ((1, 2), (2, 3)):
         args = ["points", path, "--maxdim", "2", "--threshold", "1", "--threads", str(threads)]
-        check(f"G disconnected Rips, {threads} workers F_{prime}", perseus_field(args, prime) == expected)
+        out, stats = run([PERSEUS] + args + ["--coeff", str(prime), "--print", "ripser", "--stats"])
+        check(f"G disconnected Rips, {threads} workers F_{prime}", parse_ripser(out) == expected)
+        check(f"G component split used with {threads} workers",
+              f"2 nontrivial components, 1280 isolated vertices, {threads} workers" in stats, stats)
+        check("G component field timing", "[solve " in stats and "field run " in stats, stats)
 
 if __name__ == "__main__":
     which = sys.argv[1:] or ["A", "B", "C", "D", "E", "F", "G"]
