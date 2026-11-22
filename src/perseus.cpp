@@ -78,7 +78,8 @@ static const char* USAGE =
 "                   with its invariant factors and p-primary exponents (Howell sweeps over Z/p^k)\n"
 "  --classify-by m  explicit complexes: auto (sweeps when a sample of reruns predicts they are cheaper)\n                   | sweep (always batched Howell sweeps over Z/m) | rerun (one\n"
 "                   rerun per candidate prime); big candidates (>= 2^63) are always rerun\n"
-"  --no-reduce      cells/sset: skip the algebraic Morse reduction (unit pairs with equal births)\n"
+"  --no-reduce      skip the algebraic Morse reduction (unit pairs with equal births); it runs for\n"
+"                   cells/sset, and for other explicit complexes with --integral, --image or --torsion\n"
 "  --lmax l         magnitude: lengths 0..l (default 4)\n"
 "  --directed       magnitude: the edges are directed\n"
 "  --pairs s,t,...  magnitude: only these (start, end) pairs\n"
@@ -786,7 +787,9 @@ int main(int argc, char** argv) {
         std::string err = chain_input ? validate_chain_complex(in.complex) : in.complex.validate(false);
         if (!err.empty()) { fprintf(stderr, "invalid complex: %s\n", err.c_str()); return 3; }
         lap("validate");
-        if (chain_input && o.reduce) {
+        // Integral output needs the residual complex small enough for dense Smith forms, so the
+        // reduction also runs for any explicit complex when integral, image or torsion output is asked for.
+        if (o.reduce && (chain_input || o.integral || o.image || o.torsion)) {
             // algebraic Morse reduction (unit pairs with equal births): a filtered chain homotopy equivalence over Z
             ReducedComplex R = algebraic_morse(in.complex);
             if (o.stats) fprintf(stderr, "  [algebraic Morse reduction: %zu -> %zu cells (%zu pairs)]\n", in.complex.size(), R.C.size(), R.pairs);

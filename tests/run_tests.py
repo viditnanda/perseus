@@ -141,7 +141,7 @@ def section_C(trials=80):
         kind = rnd.choice(["lm", "simp", "chain"])
         if kind == "lm":     # Linial-Meshulam style: all edges at 0, random triangles in random order
             n = rnd.randint(5, 9)
-            from itertools import combinations
+            from itertools import product, combinations
             tris = list(combinations(range(n), 3)); rnd.shuffle(tris); tris = tris[:rnd.randint(1, len(tris))]
             order = {tr: i + 1 for i, tr in enumerate(tris)}
             facets = [e for e in combinations(range(n), 2)] + tris
@@ -280,7 +280,7 @@ def section_D(trials=25):
 # ---------------------------------------------------------------- E. new formats vs independent constructions
 def section_E(trials=40):
     rnd = random.Random(5)
-    from itertools import combinations
+    from itertools import combinations, product
     for t in range(trials):
         # flag with vertex births vs explicitly enumerated cliques
         n = rnd.randint(5, 14); vb = [rnd.choice([0, 0, 1, 2, 3]) for _ in range(n)]
@@ -326,6 +326,32 @@ def section_E(trials=40):
         if np.isnan(A).all(): continue
         a = perseus_field(["cubical", cpath], 3); b = perseus_field(["cubes", spath2], 3)
         check(f"E{t} cubical == cubes", a == b, f"{dict(a-b)} {dict(b-a)}")
+        # cubes --integral --image (algebraic Morse reduction, packed builder) vs the same complex
+        # written out cell by cell by an independent builder and read as cells
+        births = {}
+        for idx in np.ndindex(*shape):
+            if np.isnan(A[idx]): continue
+            for off in product(range(3), repeat=d):
+                c = tuple(2 * i + o for i, o in zip(idx, off))
+                births[c] = min(births.get(c, 99), int(A[idx]))
+        order = sorted(births, key=lambda c: (sum(x & 1 for x in c), c))
+        ids = {c: k for k, c in enumerate(order)}
+        cellpath = f"{TMP}/cc{t}.txt"
+        with open(cellpath, "w") as fh:
+            for c in order:
+                row, j = [], 0
+                for ax in range(d):
+                    if c[ax] & 1:
+                        s = -1 if j & 1 else 1
+                        for dr in (1, -1):
+                            f = list(c); f[ax] += dr; row += [ids[tuple(f)], s * dr]
+                        j += 1
+                fh.write(" ".join(map(str, [sum(x & 1 for x in c), births[c]] + row)) + "\n")
+        lo_t, hi_t = sorted(rnd.sample(range(1, 10), 2))
+        _, ja = perseus_json(["cubes", spath2, "--integral", "--image", f"{lo_t},{hi_t}"])
+        _, jb = perseus_json(["cells", cellpath, "--integral", "--image", f"{lo_t},{hi_t}"])
+        check(f"E{t} cubes integral image == cells", ja.get("integral_image") == jb.get("integral_image") and "integral_image" in ja,
+              f"{ja.get('integral_image')} {jb.get('integral_image')} {ja.get('integral_error')}")
 
 
 # ---------------------------------------------------------------- F. certificate regressions
