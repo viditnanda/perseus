@@ -65,10 +65,11 @@ static py::dict solve(const B& be, const SolveOpts& o) {
         const Prepared* prep = prepared_of(be);
         torsion::Cache tcache;
         if (o.classify_by != "auto" && o.classify_by != "sweep" && o.classify_by != "rerun") throw std::invalid_argument("classify_by must be 'auto', 'sweep' or 'rerun'");
-        if (prep && o.classify_by != "rerun")
-            { co.sweep_policy = o.classify_by == "sweep" ? "sweep" : "auto"; }
+        if (prep && o.classify_by != "rerun") {
+            co.sweep_policy = o.classify_by == "sweep" ? "sweep" : "auto";
             co.sweep = [&](const Certificate& c, const Barcode& qb, int kmax, double budget, const std::set<uint64_t>& skip, std::vector<BadPrime>& bad, std::string& diag) {
                 return torsion::classify(*prep, c, qb, kmax, threads, be.keep_zero_length, bad, tcache, &diag, budget, skip); };
+        }
         std::pair<BRun<typename B::Clear>, Certificate> r;
         { py::gil_scoped_release nogil; r = certify(be, co); }
         const Certificate& c = r.second;
@@ -302,17 +303,16 @@ static py::dict solve_rips(RipsInput& R, int maxdim, const std::string& engine, 
         ExplicitBackend be(P, maxdim, auto_direction(P, maxdim));
         return solve(be, o);
     }
-    if (auto prime = component_prime(E, o.coeff, maxdim, o.fp, false, o.torsion)) {
-        std::optional<Barcode> bars;
+    if (use_rips_components(E, o.coeff, o.mode, maxdim, o.fp, false, o.torsion)) {
+        std::optional<RipsComponents> parts;
         {
             py::gil_scoped_release nogil;
-            bars = component_field(R, E, maxdim, *prime, collapse == "full" ? "off" : collapse, o.threads);
+            parts = split_rips(R, E, maxdim, o.threads, collapse == "full" ? "off" : collapse);
         }
-        if (bars) {
-            py::dict result;
-            result["coefficients"] = py::int_(*prime);
-            result["barcode"] = bars_to_py(*bars);
-            return result;
+        if (parts) {
+            auto options = o;
+            options.threads = 1;  // the worker budget is already assigned to components
+            return solve(*parts, options);
         }
     }
     R.densify();
