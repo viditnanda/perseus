@@ -5,7 +5,7 @@
 #include "perseus/io.hpp"
 #include "perseus/explicit_engine.hpp"
 #include "perseus/rips_engine.hpp"
-#include "perseus/rips_sparse.hpp"
+#include "perseus/rips_components.hpp"
 #include "perseus/cubical_engine.hpp"
 #include "perseus/certify.hpp"
 #include "perseus/collapse.hpp"
@@ -302,11 +302,23 @@ static py::dict solve_rips(RipsInput& R, int maxdim, const std::string& engine, 
         ExplicitBackend be(P, maxdim, auto_direction(P, maxdim));
         return solve(be, o);
     }
-    R.densify();
-    if (collapse == "on" || (collapse == "auto" && maxdim >= 2 && R.n >= 32)) {
-        CollapseStats cs; RipsInput Cc = edge_collapse(R, 32, cs, 0.02, collapse == "auto" ? 0.10 : 0.0);
-        if (cs.used) R.lower.swap(Cc.lower);
+    if (!E.empty() && o.fp.empty() && o.coeff != "Q" && o.coeff != "q" && o.coeff != "0" && maxdim >= 0) {
+        uint64_t prime = std::stoull(o.coeff);
+        if (!is_prime64(prime)) throw std::invalid_argument("coeff must be 'Q' or a prime");
+        std::optional<Barcode> bars;
+        {
+            py::gil_scoped_release nogil;
+            bars = component_field(R.n, E, R.threshold, maxdim, prime, collapse == "full" ? "off" : collapse, o.threads);
+        }
+        if (bars) {
+            py::dict result;
+            result["coefficients"] = py::int_(prime);
+            result["barcode"] = bars_to_py(*bars);
+            return result;
+        }
     }
+    R.densify();
+    collapse_implicit_input(R, maxdim, collapse == "full" ? "off" : collapse);
     RipsBackend be(R, maxdim);
     return solve(be, o);
 }
