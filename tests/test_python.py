@@ -417,6 +417,15 @@ check("torsion: 98-bit prime with its exponent", _rb[-1]["primary"].get(29471963
 _rg = perseus.cells(read_cells(os.path.join(FIX, "crt_group.cells")), torsion=True)["torsion"]
 check("torsion: unfactored composite reported as a group", _rg["groups"] == [36028797018976327 * 1152921504606848017] and _rg["complete"], _rg)
 
+# A global degree-7 computation exceeds the implicit engine's 64-bit indexing limit.
+# Each component fits, so success exercises the Python split dispatch as well as its result.
+points = np.repeat(np.arange(32, dtype=float)[:, None] * 10, 68, axis=0)
+points = np.vstack([points, [[400.0]]])
+for threads, prime in ((1, 2), (2, 3)):
+    r = perseus.rips(points=points, threshold=1, maxdim=7, coeff=prime, threads=threads)
+    check(f"Python component split with {threads} workers", r["coefficients"] == prime and
+          len(r["barcode"]) == 8 and py_bars(r) == Counter({(0, "0", "inf"): 33}))
+
 print(f"\n{results['pass']} passed, {results['fail']} failed")
 for f in failures[:30]: print("  ", f)
 sys.exit(1 if results["fail"] else 0)

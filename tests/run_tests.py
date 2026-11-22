@@ -454,6 +454,25 @@ def section_G(trials=60):
         b = perseus_field(["points", path, "--threshold", "3", "--engine", "implicit"], 2)
         check(f"G sparse grid, large coordinates {big:g}", a == b, f"{dict(a-b)} {dict(b-a)}")
 
+    # Two interleaved four-cycles with repeated vertices, plus isolated points.
+    # Dense components trigger the automatic implicit route at the 2048-vertex probe.
+    path = f"{TMP}/components.txt"
+    with open(path, "w") as fh:
+        for _ in range(96):
+            for x, y in ((0, 0), (1, 0), (1, 1), (0, 1)):
+                for offset in (0, 10):
+                    print(x + offset, y, file=fh)
+        for i in range(1280):
+            print(20 + 2 * i, 0, file=fh)
+    expected = Counter({(0, "0", "1"): 6, (0, "0", "inf"): 1282, (1, "1", "inf"): 2})
+    for threads, prime in ((1, 2), (2, 3)):
+        args = ["points", path, "--maxdim", "2", "--threshold", "1", "--threads", str(threads)]
+        out, stats = run([PERSEUS] + args + ["--coeff", str(prime), "--print", "ripser", "--stats"])
+        check(f"G disconnected Rips, {threads} workers F_{prime}", parse_ripser(out) == expected)
+        check(f"G component split used with {threads} workers",
+              f"2 nontrivial components, 1280 isolated vertices, {threads} workers" in stats, stats)
+        check("G component field timing", "[solve " in stats and "field run " in stats, stats)
+
 if __name__ == "__main__":
     which = sys.argv[1:] or ["A", "B", "C", "D", "E", "F", "G"]
     for s in which:

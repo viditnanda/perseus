@@ -5,7 +5,7 @@
 #include "perseus/rips_engine.hpp"
 #include "perseus/certify.hpp"
 #include "perseus/collapse.hpp"
-#include "perseus/rips_sparse.hpp"
+#include "perseus/rips_components.hpp"
 #include "perseus/cubical_engine.hpp"
 #include "perseus/chain.hpp"
 #include "perseus/simplicial_set.hpp"
@@ -61,7 +61,7 @@ static const char* USAGE =
 "  --periodic a,b   cubical/npy: periodic axes (0-based)\n"
 "  --no-classify    Q mode: list candidate primes but do not rerun to classify them\n"
 "  --zero-length    keep zero-length intervals (explicit complexes)\n"
-"  --threads n      threads for classifying candidate primes (default: all cores)\n"
+"  --threads n      threads for prime classification and independent Rips components (default: all cores)\n"
 "  --collapse c     Rips/flag: auto | on | full | off   iterated edge collapse (Boissonnat-Pritam,\n"
 "                   Glisse-Pritam); auto = on for maxdim >= 2 when it removes enough edges\n"
 "  --engine e       Rips/flag: auto | implicit | sparse (explicit flag complex from the radius graph;\n"
@@ -250,6 +250,17 @@ static std::string text_torsion(const torsion::TorsionResult& T) {
     return s;
 }
 
+static void output_barcode(const Opts& o, const Barcode& main_bars, const Certificate& cert, bool qmode, const std::string& ijson) {
+    std::string pr = o.print.empty() ? (o.prefix.empty() ? "ripser" : "none") : o.print;
+    if (pr == "ripser") print_ripser(stdout, main_bars);
+    else if (pr == "perseus") { for (size_t k = 0; k < main_bars.size(); ++k) for (auto& b : main_bars[k]) printf("%zu %s %s\n", k, fmt_num(b.birth).c_str(), std::isinf(b.death) ? "-1" : fmt_num(b.death).c_str()); }
+    else if (pr == "json") fputs(json_cert(main_bars, cert, qmode, ijson).c_str(), stdout);
+    if (!o.prefix.empty()) {
+        write_files(o.prefix, main_bars);
+        if (qmode) { FILE* f = fopen((o.prefix + "_cert.json").c_str(), "w"); fputs(json_cert(main_bars, cert, 1, ijson).c_str(), f); fclose(f); }
+    }
+}
+
 template <class B>
 static int solve(const B& be, const Opts& o, const IntegralSpec& ispec = IntegralSpec()) {
     auto T0 = std::chrono::steady_clock::now();
@@ -319,14 +330,7 @@ static int solve(const B& be, const Opts& o, const IntegralSpec& ispec = Integra
             itext += text_torsion(T);
         }
     }
-    std::string pr = o.print.empty() ? (o.prefix.empty() ? "ripser" : "none") : o.print;
-    if (pr == "ripser") print_ripser(stdout, main_bars);
-    else if (pr == "perseus") { for (size_t k = 0; k < main_bars.size(); ++k) for (auto& b : main_bars[k]) printf("%zu %s %s\n", k, fmt_num(b.birth).c_str(), std::isinf(b.death) ? "-1" : fmt_num(b.death).c_str()); }
-    else if (pr == "json") fputs(json_cert(main_bars, cert, qmode, ijson).c_str(), stdout);
-    if (!o.prefix.empty()) {
-        write_files(o.prefix, main_bars);
-        if (qmode) { FILE* f = fopen((o.prefix + "_cert.json").c_str(), "w"); fputs(json_cert(main_bars, cert, 1, ijson).c_str(), f); fclose(f); }
-    }
+    output_barcode(o, main_bars, cert, qmode, ijson);
     if (qmode) {
         if (cert.mode == "fast")
             fprintf(stderr, "WARNING: --mode fast: the Q barcode and the bad primes below are probabilistic, NOT proved.\n"
@@ -749,20 +753,24 @@ int main(int argc, char** argv) {
                 lap("prepare");
                 return solve(be, o);
             }
+            if (auto prime = component_prime(E, o.coeff, md, o.fp, o.zero, o.torsion)) {
+                auto start = std::chrono::steady_clock::now();
+                auto bars = component_field(R, E, md, *prime, o.collapse, o.threads, o.stats);
+                if (bars) {
+                    auto computed = std::chrono::steady_clock::now();
+                    output_barcode(o, *bars, Certificate(), false, "");
+                    if (o.stats) {
+                        double solve = std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
+                        double field = std::chrono::duration<double>(computed - start).count();
+                        fprintf(stderr, "  [solve %.3f s: field run %.3f s including component setup]\n", solve, field);
+                    }
+                    return 0;
+                }
+            }
             std::vector<WEdge>().swap(E);
             if (sparse_src) R.densify();
             // edge collapse pays for itself in degrees >= 2; for H0/H1 the active H1 engine is cheaper
-            if (o.collapse == "on" || o.collapse == "full" || (o.collapse == "auto" && md >= 2 && R.n >= 32)) {
-                CollapseStats cs;
-                bool aut = (o.collapse == "auto");
-                RipsInput C = edge_collapse(R, o.collapse == "full" ? 1000 : 32, cs, o.collapse == "full" ? 0.0 : 0.02, aut ? 0.10 : 0.0);
-                if (o.stats) {
-                    if (cs.used) fprintf(stderr, "  [edge collapse: %zu -> %zu edges (%zu shifted), %d passes, %.3f s]\n",
-                                         cs.edges_before, cs.edges_after, cs.shifted, cs.passes, cs.seconds);
-                    else fprintf(stderr, "  [edge collapse not worth it here, abandoned after %.3f s]\n", cs.seconds);
-                }
-                if (cs.used) R.lower.swap(C.lower);
-            }
+            collapse_implicit_input(R, md, o.collapse, o.stats);
             RipsBackend be(R, md); be.keep_zero_length = o.zero;
             std::vector<double>().swap(R.lower);          // the backend keeps its own edge data
             lap("rips setup");

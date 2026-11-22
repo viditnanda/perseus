@@ -35,7 +35,7 @@ struct CollapseStats { size_t edges_before = 0, edges_after = 0, shifted = 0; in
 // If worth_it > 0: give up (st.used = false, nothing returned) when the first pass removes less than
 // worth_it of the edges -- shifting without removing destroys the cone levels the Rips engine exploits.
 // The first pass is abandoned early if, after its first third, the removal rate is below worth_it / 4.
-inline RipsInput edge_collapse(const RipsInput& R, int max_passes, CollapseStats& st, double min_gain = 0.0, double worth_it = 0.0) {
+inline RipsInput edge_collapse(const RipsInput& R, int max_passes, CollapseStats& st, double min_gain = 0.0, double worth_it = 0.0, std::string* trace = nullptr) {
     typedef uint64_t W;
     auto t0 = std::chrono::steady_clock::now();
     const int n = R.n, WD = std::max(1, (n + 63) / 64);
@@ -137,9 +137,13 @@ inline RipsInput edge_collapse(const RipsInput& R, int max_passes, CollapseStats
         if (!st.used) { st.passes = 1; break; }
         st.passes = pass + 1;
         size_t alive_now = 0; for (size_t r = 0; r < m; ++r) alive_now += cur[r] != NONE;
-        if (getenv("PERSEUS_COLLAPSE_TRACE"))
-            fprintf(stderr, "    pass %d: %zu changed, %zu edges left, %.3f s\n", pass + 1, changed, alive_now,
+        if (getenv("PERSEUS_COLLAPSE_TRACE")) {
+            char line[192];
+            snprintf(line, sizeof(line), "    pass %d: %zu changed, %zu edges left, %.3f s\n", pass + 1, changed, alive_now,
                     std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count());
+            if (trace) trace->append(line);
+            else fputs(line, stderr);
+        }
         size_t removed_pass = alive_before - alive_now; alive_before = alive_now;
         if (pass == 0 && worth_it > 0 && (double)removed_pass < worth_it * (double)m) { st.used = false; break; }
         if (!changed || (double)removed_pass < min_gain * (double)alive_now) break;
