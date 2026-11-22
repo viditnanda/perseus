@@ -192,7 +192,85 @@ inline FilteredComplex build_cubical(const std::vector<int64_t>& ext, const std:
 }
 
 // sparse cubical complex from top-cube anchors (integer coordinates) with births
+inline FilteredComplex build_cubical_sparse_map(int d, const std::vector<std::vector<int64_t>>& anchors, const std::vector<double>& births);
+
+// Sparse cubical complex of the given top cubes (cube a = prod [a_i, a_i + 1]), each face born with the
+// earliest of its cofaces. Doubled coordinates are packed into one 64-bit key per cell, axis 0 most
+// significant, so key order is the lexicographic order of the ordered-map builder below and the two give
+// the same complex with the same numbering (by dimension, then lexicographically). Each cell type (the set
+// of axes a cell spans) is a sorted array; memory is a few words per cell. When the bounding box does
+// not fit 63 bits the ordered-map builder is used.
 inline FilteredComplex build_cubical_sparse(int d, const std::vector<std::vector<int64_t>>& anchors, const std::vector<double>& births) {
+    const size_t N = anchors.size();
+    if (N == 0 || d < 1 || d > 20) return build_cubical_sparse_map(d, anchors, births);
+    std::vector<int64_t> lo(d, INT64_MAX), hi(d, INT64_MIN);
+    for (auto& a : anchors) for (int i = 0; i < d; ++i) { lo[i] = std::min(lo[i], a[i]); hi[i] = std::max(hi[i], a[i]); }
+    // shifted doubled coordinate along axis i: 2 (a_i - lo_i) + {0, 1, 2}, in [0, side_i)
+    std::vector<uint64_t> w(d);
+    long double total = 1;
+    for (int i = d - 1; i >= 0; --i) {
+        w[i] = (uint64_t)total;
+        total *= 2.0L * ((long double)hi[i] - (long double)lo[i]) + 3.0L;
+        if (total >= 9.0e18L) return build_cubical_sparse_map(d, anchors, births);
+    }
+    std::vector<uint64_t> top(N);   // key of each cube's centre (every axis odd)
+    for (size_t t = 0; t < N; ++t) { uint64_t k = 0; for (int i = 0; i < d; ++i) k += (uint64_t)(2 * (anchors[t][i] - lo[i]) + 1) * w[i]; top[t] = k; }
+    const int T = 1 << d;           // cell types: bit i set iff the cell spans axis i
+    std::vector<std::vector<uint64_t>> key(T);
+    std::vector<std::vector<double>> bir(T);
+    {
+        std::vector<std::pair<uint64_t, double>> buf;
+        for (int m = 0; m < T; ++m) {
+            std::vector<int> fixed; for (int i = 0; i < d; ++i) if (!(m >> i & 1)) fixed.push_back(i);
+            const int F = (int)fixed.size();
+            buf.clear(); buf.reserve(N << F);
+            for (int s = 0; s < (1 << F); ++s) {      // the cell lies at -1 or +1 from the centre on each fixed axis
+                int64_t shift = 0;
+                for (int j = 0; j < F; ++j) shift += ((s >> j & 1) ? 1 : -1) * (int64_t)w[fixed[j]];
+                for (size_t t = 0; t < N; ++t) buf.push_back({(uint64_t)((int64_t)top[t] + shift), births[t]});
+            }
+            std::sort(buf.begin(), buf.end());       // by key, then earliest birth first
+            auto& K = key[m]; auto& B = bir[m];
+            for (size_t i = 0; i < buf.size(); ++i) if (i == 0 || buf[i].first != buf[i - 1].first) { K.push_back(buf[i].first); B.push_back(buf[i].second); }
+        }
+    }
+    std::vector<uint64_t>().swap(top);
+    size_t n = 0; for (auto& K : key) n += K.size();
+    if (n > (size_t)INT32_MAX) throw std::runtime_error("cubes: more than 2^31 cells");
+    FilteredComplex C;
+    C.dim.reserve(n); C.birth.reserve(n); C.off.reserve(n + 1);
+    std::vector<std::vector<int32_t>> id(T);
+    std::vector<std::pair<int32_t, int64_t>> bd;
+    for (int k = 0; k <= d; ++k) {
+        std::vector<std::pair<uint64_t, std::pair<int, uint32_t>>> cells;   // (key, (type, index)), keys distinct
+        for (int m = 0; m < T; ++m) if (__builtin_popcount(m) == k) {
+            id[m].assign(key[m].size(), -1);
+            for (size_t i = 0; i < key[m].size(); ++i) cells.push_back({key[m][i], {m, (uint32_t)i}});
+        }
+        std::sort(cells.begin(), cells.end());
+        for (auto& cell : cells) {
+            const uint64_t c = cell.first; const int m = cell.second.first; const uint32_t i = cell.second.second;
+            bd.clear(); int j = 0;
+            for (int ax = 0; ax < d; ++ax) {
+                if (!(m >> ax & 1)) continue;
+                const int fm = m & ~(1 << ax); const auto& FK = key[fm];
+                const int64_t s = (j & 1) ? -1 : 1;
+                for (int dir = 1; dir >= -1; dir -= 2) {
+                    const uint64_t fk = (uint64_t)((int64_t)c + dir * (int64_t)w[ax]);
+                    auto it = std::lower_bound(FK.begin(), FK.end(), fk);
+                    if (it == FK.end() || *it != fk) throw std::logic_error("cubes: missing face");
+                    bd.push_back({id[fm][it - FK.begin()], dir == 1 ? s : -s});
+                }
+                ++j;
+            }
+            id[m][i] = C.add_cell(k, bir[m][i], bd);
+        }
+        for (int m = 0; m < T; ++m) if (__builtin_popcount(m) == k - 1) { std::vector<uint64_t>().swap(key[m]); std::vector<double>().swap(bir[m]); std::vector<int32_t>().swap(id[m]); }
+    }
+    return C;
+}
+
+inline FilteredComplex build_cubical_sparse_map(int d, const std::vector<std::vector<int64_t>>& anchors, const std::vector<double>& births) {
     std::map<std::vector<int64_t>, double> b;   // doubled coordinates -> birth
     std::vector<int64_t> c(d);
     for (size_t t = 0; t < anchors.size(); ++t) {

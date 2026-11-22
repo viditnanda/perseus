@@ -87,7 +87,7 @@ The big cyclic group is 2^2 · 5^2 · 479 · 22303 · 1157339 · p with p a 117-
 | `flag` | clique filtration of a weighted graph: lines `u v birth` (edges) and `v birth` (vertex births, default 0); labels are arbitrary tokens |
 | `cubical` | dense grid of top-cell values: a line of sizes `n_1 ... n_d`, then the values in C order (last axis fastest); `nan`/`inf` = absent; `--periodic 0,2` makes axes periodic |
 | `npy` | the same from a numpy `.npy` file (any real or integer dtype, C or Fortran order) |
-| `cubes` | sparse cubical complex: one top cube per line, its integer anchor coordinates then its birth |
+| `cubes` | sparse cubical complex: one top cube per line, its integer anchor coordinates then its birth (a repeated cube keeps its earliest birth). Only the faces of the given cubes are built, a few words per cell; with `--integral`, `--image` or `--torsion` the complex is reduced first, as for `cells` |
 | `simplices` | one simplex per line: vertex labels, then its birth; faces are added with the minimum birth of their cofaces |
 | `cells` | filtered based chain complex over Z: one cell per line `dim birth [face coef]...`, faces are 0-based line numbers of earlier cells; d∘d = 0 is checked exactly |
 | `sset` | finite filtered simplicial set: one nondegenerate simplex per line `dim birth d_0 ... d_dim`; a face is an earlier line `y`, or `y@k1.k2...km` for the degenerate simplex s_k1 s_k2 ... s_km y |
@@ -520,7 +520,7 @@ Two things differ from the old programs:
 * **B:** the Rips engines against the explicit engine on random metrics with ties: barcodes and bad primes.
 * **C:** an independent Python reference (Z-elimination then field reductions) on Linial–Meshulam, random simplicial and torsion-rich chain complexes.
 * **D:** old Perseus files of every kind, converted by `tools/convert_legacy.py`, against the Perseus 5 binary.
-* **E:** the new formats against independent constructions (`flag` against explicit cliques and against `lower-distance`, `cubes` against `cubical`).
+* **E:** the new formats against independent constructions (`flag` against explicit cliques and against `lower-distance`, `cubes` against `cubical`, and `cubes --integral --image` against the same complex written cell by cell as `cells`). `make test-cubical` also checks that the packed `cubes` builder gives exactly the complex of the ordered-map builder (`tests/t_cubes.cpp`).
 * **F:** certificate regressions with exact expected answers in auto, fast and proved mode. These include inputs built so that a pivot vanishes or looks like a unit modulo fixed primes, a 98-bit bad prime, and products of large primes that are only classified as groups.
 * **Python:** `tests/test_python.py` runs every entry point of the module against the command line, in every certificate mode.
 * **G:** the implicit cubical engines against the explicit complex and against each other (1–4 dimensions, periodic axes, absent cells, zero-length bars, 4D white noise and quantised fields), and the sparse Rips route against the dense engine.

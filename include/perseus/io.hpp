@@ -183,7 +183,7 @@ inline FilteredComplex cubical_from_npy(NpyArray a, std::vector<bool> periodic) 
 // cubes: sparse cubical complex, one top cube per line: its d integer anchor coordinates, then its birth.
 // A repeated anchor keeps its earliest birth.
 inline FilteredComplex read_cubes(std::istream& is) {
-    std::map<std::vector<int64_t>, double> top; std::string line; int d = -1;
+    std::vector<std::vector<int64_t>> raw; std::vector<double> rb; std::string line; int d = -1;
     while (std::getline(is, line)) {
         if (line.empty() || line[0] == '#') continue;
         for (char& ch : line) if (ch == ',') ch = ' ';
@@ -192,11 +192,17 @@ inline FilteredComplex read_cubes(std::istream& is) {
         if ((int)t.size() != d + 1 || d < 1) throw std::runtime_error("cubes: every line needs the same number of coordinates, then a birth");
         std::vector<int64_t> a(d); for (int i = 0; i < d; ++i) a[i] = std::stoll(t[i]);
         double b = std::stod(t[d]); if (!std::isfinite(b)) continue;
-        auto it = top.find(a); if (it == top.end()) top.emplace(a, b); else it->second = std::min(it->second, b);
+        raw.push_back(std::move(a)); rb.push_back(b);
     }
+    if (raw.empty()) throw std::runtime_error("cubes: no cubes");
+    // a repeated cube keeps its earliest birth; cubes in lexicographic order
+    std::vector<size_t> ord(raw.size()); for (size_t i = 0; i < ord.size(); ++i) ord[i] = i;
+    std::sort(ord.begin(), ord.end(), [&](size_t x, size_t y) { return raw[x] != raw[y] ? raw[x] < raw[y] : rb[x] < rb[y]; });
     std::vector<std::vector<int64_t>> an; std::vector<double> bs;
-    for (auto& kv : top) { an.push_back(kv.first); bs.push_back(kv.second); }
-    if (an.empty()) throw std::runtime_error("cubes: no cubes");
+    for (size_t i = 0; i < ord.size(); ++i) {
+        if (i && raw[ord[i]] == raw[ord[i - 1]]) continue;
+        an.push_back(std::move(raw[ord[i]])); bs.push_back(rb[ord[i]]);
+    }
     return build_cubical_sparse(d, an, bs);
 }
 // flag: a filtered graph whose clique (flag) complex is the filtration. A line with two tokens "v birth"
