@@ -10,10 +10,14 @@
 
 namespace perseus {
 
+inline bool should_collapse(int n, int md, const std::string& mode) {
+    return mode == "full" || mode == "on" || (mode == "auto" && md >= 2 && n >= 32);
+}
+
 inline bool collapse_implicit_input(RipsInput& R, int md, const std::string& mode, bool stats = false,
                                     std::string* log = nullptr) {
     const bool automatic = mode == "auto";
-    if (mode != "full" && mode != "on" && !(automatic && md >= 2 && R.n >= 32)) return false;
+    if (!should_collapse(R.n, md, mode)) return false;
     CollapseStats cs;
     RipsInput collapsed = edge_collapse(R, mode == "full" ? 1000 : 32, cs,
                                         mode == "full" ? 0.0 : 0.02, automatic ? 0.10 : 0.0, log);
@@ -39,21 +43,30 @@ inline bool use_rips_components(const std::vector<WEdge>& edges, const std::stri
 }
 
 struct RipsComponents {
-    mutable std::vector<RipsInput> parts;
+    std::vector<RipsInput> parts;
     int isolated = 0;
-    int md, threads;
-    std::string collapse;
-    bool stats;
+    int md, workers, candidate_threads;
     bool keep_zero_length = false;
-    mutable bool prepared = false;
     int maxdim() const { return md; }
 
     // Each run owns the worker pool. Between runs retain only the sparse graph,
     // with the collapsed weights, so local clearing indices remain valid.
     using Clear = std::vector<RipsBackend::Clear>;
-    template<class Ring>
+    template<class Ring, class Backend = RipsBackend>
     BRun<Clear> run(const Ring& ring, int kmin, int kmax, const Clear* in) const;
 };
+
+template<class Task>
+void for_each_component(size_t count, int workers, Task task) {
+    std::atomic<size_t> next{0};
+    auto worker = [&] {
+        for (size_t i; (i = next.fetch_add(1)) < count;) task(i);
+    };
+    std::vector<std::future<void>> jobs;
+    for (int i = 1; i < workers; ++i) jobs.push_back(std::async(std::launch::async, worker));
+    worker();
+    for (auto& job : jobs) job.get();
+}
 
 inline std::optional<RipsComponents> split_rips(RipsInput& input, std::vector<WEdge>& edges,
                                                 int md, int threads, std::string collapse, bool stats = false) {
@@ -105,7 +118,20 @@ inline std::optional<RipsComponents> split_rips(RipsInput& input, std::vector<WE
     if (threads <= 0) threads = std::max(1u, std::thread::hardware_concurrency());
     int workers = std::min<int>(threads, parts.size());
     if (stats) fprintf(stderr, "  [Rips: %zu nontrivial components, %d isolated vertices, %d workers]\n", parts.size(), isolated, workers);
-    return RipsComponents{std::move(parts), isolated, md, workers, std::move(collapse), stats};
+    std::vector<std::string> logs(parts.size());
+    for_each_component(parts.size(), workers, [&](size_t i) {
+        auto& part = parts[i];
+        if (!should_collapse(part.n, md, collapse)) return;
+        part.densify();
+        if (collapse_implicit_input(part, md, collapse, stats, &logs[i])) {
+            for (auto& [a, b, weight] : part.edges) weight = part.dist(a, b);
+            auto removed = [](const auto& edge) { return !std::isfinite(std::get<2>(edge)); };
+            part.edges.erase(std::remove_if(part.edges.begin(), part.edges.end(), removed), part.edges.end());
+        }
+        std::vector<double>().swap(part.lower);
+    });
+    for (const auto& log : logs) if (!log.empty()) fputs(log.c_str(), stderr);
+    return RipsComponents{std::move(parts), isolated, md, workers, threads / std::max(1, workers)};
 }
 
 // Rings with a recoverable arithmetic failure report it to the caller after the
@@ -116,35 +142,21 @@ template<int L> void collect_ring_status(const MontN<L>& dst, const MontN<L>& sr
     if (src.split_found && !dst.split_found) { dst.split = src.split; dst.split_found = true; }
 }
 
-template<class Ring>
+template<class Ring, class Backend>
 BRun<RipsComponents::Clear> RipsComponents::run(const Ring& ring, int kmin, int kmax, const Clear* in) const {
-    std::vector<std::string> logs(parts.size());
+    // Fast reconstruction matches pivots by key across lanes. Keys here are
+    // component-local, so enforce the dispatch restriction at the backend too.
+    if constexpr (Ring::lanes > 1) throw std::logic_error("multi-lane runs require global pivot keys");
     std::vector<BRun<RipsBackend::Clear>> results(parts.size());
     std::vector<Ring> rings(parts.size(), ring);
-    std::atomic<size_t> next{0};
-    auto worker = [&] {
-        for (size_t i; (i = next.fetch_add(1)) < parts.size();) {
-            auto& part = parts[i];
-            part.densify();
-            if (!prepared && collapse_implicit_input(part, md, collapse, stats, &logs[i])) {
-                // Collapse only removes or shifts existing edges. Save their new
-                // weights for candidate reruns without retaining a distance table.
-                for (auto& [a, b, weight] : part.edges) weight = part.dist(a, b);
-                auto removed = [](const auto& edge) { return !std::isfinite(std::get<2>(edge)); };
-                part.edges.erase(std::remove_if(part.edges.begin(), part.edges.end(), removed), part.edges.end());
-            }
-            RipsBackend backend(part, md);
-            std::vector<double>().swap(part.lower);
-            results[i] = backend.run(rings[i], kmin, kmax, in ? &(*in)[i] : nullptr);
-        }
-    };
-    std::vector<std::future<void>> jobs;
-    for (int i = 1; i < threads; ++i) jobs.push_back(std::async(std::launch::async, worker));
-    worker();
-    for (auto& job : jobs) job.get();
-    prepared = true;
-
-    for (const auto& log : logs) if (!log.empty()) fputs(log.c_str(), stderr);
+    for_each_component(parts.size(), workers, [&](size_t i) {
+        auto part = parts[i];
+        part.densify();
+        decltype(part.edges)().swap(part.edges);
+        Backend backend(part, md);
+        std::vector<double>().swap(part.lower);
+        results[i] = backend.run(rings[i], kmin, kmax, in ? &(*in)[i] : nullptr);
+    });
 
     BRun<Clear> out;
     out.kmin = kmin;

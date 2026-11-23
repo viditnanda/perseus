@@ -311,7 +311,7 @@ static py::dict solve_rips(RipsInput& R, int maxdim, const std::string& engine, 
         }
         if (parts) {
             auto options = o;
-            options.threads = 1;  // the worker budget is already assigned to components
+            options.threads = parts->candidate_threads;
             return solve(*parts, options);
         }
     }

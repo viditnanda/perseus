@@ -756,7 +756,7 @@ int main(int argc, char** argv) {
             if (use_rips_components(E, o.coeff, o.mode, md, o.fp, o.zero, o.torsion)) {
                 if (auto parts = split_rips(R, E, md, o.threads, o.collapse, o.stats)) {
                     auto options = o;
-                    options.threads = 1;  // the worker budget is already assigned to components
+                    options.threads = parts->candidate_threads;
                     return solve(*parts, options);
                 }
             }

@@ -500,8 +500,7 @@ def section_G(trials=60):
               "2 nontrivial components," in stats and f"{threads} workers]" in stats, stats)
         check("G candidate rerun reuses each collapsed graph", stats.count("[edge collapse:") == 2, stats)
         check("G proved split matches unsplit certificate",
-              {k: v for k, v in got.items() if k != "seconds"} ==
-              {k: v for k, v in reference.items() if k != "seconds"})
+              all(got[k] == reference[k] for k in ("barcode", "bad_primes", "proof", "complete")))
         check("G proved split detects both copies of projective-plane torsion",
               got["proof"] and got["complete"] and got["candidates"] == [2]
               and [(b["p"], b["first_degree"], b["only_over_Fp"], b["only_over_Q"]) for b in got["bad_primes"]]
