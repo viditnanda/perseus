@@ -2,7 +2,7 @@
 
 This file is for anyone picking up Perseus 6 performance work, whether a person or a Claude instance. It records what is in flight, what was agreed with Vidit Nanda (the maintainer), how to measure, and what has already been tried. Update it in the same pull request as the work it describes.
 
-Last updated: 19 Nov 2026 (merge order and plan agreed with Vidit).
+Last updated: 25 Nov 2026 (release 6.1 prepared on `release-6.1`).
 
 ## Ground rules (from Vidit)
 
@@ -21,6 +21,14 @@ Last updated: 19 Nov 2026 (merge order and plan agreed with Vidit).
 * Command-line runs are timed separately: they include process start and reading the file.
 * Scripts: `bench/cubical2d.py` (2D images), `bench/cubical.py` (3D/4D grids; `--others-only` re-measures only GUDHI and CubicalRipser), and `bench/vs_*.py` for the rest. Inputs are regenerated deterministically into `/tmp/cubical_bench`.
 * For phase timings, set `PERSEUS_DEBUG=1`. The engines then print per-degree reduction times, additions, merged entries and the longest working column to stderr.
+
+## Release 6.1 (25 Nov 2026)
+
+Branch `release-6.1`: everything merged through #16, plus the getting-started `examples/` (run by `make examples`
+and in CI), `CHANGELOG.md`, the updated web page (`web/index.html`) and PyPI description, `perseus --version`,
+the version bumped to 6.1.0, and faster writing of output files (identical bytes). Vidit reviews it; the tag,
+the release and the PyPI upload are his (see `RELEASING.md`). PRs #9–#16 (Howell sweeps, finite groups,
+packed `cubes`, the Rips component split) are described in their own pull requests and in `CHANGELOG.md`.
 
 ## Open pull requests and merge order
 

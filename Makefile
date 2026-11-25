@@ -49,5 +49,10 @@ test-pcgroup: tests/t_pcgroup.cpp $(HDR)
 	$(CXX) -std=c++17 -O2 -Wall $(INC) tests/t_pcgroup.cpp -o t_pcgroup
 	./t_pcgroup
 
+.PHONY: examples
+# every example in examples/ (command line and Python; the Python module must be importable)
+examples: perseus
+	PERSEUS=$(CURDIR)/perseus sh examples/run_all.sh
+
 clean:
 	rm -f perseus t_rips_components t_cubical_morse t_bitcol t_cubical_planar t_chain t_magnitude t_laurent t_exact t_howell t_pcgroup

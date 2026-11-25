@@ -1,0 +1,5 @@
+# K_0 = RP^1 (a vertex and a loop), K_1 = RP^2 (a 2-cell attached by degree 2)
+# each line: dim birth [face coefficient]...; faces are 0-based line numbers of earlier cells
+0 0
+1 0
+2 1 1 2

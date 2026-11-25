@@ -1,7 +1,7 @@
 cff-version: 1.2.0
 message: "If Perseus helps your research, please cite the software as below."
 title: "Perseus: the Persistent Homology software"
-version: 6.0.0
+version: 6.1.0
 date-released: 2026-11-17
 doi: 10.5281/zenodo.24305983
 license: MIT

@@ -16,6 +16,9 @@
 #include <iterator>
 #include <cstring>
 #include <tuple>
+#if __has_include(<charconv>)
+#include <charconv>
+#endif
 
 namespace perseus {
 
@@ -315,11 +318,29 @@ inline FilteredComplex read_cells(std::istream& is) {
 }
 
 // ---- outputs ---------------------------------------------------------------------------
+// The shortest "%.{p}g" with p >= 6 that reads back as exactly x. With <charconv>, p starts at the length of
+// the shortest round-trip decimal (no shorter p can round-trip) and each try is a to_chars / from_chars pair,
+// which print exactly what printf would; the result is identical to the snprintf / strtod loop and about ten
+// times faster, which matters when millions of intervals are written.
 inline std::string fmt_num(double x) {
     if (std::isinf(x)) return "inf";
-    char b[64];                                        // shortest decimal that reads back as exactly x
+    char b[64];
+#if defined(__cpp_lib_to_chars) && __cpp_lib_to_chars >= 201611L
+    auto s = std::to_chars(b, b + sizeof b, x, std::chars_format::scientific);
+    int d = 0;
+    for (char* p = b; p < s.ptr && *p != 'e'; ++p) d += (*p >= '0' && *p <= '9');
+    std::to_chars_result r{b, std::errc()};
+    for (int prec = d > 6 ? d : 6; prec <= 17; ++prec) {
+        r = std::to_chars(b, b + sizeof b, x, std::chars_format::general, prec);
+        double y = 0;
+        std::from_chars(b, r.ptr, y);
+        if (y == x) break;
+    }
+    return std::string(b, r.ptr);
+#else
     for (int prec = 6; prec <= 17; ++prec) { snprintf(b, sizeof b, "%.*g", prec, x); if (std::strtod(b, nullptr) == x) break; }
     return b;
+#endif
 }
 // files: prefix_k.txt ("birth death", death -1 if infinite), prefix_betti.txt
 inline void write_files(const std::string& prefix, const Barcode& bc) {
@@ -328,8 +349,10 @@ inline void write_files(const std::string& prefix, const Barcode& bc) {
         for (auto& b : bc[k]) f << fmt_num(b.birth) << " " << (std::isinf(b.death) ? std::string("-1") : fmt_num(b.death)) << "\n";
     }
     // Betti numbers at every time they may change: sweep over sorted births and deaths per degree
-    std::set<double> times;
-    for (auto& v : bc) for (auto& b : v) { times.insert(b.birth); if (!std::isinf(b.death)) times.insert(b.death); }
+    std::vector<double> times;
+    for (auto& v : bc) for (auto& b : v) { times.push_back(b.birth); if (!std::isinf(b.death)) times.push_back(b.death); }
+    std::sort(times.begin(), times.end());
+    times.erase(std::unique(times.begin(), times.end()), times.end());
     std::vector<std::vector<double>> B(bc.size()), Dd(bc.size());
     for (size_t k = 0; k < bc.size(); ++k) {
         for (auto& b : bc[k]) { B[k].push_back(b.birth); Dd[k].push_back(b.death); }

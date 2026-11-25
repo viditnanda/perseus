@@ -146,7 +146,7 @@ check("Moore space M(Z/12,1): bad primes [2, 3]", perseus.bad_primes(r) == [2, 3
 T = [(0,1,2),(0,2,3),(0,3,4),(0,4,5),(0,5,1),(1,2,4),(2,3,5),(3,4,1),(4,5,2),(5,1,3)]
 r = perseus.simplices([(list(t), 0.0) for t in T])
 check("RP2: bad prime 2", perseus.bad_primes(r) == [2], perseus.bad_primes(r))
-compare("simplices RP2", r, ["simplices", os.path.join(HERE, "..", "examples", "rp2_simplices.txt")])
+compare("simplices RP2", r, ["simplices", os.path.join(HERE, "..", "examples", "data", "rp2_simplices.txt")])
 
 # cubical: implicit engine vs the command line, periodic axes and absent cells
 for t in range(10):

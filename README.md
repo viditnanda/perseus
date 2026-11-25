@@ -14,9 +14,11 @@ The Q reduction is exact, so the certificate is a proof: int64 arithmetic while 
 
 Perseus 6 is a rewrite from scratch. It does not read the old Perseus 4/5 input formats directly; `tools/convert_legacy.py` turns old files into new ones (see [Old Perseus files](#old-perseus-files)).
 
+**New to Perseus?** [`examples/`](examples/README.md) has nine short examples, each as a shell script and as a Python script, from point clouds and images to integral homology, magnitude homology and finite groups. What changed since 6.0 is in [CHANGELOG.md](CHANGELOG.md).
+
 ## Install
 
-Executables for Linux, macOS and Windows are attached to each [GitHub release](https://github.com/viditnanda/perseus/releases); the Python module is `pip install perseus-tda` (Linux and macOS).
+Executables for Linux, macOS and Windows are attached to each [GitHub release](https://github.com/viditnanda/perseus/releases); the Python module is `pip install perseus-tda` (Linux and macOS). Then try `sh examples/cli/01_point_cloud.sh` or `python3 examples/python/01_point_cloud.py`.
 
 ## Build
 
@@ -25,6 +27,7 @@ make                 # builds ./perseus (C++17 with 128-bit integers: g++ or cla
 make test            # differential tests (needs Ripser / Perseus 5 / p2ref; skips what is missing)
 make test-chain      # chain complexes over Z, simplicial sets, magnitude homology, Laurent coefficients
 make test-pcgroup    # finite groups: integral homology and mod-p cohomology rings (pc groups and the Sylow route)
+make examples        # runs every example in examples/ (the Python ones need the module)
 cd python && pip install --no-build-isolation .   # Python module `perseus` (needs pybind11, numpy)
 ```
 
@@ -45,7 +48,7 @@ Q barcode: proved (exact arithmetic: int64)
 bad primes: 2  (2 non-unit pivots)
 ```
 
-For example, 1024 random points of SO(3) ≅ RP³ (`bench/o3_1024`, H≤3, threshold 1.8) give two pivots, −2 and 2. Each sits on one H1 interval:
+For example, 1024 random points of O(3) (Ripser's `o3_1024`, H≤3, threshold 1.8): O(3) is two copies of SO(3) ≅ RP³, at distance 2, so at this threshold they are two components. Perseus finds two pivots, −2 and 2, one in each copy. Each sits on one H1 interval:
 
 * over Q: H1 has the finite bars [0.657, 1.288) and [0.690, 1.307);
 * over F_2: those two H1 bars are infinite, and H2 gains [1.288, ∞) and [1.307, ∞).
@@ -249,7 +252,7 @@ Not computed: the Z[t, t^-1]-module itself, residue fields F_p[t]/(h), and torsi
 | Linial–Meshulam n = 70, H≤2 | — | 4.5 s, fast (int64 overflows) | 4.4 s | 12.1 s | — |
 | Linial–Meshulam n = 90, H≤2 | 0.16 s | ≈ 113 s, fast | 113 s | 259 s | does not finish |
 
-On geometric data a proof costs nothing extra; time beyond F_2 is classification of candidate primes. Exact arithmetic gets expensive only when the integers involved grow, which happens on torsion-heavy inputs; the default then still proves the answer, in exact rationals of any size, and never falls back to random primes (see below; `--mode fast` uses them on request). On Linial–Meshulam complexes the Q reduction itself is fast (1.3 s at n = 90, with 261 non-unit pivots of up to 170 bits); classifying the 463 candidate primes, of which exactly two are bad, takes the rest. Since 19 Nov 2026 the candidates of at least 2^63 are classified in parallel too. On the reproducible instance of `bench/certify_lm.py` (n = 90, the first 4,000 triangles; 496 candidates, 6 bad), the default run went from 147 to 105 s on 2 cores, and the reruns scale with cores.
+(Since then the O(3) rows have become faster: 0.06 s over F_2 and 0.08 s certified for o3_1024, 0.32 s and 0.38 s for o3_4096, measured 25 Nov 2026; see the Vietoris–Rips table below.) On geometric data a proof costs nothing extra; time beyond F_2 is classification of candidate primes. Exact arithmetic gets expensive only when the integers involved grow, which happens on torsion-heavy inputs; the default then still proves the answer, in exact rationals of any size, and never falls back to random primes (see below; `--mode fast` uses them on request). On Linial–Meshulam complexes the Q reduction itself is fast (1.3 s at n = 90, with 261 non-unit pivots of up to 170 bits); classifying the 463 candidate primes, of which exactly two are bad, takes the rest. Since 19 Nov 2026 the candidates of at least 2^63 are classified in parallel too. On the reproducible instance of `bench/certify_lm.py` (n = 90, the first 4,000 triangles; 496 candidates, 6 bad), the default run went from 147 to 105 s on 2 cores, and the reruns scale with cores.
 
 **Since 19 Nov 2026 the default is proved everywhere.** The table above is from 16 Nov, when the default (`auto`) fell back to random primes where int64 overflowed, as in its Linial–Meshulam rows. Now the default never falls back. Its exact arithmetic was made fast for this:
 * rationals stay in int64 pairs while they fit;
@@ -327,33 +330,39 @@ These two tables are the single source of truth for cubical timings. Both were m
 
   The reduction used to dominate. Degree 1 alone took 26–29 s while its long working columns were binary heaps, which keep duplicate rows until they surface. They are now bit trees with a coefficient array (`bitcol.hpp`, after PHAT; `docs/TECHNIQUES.md` §1.13), where duplicates cancel on arrival, for every coefficient ring. Before that, two other remedies were tried, and both were slower. Storing the reductions (V) instead of the reduced columns, as Ripser does, merged 5–9× more entries and took 10× longer. Reducing degree 1 by homology took 83 s. On smooth inputs the reduction is negligible, and the gradient and the path sums dominate.
 
-The tables below were measured on an earlier machine with the original 6.0 engines and are kept for reference.
+### Vietoris–Rips (measured 25 Nov 2026, 2-core Xeon)
 
-For degree 2 and up, Perseus 6 first runs its own iterated edge collapse (Boissonnat–Pritam, in the shift-and-trim form of Glisse–Pritam), implemented with bitsets. It keeps the collapse only when it actually removes edges. Against GUDHI's edge collapse followed by Ripser, the strongest Rips pipeline we know of (`bench/vs_collapse.py`, identical barcodes):
+`bench/rips_race.py`, on Ripser's benchmark inputs (the README of the script lists them). The Perseus and Ripser times are for the command line, including process start and reading the file; RedZeD (redzed-tda 0.1.1, which has no command line) is timed in-process around the call, with the matrix already in memory, and its memory is the peak RSS of the Python process. Best of three runs below 10 s. Every barcode agrees with Perseus's F_2 barcode.
 
-| case | edges before → after collapse | collapse + Ripser | Perseus 6 |
-|---|---|---|---|
-| o3_1024 H≤3 | 33,189 → 7,179 | 0.20 s | 0.06 s |
-| o3_4096 H≤3 | 234,145 → 29,724 | 1.43 s | 0.72 s |
-| random16 H≤7 | 942 → 331 | 0.02 s | 0.01 s |
-| fractal H≤2 | 122,835 → 27,871 | 6.22 s | 1.21 s |
-| sphere H≤2 | 17,857 → 17,668 | 1.84 s | 0.50 s |
-| dragon H≤1 | 1,388,645 → 12,034 | 22.2 s | 0.64 s |
-
-Against plain Ripser and RedZeD:
-
-| case | Perseus 6, Q certified | Perseus 6, F_2 | Ripser 1.2 (F_2) | RedZeD (F_2) |
+| case | Perseus 6.1, Q certified | Perseus 6.1, F_2 | Ripser 1.2 (F_2) | RedZeD (F_2) |
 |---|---|---|---|---|
-| sphere H≤2 | 0.52 s / 109 MB | 0.50 s / 83 MB | 0.79 s / 103 MB | 0.26 s / 16 MB |
-| o3_1024 H≤3 | 0.10 s / 19 MB | 0.09 s / 18 MB | 2.57 s / 22 MB | 0.90 s / 110 MB |
-| o3_4096 H≤1 | 0.59 s / 117 MB | 0.50 s / 116 MB | 1.32 s / 68 MB | 0.32 s / 51 MB |
-| o3_4096 H≤3 | 0.86 s / 208 MB | 0.74 s / 208 MB | 50.32 s / 244 MB | 29.22 s / 1337 MB |
-| random16 H≤1 | 0.03 s / 13 MB | 0.03 s / 13 MB | 0.03 s / 13 MB | 0.03 s / 13 MB |
-| random16 H≤7 | 0.03 s / 13 MB | 0.03 s / 13 MB | 4.45 s / 124 MB | 5.91 s / 746 MB |
-| fractal H≤1 | 0.10 s / 13 MB | 0.10 s / 13 MB | 0.20 s / 21 MB | 0.07 s / 13 MB |
-| fractal H≤2 | 1.21 s / 13 MB | 1.22 s / 13 MB | 5.75 s / 24 MB | 2.46 s / 36 MB |
-| dragon H≤1 | 0.63 s / 100 MB | 0.63 s / 99 MB | 1.70 s / 138 MB | 0.21 s / 29 MB |
-| randdist180 H≤1 | 0.06 s / 13 MB | 0.04 s / 13 MB | 0.66 s / 56 MB | 0.04 s / 13 MB |
+| sphere H≤2 | 0.49 s / 109 MB | 0.47 s / 84 MB | 0.96 s / 103 MB | 0.24 s / 45 MB |
+| o3_1024 H≤3 | 0.08 s / 20 MB | 0.06 s / 19 MB | 2.66 s / 22 MB | 0.96 s / 149 MB |
+| o3_4096 H≤1 | 0.34 s / 133 MB | 0.28 s / 132 MB | 1.33 s / 68 MB | 0.31 s / 384 MB |
+| o3_4096 H≤3 | 0.38 s / 153 MB | 0.32 s / 153 MB | 51.2 s / 244 MB | 31.4 s / 1.6 GB |
+| random16 H≤1 | < 0.01 s / 6 MB | < 0.01 s / 5 MB | < 0.01 s / 4 MB | < 0.01 s |
+| random16 H≤7 | < 0.01 s / 6 MB | < 0.01 s / 6 MB | 8.10 s / 124 MB | 6.19 s / 763 MB |
+| fractal H≤1 | 0.04 s / 12 MB | 0.04 s / 12 MB | 0.09 s / 13 MB | 0.01 s |
+| fractal H≤2 | 0.03 s / 12 MB | 0.03 s / 12 MB | 7.78 s / 13 MB | 1.82 s |
+| dragon H≤1 | 0.59 s / 101 MB | 0.60 s / 100 MB | 1.93 s / 198 MB | 0.18 s |
+| randdist180 H≤1 | 0.04 s / 8 MB | 0.02 s / 7 MB | 1.68 s / 102 MB | 0.01 s |
+
+RedZeD's memory on the small inputs (about 475 MB) is that of its Python process and is left out. RedZeD is faster through H_1 (dragon, fractal, the random metric) and on the small sphere, partly because its times exclude process start and reading the input. From degree 2 up on O(3), fractal and random16, Perseus is 12–100× faster than RedZeD and 44–260× faster than Ripser (more on random16 H≤7, which Perseus finishes in under 0.01 s). O(3) has two components at r = 1.4 (SO(3) and its reflection), which Perseus reduces in parallel and with less memory; through H_3 on 4,096 points that took 0.74–0.86 s in 6.0.
+
+For degree 2 and up, Perseus 6 first runs its own iterated edge collapse (Boissonnat–Pritam, in the shift-and-trim form of Glisse–Pritam), implemented with bitsets. It keeps the collapse only when it actually removes edges. Against GUDHI's edge collapse followed by Ripser on the collapsed graph, the strongest Rips pipeline we know of (same script and inputs, identical barcodes; the collapse pipeline's time includes building GUDHI's complex and writing the collapsed graph):
+
+| case | edges before → after collapse | collapse + Ripser | Perseus 6.1, F_2 |
+|---|---|---|---|
+| o3_1024 H≤3 | 33,189 → 7,179 | 0.22 s | 0.06 s |
+| o3_4096 H≤3 | 234,145 → 29,724 | 1.48 s | 0.32 s |
+| random16 H≤7 | 942 → 331 | 0.03 s | < 0.01 s |
+| fractal H≤2 | 126,529 → 1,406 | 0.63 s | 0.03 s |
+| sphere H≤2 | 17,857 → 17,669 | 1.66 s | 0.47 s |
+| dragon H≤1 | 1,388,645 → 12,034 | 23.0 s | 0.60 s |
+
+The fractal used here (512 points, random edge weights, from the PH roadmap) is not the one of the 6.0 tables, which no longer had a recorded source; the other inputs are the same.
+
+The GUDHI comparison below was measured on an earlier machine with the original 6.0 engines.
 
 Against GUDHI on simplicial complexes (`bench/vs_gudhi.py`, F_2, identical intervals in every case; for cubical see the table above):
 
@@ -527,6 +536,7 @@ Two things differ from the old programs:
 * **Cubical engines:** `make test-cubical` (`tests/t_cubical_morse.cpp`) runs the discrete-gradient engine against the classic one on random grids with heavy ties, absent cells and nearly distinct values. It compares barcodes over F_2, F_3, F_5 and Q (int64 and multi-modular), with and without zero-length bars, and from every degree with clearing data. It also compares certificates in auto and fast mode. It checks the Morse complex itself: every column is recomputed by recursion over gradient paths, along with the filtration order, δδ = 0, and the apparent pairs. It also covers degenerate shapes (axes of length 0, 1 and 2, very elongated grids, a single cube, grids entirely absent or constant) and the int64 guard: with the bound on path sums lowered, the engine must refuse, and the default must fall back to the classic engine.
 * **Chain complexes, simplicial sets, magnitude, Laurent:** `make test-chain`. `tests/t_chain.cpp`: Smith forms (with the bigint fallback), integral homology and images on RP^2 and two-stage filtrations, minimal spheres, torus, Klein bottle, RP^2 as simplicial sets, BZ/2, BZ/3, BS_3 (H_3 = Z/6), nerves with non-identity endomorphisms, suspensions, weighted poset nerves against order complexes, and on random complexes that the algebraic Morse reduction preserves barcodes over F_2, F_3, F_5 and Q, bad primes, integral homology and every image. `tests/t_magnitude.cpp`: the integral answer reduced by universal coefficients against field reductions of the unreduced complexes (trees, cycles, random graphs, directed and not), and the Z/2 of the Kaneta–Yoshinaga graph of RP^2. `tests/t_laurent.cpp`: Alexander polynomials of knots by Fox calculus, Z[t, t^-1]/(2, t + 1), the cylinder covering the torus, and on random complexes the Q(t) and F_p(t) barcodes against the rank function, the bad irreducibles against evaluation at t = t0 through the explicit engine, and the homology over Q[t, t^-1] and F_p[t, t^-1] against evaluation. `tests/t_howell.cpp`: the Howell sweeps against plain F_p reductions (pairs) and brute-force enumeration of spans modulo p^k (lengths), in one-word and BigInt arithmetic. The Python suite checks torsion trajectories against a Smith form at every t on random chain complexes, and that sweeps and reruns classify alike.
 * **Finite groups:** `make test-pcgroup`. `tests/t_pcgroup.cpp`: closed forms (cyclic groups of composite order, elementary abelian groups and their rings, generalised quaternion groups to order 64, dihedral groups against Handel's formula, S_3), the Künneth formula on direct products (mixed primes and mixed relative orders), universal coefficients between the integral and the mod-p engines for every group and every prime dividing its order, H_n(G; Z) against HAP for 12 groups of orders 8–32 (A_4, S_4 and SL(2,3) among them), mod-2 and mod-3 rings (dimensions and generator degrees) against the Green–King database through degree 10 for SmallGroup(64, 138), (128, 1000), (27, 3) and (27, 4), the F_p splitting (its cycles and cocycles are dual bases) and agreement of the two product modes, and rejection of tables that are not groups and sequences that are not pcgs; and the Sylow route: H_n(G; Z) against HAP for A_5, PSL(2,7), A_6, A_7 and M_11, mod-p rings against the Green–King database and the literature (M_11 and M_12 mod 2, A_5 mod 2 and 5, PSL(2,7) mod 7), universal coefficients between its integral and mod-p results for every prime, agreement with the direct engine on S_4, GL(2,3) and (C4 × C4) : S3, and rejection of inconsistent inputs; and maps and persistence: Ellis–King's lower central persistence matrix of D_64, 18 series (quotient series L, L_p, D, Z and subgroup series of groups of orders 16 to 81) against HAP's persistence matrices in degrees 1 to 3 (and all 341 such series of the groups of orders 16, 27, 32 and 81 in a one-off sweep), functoriality, naturality of cup products under the induced maps, and rejection of maps that are not homomorphisms.
+* **Examples:** `make examples` (`examples/run_all.sh`) runs every example in `examples/`, command line and Python; CI runs it on every push.
 * **Fuzzing:** `tests/fuzz_cubical.py` drives the Python module against the explicit complex (F_2, F_3, and Q with bad primes, with absent cells) and against CubicalRipser (F_2). It uses value distributions built for ties: few integer levels, quantised smooth fields, step functions, ±0, extreme magnitudes, plus degenerate shapes.
 
 The current tree passes all of them.
@@ -561,4 +571,4 @@ Vidit Nanda (Perseus, 2010–). Perseus 6 builds on ideas from:
 
 ## Citing
 
-Vidit Nanda, *Perseus, the persistent homology software*, version 6.0.0, [doi:10.5281/zenodo.24305983](https://doi.org/10.5281/zenodo.24305983). GitHub's "Cite this repository" button gives the same from `CITATION.cff`.
+Vidit Nanda, *Perseus, the persistent homology software*, with the version you used. Zenodo gives every release its own DOI, linked from the [release page](https://github.com/viditnanda/perseus/releases); version 6.0.0 is [doi:10.5281/zenodo.24305983](https://doi.org/10.5281/zenodo.24305983). GitHub's "Cite this repository" button gives the entry from `CITATION.cff`.

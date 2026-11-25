@@ -23,6 +23,8 @@
 
 using namespace perseus;
 
+#define PERSEUS_VERSION "6.1.0"   // keep in step with python/pyproject.toml, python/perseus/__init__.py, CITATION.cff
+
 static const char* USAGE =
 "Perseus 6: persistent homology over Q with every bad prime certified, or over any F_p.\n"
 "\n"
@@ -89,6 +91,7 @@ static const char* USAGE =
 "                   its coarsening, by the work of a short trial resolution)\n"
 "  --print fmt      ripser | perseus | json | none   (stdout; default ripser unless a prefix is given)\n"
 "  --stats          timing and engine statistics on stderr\n"
+"  --version        print the version and exit\n"
 "\n"
 "outputs with a prefix: prefix_k.txt (birth death, -1 = infinite), prefix_betti.txt, and in Q mode\n"
 "prefix_cert.json; with --fp, prefix_F<p>_k.txt.\n";
@@ -364,6 +367,8 @@ static int solve(const B& be, const Opts& o, const IntegralSpec& ispec = Integra
 }
 
 int main(int argc, char** argv) {
+    if (argc == 2 && (std::string(argv[1]) == "--version" || std::string(argv[1]) == "-V")) { puts("perseus " PERSEUS_VERSION); return 0; }
+    if (argc == 2 && (std::string(argv[1]) == "--help" || std::string(argv[1]) == "-h")) { fputs(USAGE, stdout); return 0; }
     if (argc < 3) { fputs(USAGE, stderr); return 1; }
     Opts o; std::vector<std::string> pos;
     for (int i = 1; i < argc; ++i) {

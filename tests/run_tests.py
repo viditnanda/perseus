@@ -475,7 +475,7 @@ def section_G(trials=60):
 
     # The barycentric subdivision of RP^2 is flag. Wedge a contractible clique at
     # one vertex of each copy to exercise the automatic split at this graph size.
-    with open(os.path.join(HERE, "..", "examples", "rp2_simplices.txt")) as fh:
+    with open(os.path.join(HERE, "..", "examples", "data", "rp2_simplices.txt")) as fh:
         triangles = [line.split()[:-1] for line in fh if not line.startswith("#")]
     faces = sorted({frozenset(face) for t in triangles for k in (1, 2, 3)
                     for face in itertools.combinations(t, k)}, key=lambda f: (len(f), sorted(f)))

@@ -13,7 +13,8 @@ Everything is automated by `.github/workflows/release.yml` once two one-time ste
 
 ## Each release
 
-1. Update the version in `python/pyproject.toml`, `python/perseus/__init__.py` and `CITATION.cff`.
+1. Update the version in `python/pyproject.toml`, `python/perseus/__init__.py`, `CITATION.cff` (also `date-released`) and
+   `PERSEUS_VERSION` in `src/perseus.cpp`, and date the top entry of `CHANGELOG.md`.
 2. Tag and push: `git tag v6.0.0 && git push origin v6.0.0`.
 3. The workflow builds the Linux, macOS (Apple silicon and Intel) and Windows executables and attaches them
    to a GitHub release, then builds the Python wheels (Linux, macOS) and source package and uploads them to
