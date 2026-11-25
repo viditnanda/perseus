@@ -44,7 +44,9 @@ Measured against 6.0.0 on the same 2-core machine, with identical barcodes and b
   memory, and faster than CubicalRipser and GUDHI on every grid in the README.
 * Bit-tree working columns for long reductions (after PHAT), for every coefficient ring.
 * `cubes`: a packed builder for sparse cubical complexes.
-* Rips: disconnected filtrations are split into components for single-field computations.
+* Rips: disconnected filtrations are split into their connected components, which are reduced in parallel,
+  over a single field and also for the default proved certificate over Q. On 8,192 points of O(3) (two
+  components) through H₃: 6.4 s and 840 MB → 2.2 s and 390 MB on 2 threads, with the same certificate.
 * Writing output files is about 8× faster (the shortest round-trip decimals are found with `<charconv>`);
   the files are byte-for-byte the same as 6.0's. On 1024² white noise, 6.5 s → 0.75 s, almost all of which
   was writing.
