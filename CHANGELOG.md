@@ -1,6 +1,6 @@
 # Changes
 
-## 6.1.0 (unreleased)
+## 6.1.0 (25th Nov 2026)
 
 Measured against 6.0.0 on the same 2-core machine, with identical barcodes and bad primes in every case
 (`tests/` and the head-to-head in the 6.1 pull request).
