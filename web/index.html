@@ -78,9 +78,9 @@
   <li><b>Speed.</b> On 2D images it is faster than GUDHI's dedicated image algorithm; on volumes and 4D grids it is 2–3× faster than Cubical Ripser and 5–15× faster than GUDHI; for Vietoris–Rips in degree 2 and up it is usually much faster than Ripser and than edge collapse followed by Ripser; for group homology it is often hundreds of times faster than HAP. See <a href="#perf">performance</a>, including where other tools win.</li>
 </ul>
 <div class="callout">
-For example, take 1024 points sampled from SO(3) ≅ RP<sup>3</sup>. Perseus proves that 2 is the only bad prime:
+For example, take 1024 points sampled from O(3), which is two copies of SO(3) ≅ RP<sup>3</sup>. Perseus proves that 2 is the only bad prime:
 <ul>
-  <li>over Q, two H<sub>1</sub> intervals die at 1.288 and 1.307;</li>
+  <li>over Q, two H<sub>1</sub> intervals, one in each copy, die at 1.288 and 1.307;</li>
   <li>over F<sub>2</sub>, those two intervals live forever, and two H<sub>2</sub> intervals are born at exactly those times.</li>
 </ul>
 This is the Z/2 in H<sub>1</sub>(RP<sup>3</sup>; Z), detected and located in the filtration.
@@ -91,6 +91,7 @@ This is the Z/2 in H<sub>1</sub>(RP<sup>3</sup>; Z), detected and located in the
   <li><b>New engines for cubical complexes:</b> a planar engine for 2D images (6.5–26× faster than 6.0 in our tests) and a discrete-gradient engine for 3D and 4D grids (2–4× faster than 6.0, with less memory).</li>
   <li><b>New inputs and integral outputs:</b> torsion along filtrations (<code>--torsion</code>), integral homology and images (<code>--integral</code>, <code>--image</code>), simplicial sets, nerves and bar constructions, magnitude homology, Laurent coefficients, and finite groups.</li>
   <li><b>Getting-started examples</b> for every input, as shell scripts and Python scripts with their data (<a href="#start">below</a>).</li>
+  <li><b>Disconnected Vietoris–Rips filtrations</b> are split into their components, reduced in parallel, also for the certified rational barcode: 8,192 points of O(3) through H<sub>3</sub> take 2.2 s instead of 6.4 s, in half the memory.</li>
   <li>Writing output files is about 8× faster, with byte-for-byte the same files.</li>
 </ul>
 <p>The full list is in the <a href="https://github.com/viditnanda/perseus/blob/main/CHANGELOG.md">changelog</a>. Everything 6.0 computed, 6.1 computes identically, except that <code>--mode auto</code> now proves its answer.</p>
@@ -317,21 +318,21 @@ perseus.rips(points=X, maxdim=2, coeff=2)          # just F_2</pre>
 
 <h3>Vietoris–Rips (F<sub>2</sub>)</h3>
 <table class="spec">
-  <tr><th>case</th><th>Perseus 6</th><th>edge collapse + Ripser</th><th>Ripser</th><th>RedZeD</th></tr>
-  <tr><td>4096 points on SO(3), H≤3</td><td>0.74 s</td><td>1.43 s</td><td>50.3 s</td><td>29.2 s</td></tr>
-  <tr><td>1024 points on SO(3), H≤3</td><td>0.09 s</td><td>0.20 s</td><td>2.57 s</td><td>0.90 s</td></tr>
-  <tr><td>16 random points, H≤7</td><td>0.03 s</td><td>0.02 s</td><td>4.45 s</td><td>5.91 s</td></tr>
-  <tr><td>fractal, H≤2</td><td>1.22 s</td><td>6.22 s</td><td>5.75 s</td><td>2.46 s</td></tr>
-  <tr><td>sphere (192 points), H≤2</td><td>0.50 s</td><td>1.84 s</td><td>0.79 s</td><td>0.26 s</td></tr>
-  <tr><td>dragon (2000 points), H≤1</td><td>0.63 s</td><td>22.2 s</td><td>1.70 s</td><td>0.21 s</td></tr>
+  <tr><th>case</th><th>Perseus 6.1</th><th>edge collapse + Ripser</th><th>Ripser</th><th>RedZeD</th></tr>
+  <tr><td>4096 points on O(3), H≤3</td><td><b>0.32 s</b></td><td>1.48 s</td><td>51.2 s</td><td>31.4 s</td></tr>
+  <tr><td>1024 points on O(3), H≤3</td><td><b>0.06 s</b></td><td>0.22 s</td><td>2.66 s</td><td>0.96 s</td></tr>
+  <tr><td>50 random points in R<sup>16</sup>, H≤7</td><td><b>&lt; 0.01 s</b></td><td>0.03 s</td><td>8.10 s</td><td>6.19 s</td></tr>
+  <tr><td>fractal (512 points), H≤2</td><td><b>0.03 s</b></td><td>0.63 s</td><td>7.78 s</td><td>1.82 s</td></tr>
+  <tr><td>sphere (192 points), H≤2</td><td>0.47 s</td><td>1.66 s</td><td>0.96 s</td><td><b>0.24 s</b></td></tr>
+  <tr><td>dragon (2000 points), H≤1</td><td>0.60 s</td><td>23.0 s</td><td>1.93 s</td><td><b>0.18 s</b></td></tr>
 </table>
-<p class="muted">RedZeD remains faster for H<sub>1</sub> alone and on some small examples, and edge collapse followed by Ripser is as fast on the 16-point example. For sparse point clouds Perseus builds the radius graph directly: 8,000 points in the unit cube at r = 0.047 take a few hundredths of a second through H<sub>2</sub>, on a par with GUDHI.</p>
+<p class="muted">Measured 25 Nov 2026; every barcode agrees. Perseus and Ripser are timed on the command line, including start-up and reading the file; RedZeD, which is a Python package, is timed in-process with the distances already in memory. RedZeD is faster through H<sub>1</sub> and on the small sphere. From degree 2 up on the larger inputs Perseus is 12–100× faster than RedZeD and 44–260× faster than Ripser. O(3) is two components at these thresholds, which Perseus reduces in parallel. For sparse point clouds Perseus builds the radius graph directly: 8,000 points in the unit cube at r = 0.047 take a few hundredths of a second through H<sub>2</sub>, on a par with GUDHI.</p>
 
 <h3>What the certificate costs</h3>
 <table class="spec">
   <tr><th>case</th><th>F<sub>2</sub> only</th><th>Q, all bad primes, proved</th><th>bad primes</th></tr>
-  <tr><td>1024 points on SO(3), H≤3</td><td>0.06 s</td><td>0.07 s</td><td>2</td></tr>
-  <tr><td>4096 points on SO(3), H≤3</td><td>0.85 s</td><td>0.99 s</td><td>2</td></tr>
+  <tr><td>1024 points on O(3), H≤3</td><td>0.06 s</td><td>0.08 s</td><td>2</td></tr>
+  <tr><td>4096 points on O(3), H≤3</td><td>0.32 s</td><td>0.38 s</td><td>2</td></tr>
   <tr><td>RP<sup>2</sup> (600 points), H≤2</td><td>11.5 s</td><td>19.2 s</td><td>2</td></tr>
   <tr><td>Linial–Meshulam complex, 70 vertices</td><td>0.07 s</td><td>4.3 s</td><td>7 primes</td></tr>
   <tr><td>Linial–Meshulam complex, 90 vertices</td><td>0.15 s</td><td>94 s</td><td>6 primes, one of 117 bits</td></tr>

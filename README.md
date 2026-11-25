@@ -48,7 +48,7 @@ Q barcode: proved (exact arithmetic: int64)
 bad primes: 2  (2 non-unit pivots)
 ```
 
-For example, 1024 random points of SO(3) ≅ RP³ (`bench/o3_1024`, H≤3, threshold 1.8) give two pivots, −2 and 2. Each sits on one H1 interval:
+For example, 1024 random points of O(3) (Ripser's `o3_1024`, H≤3, threshold 1.8): O(3) is two copies of SO(3) ≅ RP³, at distance 2, so at this threshold they are two components. Perseus finds two pivots, −2 and 2, one in each copy. Each sits on one H1 interval:
 
 * over Q: H1 has the finite bars [0.657, 1.288) and [0.690, 1.307);
 * over F_2: those two H1 bars are infinite, and H2 gains [1.288, ∞) and [1.307, ∞).
@@ -252,7 +252,7 @@ Not computed: the Z[t, t^-1]-module itself, residue fields F_p[t]/(h), and torsi
 | Linial–Meshulam n = 70, H≤2 | — | 4.5 s, fast (int64 overflows) | 4.4 s | 12.1 s | — |
 | Linial–Meshulam n = 90, H≤2 | 0.16 s | ≈ 113 s, fast | 113 s | 259 s | does not finish |
 
-On geometric data a proof costs nothing extra; time beyond F_2 is classification of candidate primes. Exact arithmetic gets expensive only when the integers involved grow, which happens on torsion-heavy inputs; the default then still proves the answer, in exact rationals of any size, and never falls back to random primes (see below; `--mode fast` uses them on request). On Linial–Meshulam complexes the Q reduction itself is fast (1.3 s at n = 90, with 261 non-unit pivots of up to 170 bits); classifying the 463 candidate primes, of which exactly two are bad, takes the rest. Since 19 Nov 2026 the candidates of at least 2^63 are classified in parallel too. On the reproducible instance of `bench/certify_lm.py` (n = 90, the first 4,000 triangles; 496 candidates, 6 bad), the default run went from 147 to 105 s on 2 cores, and the reruns scale with cores.
+(Since then the O(3) rows have become faster: 0.06 s over F_2 and 0.08 s certified for o3_1024, 0.32 s and 0.38 s for o3_4096, measured 25 Nov 2026; see the Vietoris–Rips table below.) On geometric data a proof costs nothing extra; time beyond F_2 is classification of candidate primes. Exact arithmetic gets expensive only when the integers involved grow, which happens on torsion-heavy inputs; the default then still proves the answer, in exact rationals of any size, and never falls back to random primes (see below; `--mode fast` uses them on request). On Linial–Meshulam complexes the Q reduction itself is fast (1.3 s at n = 90, with 261 non-unit pivots of up to 170 bits); classifying the 463 candidate primes, of which exactly two are bad, takes the rest. Since 19 Nov 2026 the candidates of at least 2^63 are classified in parallel too. On the reproducible instance of `bench/certify_lm.py` (n = 90, the first 4,000 triangles; 496 candidates, 6 bad), the default run went from 147 to 105 s on 2 cores, and the reruns scale with cores.
 
 **Since 19 Nov 2026 the default is proved everywhere.** The table above is from 16 Nov, when the default (`auto`) fell back to random primes where int64 overflowed, as in its Linial–Meshulam rows. Now the default never falls back. Its exact arithmetic was made fast for this:
 * rationals stay in int64 pairs while they fit;
@@ -330,33 +330,39 @@ These two tables are the single source of truth for cubical timings. Both were m
 
   The reduction used to dominate. Degree 1 alone took 26–29 s while its long working columns were binary heaps, which keep duplicate rows until they surface. They are now bit trees with a coefficient array (`bitcol.hpp`, after PHAT; `docs/TECHNIQUES.md` §1.13), where duplicates cancel on arrival, for every coefficient ring. Before that, two other remedies were tried, and both were slower. Storing the reductions (V) instead of the reduced columns, as Ripser does, merged 5–9× more entries and took 10× longer. Reducing degree 1 by homology took 83 s. On smooth inputs the reduction is negligible, and the gradient and the path sums dominate.
 
-The tables below were measured on an earlier machine with the original 6.0 engines and are kept for reference.
+### Vietoris–Rips (measured 25 Nov 2026, 2-core Xeon)
 
-For degree 2 and up, Perseus 6 first runs its own iterated edge collapse (Boissonnat–Pritam, in the shift-and-trim form of Glisse–Pritam), implemented with bitsets. It keeps the collapse only when it actually removes edges. Against GUDHI's edge collapse followed by Ripser, the strongest Rips pipeline we know of (`bench/vs_collapse.py`, identical barcodes):
+`bench/rips_race.py`, on Ripser's benchmark inputs (the README of the script lists them). The Perseus and Ripser times are for the command line, including process start and reading the file; RedZeD (redzed-tda 0.1.1, which has no command line) is timed in-process around the call, with the matrix already in memory, and its memory is the peak RSS of the Python process. Best of three runs below 10 s. Every barcode agrees with Perseus's F_2 barcode.
 
-| case | edges before → after collapse | collapse + Ripser | Perseus 6 |
-|---|---|---|---|
-| o3_1024 H≤3 | 33,189 → 7,179 | 0.20 s | 0.06 s |
-| o3_4096 H≤3 | 234,145 → 29,724 | 1.43 s | 0.72 s |
-| random16 H≤7 | 942 → 331 | 0.02 s | 0.01 s |
-| fractal H≤2 | 122,835 → 27,871 | 6.22 s | 1.21 s |
-| sphere H≤2 | 17,857 → 17,668 | 1.84 s | 0.50 s |
-| dragon H≤1 | 1,388,645 → 12,034 | 22.2 s | 0.64 s |
-
-Against plain Ripser and RedZeD:
-
-| case | Perseus 6, Q certified | Perseus 6, F_2 | Ripser 1.2 (F_2) | RedZeD (F_2) |
+| case | Perseus 6.1, Q certified | Perseus 6.1, F_2 | Ripser 1.2 (F_2) | RedZeD (F_2) |
 |---|---|---|---|---|
-| sphere H≤2 | 0.52 s / 109 MB | 0.50 s / 83 MB | 0.79 s / 103 MB | 0.26 s / 16 MB |
-| o3_1024 H≤3 | 0.10 s / 19 MB | 0.09 s / 18 MB | 2.57 s / 22 MB | 0.90 s / 110 MB |
-| o3_4096 H≤1 | 0.59 s / 117 MB | 0.50 s / 116 MB | 1.32 s / 68 MB | 0.32 s / 51 MB |
-| o3_4096 H≤3 | 0.86 s / 208 MB | 0.74 s / 208 MB | 50.32 s / 244 MB | 29.22 s / 1337 MB |
-| random16 H≤1 | 0.03 s / 13 MB | 0.03 s / 13 MB | 0.03 s / 13 MB | 0.03 s / 13 MB |
-| random16 H≤7 | 0.03 s / 13 MB | 0.03 s / 13 MB | 4.45 s / 124 MB | 5.91 s / 746 MB |
-| fractal H≤1 | 0.10 s / 13 MB | 0.10 s / 13 MB | 0.20 s / 21 MB | 0.07 s / 13 MB |
-| fractal H≤2 | 1.21 s / 13 MB | 1.22 s / 13 MB | 5.75 s / 24 MB | 2.46 s / 36 MB |
-| dragon H≤1 | 0.63 s / 100 MB | 0.63 s / 99 MB | 1.70 s / 138 MB | 0.21 s / 29 MB |
-| randdist180 H≤1 | 0.06 s / 13 MB | 0.04 s / 13 MB | 0.66 s / 56 MB | 0.04 s / 13 MB |
+| sphere H≤2 | 0.49 s / 109 MB | 0.47 s / 84 MB | 0.96 s / 103 MB | 0.24 s / 45 MB |
+| o3_1024 H≤3 | 0.08 s / 20 MB | 0.06 s / 19 MB | 2.66 s / 22 MB | 0.96 s / 149 MB |
+| o3_4096 H≤1 | 0.34 s / 133 MB | 0.28 s / 132 MB | 1.33 s / 68 MB | 0.31 s / 384 MB |
+| o3_4096 H≤3 | 0.38 s / 153 MB | 0.32 s / 153 MB | 51.2 s / 244 MB | 31.4 s / 1.6 GB |
+| random16 H≤1 | < 0.01 s / 6 MB | < 0.01 s / 5 MB | < 0.01 s / 4 MB | < 0.01 s |
+| random16 H≤7 | < 0.01 s / 6 MB | < 0.01 s / 6 MB | 8.10 s / 124 MB | 6.19 s / 763 MB |
+| fractal H≤1 | 0.04 s / 12 MB | 0.04 s / 12 MB | 0.09 s / 13 MB | 0.01 s |
+| fractal H≤2 | 0.03 s / 12 MB | 0.03 s / 12 MB | 7.78 s / 13 MB | 1.82 s |
+| dragon H≤1 | 0.59 s / 101 MB | 0.60 s / 100 MB | 1.93 s / 198 MB | 0.18 s |
+| randdist180 H≤1 | 0.04 s / 8 MB | 0.02 s / 7 MB | 1.68 s / 102 MB | 0.01 s |
+
+RedZeD's memory on the small inputs (about 475 MB) is that of its Python process and is left out. RedZeD is faster through H_1 (dragon, fractal, the random metric) and on the small sphere, partly because its times exclude process start and reading the input. From degree 2 up on O(3), fractal and random16, Perseus is 12–100× faster than RedZeD and 44–260× faster than Ripser (more on random16 H≤7, which Perseus finishes in under 0.01 s). O(3) has two components at r = 1.4 (SO(3) and its reflection), which Perseus reduces in parallel and with less memory; through H_3 on 4,096 points that took 0.74–0.86 s in 6.0.
+
+For degree 2 and up, Perseus 6 first runs its own iterated edge collapse (Boissonnat–Pritam, in the shift-and-trim form of Glisse–Pritam), implemented with bitsets. It keeps the collapse only when it actually removes edges. Against GUDHI's edge collapse followed by Ripser on the collapsed graph, the strongest Rips pipeline we know of (same script and inputs, identical barcodes; the collapse pipeline's time includes building GUDHI's complex and writing the collapsed graph):
+
+| case | edges before → after collapse | collapse + Ripser | Perseus 6.1, F_2 |
+|---|---|---|---|
+| o3_1024 H≤3 | 33,189 → 7,179 | 0.22 s | 0.06 s |
+| o3_4096 H≤3 | 234,145 → 29,724 | 1.48 s | 0.32 s |
+| random16 H≤7 | 942 → 331 | 0.03 s | < 0.01 s |
+| fractal H≤2 | 126,529 → 1,406 | 0.63 s | 0.03 s |
+| sphere H≤2 | 17,857 → 17,669 | 1.66 s | 0.47 s |
+| dragon H≤1 | 1,388,645 → 12,034 | 23.0 s | 0.60 s |
+
+The fractal used here (512 points, random edge weights, from the PH roadmap) is not the one of the 6.0 tables, which no longer had a recorded source; the other inputs are the same.
+
+The GUDHI comparison below was measured on an earlier machine with the original 6.0 engines.
 
 Against GUDHI on simplicial complexes (`bench/vs_gudhi.py`, F_2, identical intervals in every case; for cubical see the table above):
 
