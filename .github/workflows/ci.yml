@@ -25,6 +25,9 @@ jobs:
           python -m pip install --no-build-isolation ./python
           cd /tmp && python $GITHUB_WORKSPACE/tests/test_python.py
         env: { PERSEUS: "${{ github.workspace }}/perseus" }
+      - name: Examples (command line and Python)
+        run: sh examples/run_all.sh
+        env: { PERSEUS: "${{ github.workspace }}/perseus" }
   windows:
     runs-on: windows-latest
     defaults:

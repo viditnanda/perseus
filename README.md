@@ -14,9 +14,11 @@ The Q reduction is exact, so the certificate is a proof: int64 arithmetic while 
 
 Perseus 6 is a rewrite from scratch. It does not read the old Perseus 4/5 input formats directly; `tools/convert_legacy.py` turns old files into new ones (see [Old Perseus files](#old-perseus-files)).
 
+**New to Perseus?** [`examples/`](examples/README.md) has nine short examples, each as a shell script and as a Python script, from point clouds and images to integral homology, magnitude homology and finite groups. What changed since 6.0 is in [CHANGELOG.md](CHANGELOG.md).
+
 ## Install
 
-Executables for Linux, macOS and Windows are attached to each [GitHub release](https://github.com/viditnanda/perseus/releases); the Python module is `pip install perseus-tda` (Linux and macOS).
+Executables for Linux, macOS and Windows are attached to each [GitHub release](https://github.com/viditnanda/perseus/releases); the Python module is `pip install perseus-tda` (Linux and macOS). Then try `sh examples/cli/01_point_cloud.sh` or `python3 examples/python/01_point_cloud.py`.
 
 ## Build
 
@@ -25,6 +27,7 @@ make                 # builds ./perseus (C++17 with 128-bit integers: g++ or cla
 make test            # differential tests (needs Ripser / Perseus 5 / p2ref; skips what is missing)
 make test-chain      # chain complexes over Z, simplicial sets, magnitude homology, Laurent coefficients
 make test-pcgroup    # finite groups: integral homology and mod-p cohomology rings (pc groups and the Sylow route)
+make examples        # runs every example in examples/ (the Python ones need the module)
 cd python && pip install --no-build-isolation .   # Python module `perseus` (needs pybind11, numpy)
 ```
 
@@ -527,6 +530,7 @@ Two things differ from the old programs:
 * **Cubical engines:** `make test-cubical` (`tests/t_cubical_morse.cpp`) runs the discrete-gradient engine against the classic one on random grids with heavy ties, absent cells and nearly distinct values. It compares barcodes over F_2, F_3, F_5 and Q (int64 and multi-modular), with and without zero-length bars, and from every degree with clearing data. It also compares certificates in auto and fast mode. It checks the Morse complex itself: every column is recomputed by recursion over gradient paths, along with the filtration order, δδ = 0, and the apparent pairs. It also covers degenerate shapes (axes of length 0, 1 and 2, very elongated grids, a single cube, grids entirely absent or constant) and the int64 guard: with the bound on path sums lowered, the engine must refuse, and the default must fall back to the classic engine.
 * **Chain complexes, simplicial sets, magnitude, Laurent:** `make test-chain`. `tests/t_chain.cpp`: Smith forms (with the bigint fallback), integral homology and images on RP^2 and two-stage filtrations, minimal spheres, torus, Klein bottle, RP^2 as simplicial sets, BZ/2, BZ/3, BS_3 (H_3 = Z/6), nerves with non-identity endomorphisms, suspensions, weighted poset nerves against order complexes, and on random complexes that the algebraic Morse reduction preserves barcodes over F_2, F_3, F_5 and Q, bad primes, integral homology and every image. `tests/t_magnitude.cpp`: the integral answer reduced by universal coefficients against field reductions of the unreduced complexes (trees, cycles, random graphs, directed and not), and the Z/2 of the Kaneta–Yoshinaga graph of RP^2. `tests/t_laurent.cpp`: Alexander polynomials of knots by Fox calculus, Z[t, t^-1]/(2, t + 1), the cylinder covering the torus, and on random complexes the Q(t) and F_p(t) barcodes against the rank function, the bad irreducibles against evaluation at t = t0 through the explicit engine, and the homology over Q[t, t^-1] and F_p[t, t^-1] against evaluation. `tests/t_howell.cpp`: the Howell sweeps against plain F_p reductions (pairs) and brute-force enumeration of spans modulo p^k (lengths), in one-word and BigInt arithmetic. The Python suite checks torsion trajectories against a Smith form at every t on random chain complexes, and that sweeps and reruns classify alike.
 * **Finite groups:** `make test-pcgroup`. `tests/t_pcgroup.cpp`: closed forms (cyclic groups of composite order, elementary abelian groups and their rings, generalised quaternion groups to order 64, dihedral groups against Handel's formula, S_3), the Künneth formula on direct products (mixed primes and mixed relative orders), universal coefficients between the integral and the mod-p engines for every group and every prime dividing its order, H_n(G; Z) against HAP for 12 groups of orders 8–32 (A_4, S_4 and SL(2,3) among them), mod-2 and mod-3 rings (dimensions and generator degrees) against the Green–King database through degree 10 for SmallGroup(64, 138), (128, 1000), (27, 3) and (27, 4), the F_p splitting (its cycles and cocycles are dual bases) and agreement of the two product modes, and rejection of tables that are not groups and sequences that are not pcgs; and the Sylow route: H_n(G; Z) against HAP for A_5, PSL(2,7), A_6, A_7 and M_11, mod-p rings against the Green–King database and the literature (M_11 and M_12 mod 2, A_5 mod 2 and 5, PSL(2,7) mod 7), universal coefficients between its integral and mod-p results for every prime, agreement with the direct engine on S_4, GL(2,3) and (C4 × C4) : S3, and rejection of inconsistent inputs; and maps and persistence: Ellis–King's lower central persistence matrix of D_64, 18 series (quotient series L, L_p, D, Z and subgroup series of groups of orders 16 to 81) against HAP's persistence matrices in degrees 1 to 3 (and all 341 such series of the groups of orders 16, 27, 32 and 81 in a one-off sweep), functoriality, naturality of cup products under the induced maps, and rejection of maps that are not homomorphisms.
+* **Examples:** `make examples` (`examples/run_all.sh`) runs every example in `examples/`, command line and Python; CI runs it on every push.
 * **Fuzzing:** `tests/fuzz_cubical.py` drives the Python module against the explicit complex (F_2, F_3, and Q with bad primes, with absent cells) and against CubicalRipser (F_2). It uses value distributions built for ties: few integer levels, quantised smooth fields, step functions, ±0, extreme magnitudes, plus degenerate shapes.
 
 The current tree passes all of them.
@@ -561,4 +565,4 @@ Vidit Nanda (Perseus, 2010–). Perseus 6 builds on ideas from:
 
 ## Citing
 
-Vidit Nanda, *Perseus, the persistent homology software*, version 6.0.0, [doi:10.5281/zenodo.24305983](https://doi.org/10.5281/zenodo.24305983). GitHub's "Cite this repository" button gives the same from `CITATION.cff`.
+Vidit Nanda, *Perseus, the persistent homology software*, with the version you used. Zenodo gives every release its own DOI, linked from the [release page](https://github.com/viditnanda/perseus/releases); version 6.0.0 is [doi:10.5281/zenodo.24305983](https://doi.org/10.5281/zenodo.24305983). GitHub's "Cite this repository" button gives the entry from `CITATION.cff`.

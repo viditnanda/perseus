@@ -1,0 +1,5 @@
+# RP^2 as a simplicial set: vertex v, edge e (d0 e = d1 e = v), triangle f with faces e, s_0 v, e
+# each line: dim birth d_0 ... d_dim; a face is an earlier line, y@k for the degenerate s_k y
+0 0
+1 0 0 0
+2 1 1 0@0 1

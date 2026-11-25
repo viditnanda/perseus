@@ -4,10 +4,11 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Perseus: persistent homology over Q, with every bad prime certified (Vidit Nanda)</title>
-<!-- Page for people.maths.ox.ac.uk/nanda/perseus/index.html (Perseus 6).
+<!-- Page for people.maths.ox.ac.uk/nanda/perseus/index.html (Perseus 6.1).
      Content only: the <style> block is a stand-in so the page reads on its own. When merging into the
      site template, keep everything inside <main> and drop the <style> block.
-     The download links point to the latest GitHub release; the DOI is the Zenodo record of v6.0.0. -->
+     The download links point to the latest GitHub release. Timings are those of the README, which is the
+     single source of truth for them. -->
 <style>
   :root { --bg:#14161a; --fg:#e7e5df; --muted:#a3a19a; --accent:#d9a441; --rule:#2c2f36; --code:#1d2026; }
   body { margin:0; background:var(--bg); color:var(--fg); font:17px/1.6 Georgia, "Times New Roman", serif; }
@@ -36,18 +37,20 @@
 <p class="muted"><a href="../software.html">← All software</a></p>
 
 <h1>Perseus</h1>
-<p class="tagline">Persistent homology over Q, together with every prime p for which coefficients in F<sub>p</sub> give a different answer, and a proof that the list is complete. Or simply over the field of your choice, quickly.</p>
-<p class="badges"><span>version 6.0</span><span>C++17 · Python</span><span>MIT licence</span></p>
-<p class="links"><a href="https://github.com/viditnanda/perseus">Source on GitHub</a> · <a href="https://github.com/viditnanda/perseus/releases/latest">Latest release and downloads</a> · <a href="https://pypi.org/project/perseus-tda/">Python package (PyPI)</a></p>
+<p class="tagline">Persistent homology over Q, together with every prime p for which coefficients in F<sub>p</sub> give a different answer, and a proof that the list is complete. Or simply over the field of your choice, quickly. And, beyond barcodes, homology over Z: torsion along filtrations, simplicial sets, magnitude homology, Laurent coefficients and finite groups.</p>
+<p class="badges"><span>version 6.1</span><span>C++17 · Python</span><span>MIT licence</span></p>
+<p class="links"><a href="https://github.com/viditnanda/perseus">Source on GitHub</a> · <a href="https://github.com/viditnanda/perseus/releases/latest">Latest release and downloads</a> · <a href="https://pypi.org/project/perseus-tda/">Python package (PyPI)</a> · <a href="https://github.com/viditnanda/perseus/tree/main/examples">Examples</a></p>
 
 <nav class="toc">
 <ol>
-  <li><a href="#new">What's new in Perseus 6</a></li>
+  <li><a href="#new">What Perseus 6 does, and what is new in 6.1</a></li>
   <li><a href="#get">Download, install, compile</a></li>
+  <li><a href="#start">Getting started: examples</a></li>
   <li><a href="#usage">Basic usage</a></li>
   <li><a href="#coeff">Coefficients, bad primes and certificates</a></li>
   <li><a href="#formats">Input formats</a></li>
   <li><a href="#output">Understanding the output</a></li>
+  <li><a href="#beyond">Beyond barcodes: integral homology and more</a></li>
   <li><a href="#python">Python</a></li>
   <li><a href="#perf">Performance</a></li>
   <li><a href="#compat">Old Perseus files</a></li>
@@ -56,21 +59,31 @@
 </ol>
 </nav>
 
-<h2 id="new">1. What's new in Perseus 6</h2>
-<p>Perseus 6 is a complete rewrite, ten years after Perseus 4. It offers three things:</p>
+<h2 id="new">1. What Perseus 6 does, and what is new in 6.1</h2>
+<p>Perseus 6 is a complete rewrite, ten years after Perseus 4. It offers:</p>
 <ul>
-  <li><b>Rational barcodes with a certificate.</b> One run gives you the barcode over Q and all <em>bad primes</em>, meaning the primes p for which the F<sub>p</sub> barcode is different. For each bad prime it tells you exactly which intervals change. On typical data the rational computation is exact, so the certificate is a proof, and it costs little more than computing over a single prime field.</li>
-  <li><b>General inputs.</b> Vietoris–Rips filtrations of point clouds and distance matrices, clique filtrations of weighted graphs, cubical complexes (images and volumes, including periodic ones, straight from numpy), simplicial complexes, and arbitrary filtered cell complexes with integer boundary coefficients.</li>
-  <li><b>Speed.</b> For Vietoris–Rips in degree 2 and up it is usually much faster than Ripser and than edge collapse followed by Ripser. On volumes and 4D grids it is 3–5× faster than GUDHI and close to Cubical Ripser; on 2D images GUDHI's dedicated image algorithm is much faster than both. On sparse point clouds it is on a par with GUDHI. See <a href="#perf">performance</a>, including where other tools win.</li>
+  <li><b>Rational barcodes with a proof.</b> One run gives you the barcode over Q and all <em>bad primes</em>: the primes p for which the F<sub>p</sub> barcode is different. For each bad prime it tells you exactly which intervals change. The rational computation is exact, so the certificate is a proof, and on typical data it costs little more than computing over a single prime field.</li>
+  <li><b>General inputs.</b> Vietoris–Rips filtrations of point clouds and distance matrices, clique filtrations of weighted graphs, cubical complexes (images and volumes, including periodic ones, straight from numpy), simplicial complexes, simplicial sets, and filtered chain complexes over Z.</li>
+  <li><b>Integral answers.</b> Homology over Z of filtered complexes, images of H<sub>*</sub>(K<sub>s</sub>; Z) → H<sub>*</sub>(K<sub>t</sub>; Z), and the torsion of H<sub>*</sub>(K<sub>t</sub>; Z) at every step of a filtration; magnitude homology of graphs; chain complexes over Z[t, t<sup>−1</sup>]; homology and cohomology rings of finite groups.</li>
+  <li><b>Speed.</b> On 2D images it is faster than GUDHI's dedicated image algorithm; on volumes and 4D grids it is 2–3× faster than Cubical Ripser and 5–15× faster than GUDHI; for Vietoris–Rips in degree 2 and up it is usually much faster than Ripser and than edge collapse followed by Ripser; for group homology it is often hundreds of times faster than HAP. See <a href="#perf">performance</a>, including where other tools win.</li>
 </ul>
 <div class="note">
-For example, take 1024 points sampled from SO(3) ≅ RP<sup>3</sup>. Perseus 6 proves that 2 is the only bad prime:
+For example, take 1024 points sampled from SO(3) ≅ RP<sup>3</sup>. Perseus proves that 2 is the only bad prime:
 <ul>
   <li>over Q, two H<sub>1</sub> intervals die at 1.288 and 1.307;</li>
   <li>over F<sub>2</sub>, those two intervals live forever, and two H<sub>2</sub> intervals are born at exactly those times.</li>
 </ul>
 This is the Z/2 in H<sub>1</sub>(RP<sup>3</sup>; Z), detected and located in the filtration.
 </div>
+<h3>New in 6.1</h3>
+<ul>
+  <li><b>The default certificate is always a proof.</b> In 6.0 the default fell back to random primes when 64-bit integers overflowed; now exact big rationals take over where needed, and they are fast enough that this costs little. Random primes run only on request (<code>--mode fast</code>), clearly labelled as not a proof.</li>
+  <li><b>New engines for cubical complexes:</b> a planar engine for 2D images (6.5–26× faster than 6.0 on our tests) and a discrete-gradient (Morse) engine for 3D and 4D grids (2–4× faster than 6.0, with less memory).</li>
+  <li><b>New inputs and integral outputs:</b> torsion along filtrations (<code>--torsion</code>), integral homology and images (<code>--integral</code>, <code>--image</code>), simplicial sets, nerves and bar constructions, magnitude homology, Laurent coefficients, and finite groups (<code>pcgroup</code>, <code>sylow</code>, <code>pcseries</code>).</li>
+  <li><b>Getting-started examples</b> for every input, as shell scripts and Python scripts with their data (<a href="#start">section 3</a>).</li>
+  <li>Writing output files is about 8× faster, with byte-for-byte the same files.</li>
+</ul>
+<p>The full list is in the <a href="https://github.com/viditnanda/perseus/blob/main/CHANGELOG.md">changelog</a>. Everything 6.0 computed, 6.1 computes identically, except that <code>--mode auto</code> now proves its answer.</p>
 
 <h2 id="get">2. Download, install, compile</h2>
 <table>
@@ -80,14 +93,32 @@ This is the Z/2 in H<sub>1</sub>(RP<sup>3</sup>; Z), detected and located in the
   <tr><th>Windows (64-bit)</th><td><a href="https://github.com/viditnanda/perseus/releases/latest/download/perseus-windows-x86_64.exe">perseus-windows-x86_64.exe</a></td></tr>
   <tr><th>Python (Linux, macOS)</th><td><code>pip install perseus-tda</code> (<a href="https://pypi.org/project/perseus-tda/">PyPI</a>)</td></tr>
 </table>
-<p>The executables are command-line programs: run them from a terminal. On macOS you may need to allow the downloaded file under System Settings → Privacy &amp; Security, and make it executable with <code>chmod +x</code>. To compile from source, you need a C++17 compiler with 128-bit integers: g++ 9+ or clang 10+ (on Windows, MinGW-w64; Microsoft's compiler lacks 128-bit integers).</p>
+<p>The executables are command-line programs: run them from a terminal. On macOS you may need to allow the downloaded file under System Settings → Privacy &amp; Security, and make it executable with <code>chmod +x</code>. <code>perseus --version</code> prints the version. To compile from source, you need a C++17 compiler with 128-bit integers: g++ 9+ or clang 10+ (on Windows, MinGW-w64; Microsoft's compiler lacks 128-bit integers).</p>
 <pre>make                                              # builds ./perseus
 make test                                         # optional: differential tests
+make examples                                     # optional: runs every example
 cd python &amp;&amp; pip install --no-build-isolation .   # optional: Python module</pre>
 <p>The Python module needs pybind11 and numpy; the tests use Ripser as an oracle if it is installed.</p>
 <p>Bug reports and feature requests are welcome on the <a href="https://github.com/viditnanda/perseus/issues">issue tracker</a>, or by email with "Perseus" in the subject line.</p>
 
-<h2 id="usage">3. Basic usage</h2>
+<h2 id="start">3. Getting started: examples</h2>
+<p>The <a href="https://github.com/viditnanda/perseus/tree/main/examples"><code>examples/</code></a> directory of the source has nine short examples, each as a shell script for the command line and as a Python script, with their input files. Each runs in a second or two and explains what it prints.</p>
+<table>
+  <tr><th></th><th>topic</th><th>shows</th></tr>
+  <tr><td>01</td><td>point clouds</td><td>Vietoris–Rips of points or distances; long and short intervals; output files</td></tr>
+  <tr><td>02</td><td>bad primes</td><td>the barcode over Q, every bad prime, and which intervals change: a Moore space, RP<sup>2</sup>, a point cloud on RP<sup>2</sup></td></tr>
+  <tr><td>03</td><td>images and volumes</td><td>numpy arrays and text grids; sub- and superlevel sets; periodic axes; absent pixels</td></tr>
+  <tr><td>04</td><td>your own filtration</td><td>a lower-star filtration on a triangulated torus; clique filtrations of weighted graphs</td></tr>
+  <tr><td>05</td><td>integral homology</td><td>H<sub>*</sub>(K; Z), images of maps, the torsion along a random 2-complex</td></tr>
+  <tr><td>06</td><td>simplicial sets</td><td>RP<sup>2</sup> with three simplices; nerves of categories; classifying spaces</td></tr>
+  <tr><td>07</td><td>magnitude homology</td><td>graphs, with torsion</td></tr>
+  <tr><td>08</td><td>Laurent coefficients</td><td>the trefoil's Alexander polynomial</td></tr>
+  <tr><td>09</td><td>finite groups</td><td>group homology, cohomology rings, persistence along a series of groups</td></tr>
+</table>
+<pre>sh examples/cli/01_point_cloud.sh                 # with perseus on your PATH (or PERSEUS=./perseus sh ...)
+python3 examples/python/01_point_cloud.py         # with the Python module installed</pre>
+
+<h2 id="usage">4. Basic usage</h2>
 <pre>perseus &lt;format&gt; &lt;input file&gt; [&lt;output prefix&gt;] [options]</pre>
 <p>Some examples:</p>
 <pre>perseus points cloud.txt --maxdim 2             # Rips over Q, with the bad primes
@@ -95,7 +126,8 @@ perseus points cloud.txt --maxdim 2 --coeff 3   # only the barcode over F_3
 perseus distance dist.csv --maxdim 1 --fp 2,3   # over Q, plus F_2 and F_3
 perseus npy image.npy --periodic 0              # an image, periodic in axis 0
 perseus simplices complex.txt out               # writes out_k.txt, out_betti.txt, out_cert.json
-perseus flag graph.txt --maxdim 2 --proved      # exact arithmetic throughout</pre>
+perseus simplices complex.txt --torsion         # and the torsion of H_q(K_t; Z) at every t
+perseus cells complex.txt --integral --image 0,1   # H_*(K; Z) and the image of H_*(K_0; Z) -&gt; H_*(K_1; Z)</pre>
 <p>A summary of the certificate is printed to stderr, for example:</p>
 <pre>Q barcode: proved (exact arithmetic: int64)
 bad primes: 2  (2 non-unit pivots)</pre>
@@ -106,34 +138,37 @@ bad primes: 2  (2 non-unit pivots)</pre>
   <tr><td><code>--maxdim d</code></td><td>highest homological degree (default 1 for Rips and flag, the top dimension otherwise)</td></tr>
   <tr><td><code>--threshold r</code></td><td>Rips: ignore edges longer than r (default: the enclosing radius)</td></tr>
   <tr><td><code>--periodic 0,2</code></td><td>cubical: make these axes periodic</td></tr>
-  <tr><td><code>--mode auto|fast|proved</code></td><td>how the rational barcode is certified; see <a href="#coeff">section 4</a> (<code>--proved</code> is short for <code>--mode proved</code>)</td></tr>
+  <tr><td><code>--mode proved|fast</code></td><td>how the rational barcode is certified: exact arithmetic, a proof (default; <code>auto</code> is the same), or random primes with a bounded probability of error, not a proof; see <a href="#coeff">section 5</a></td></tr>
   <tr><td><code>--target t</code>, <code>--seed s</code></td><td>fast mode: aim for an error probability below 2<sup>−t</sup> (default 64); reproduce a run from its reported seed (a reproduced run is not certified)</td></tr>
   <tr><td><code>--no-classify</code></td><td>list the candidate primes without settling them</td></tr>
-  <tr><td><code>--engine e</code></td><td>Rips/flag: <code>auto</code>, <code>implicit</code> or <code>sparse</code>; cubical: <code>auto</code> or <code>explicit</code></td></tr>
+  <tr><td><code>--classify-by auto|sweep|rerun</code></td><td>explicit complexes: settle small candidate primes by batched sweeps or by one rerun each (default: whichever a timed sample predicts is cheaper)</td></tr>
+  <tr><td><code>--integral</code>, <code>--image s,t</code>, <code>--torsion</code></td><td>explicit complexes: integral homology, images of maps, torsion along the filtration (<a href="#beyond">section 8</a>)</td></tr>
+  <tr><td><code>--engine e</code></td><td>Rips/flag: <code>auto</code>, <code>implicit</code> or <code>sparse</code>; cubical: <code>auto</code>, <code>planar</code>, <code>morse</code>, <code>classic</code> or <code>explicit</code></td></tr>
   <tr><td><code>--collapse auto|on|full|off</code></td><td>Rips: iterated edge collapse before the reduction</td></tr>
-  <tr><td><code>--threads n</code></td><td>threads for settling candidate primes (default: all cores)</td></tr>
+  <tr><td><code>--threads n</code></td><td>threads for settling candidate primes and independent components (default: all cores)</td></tr>
   <tr><td><code>--print ripser|perseus|json|none</code></td><td>what to print on the screen</td></tr>
   <tr><td><code>--stats</code></td><td>timings and engine statistics</td></tr>
 </table>
+<p><code>perseus --help</code> lists every option, including those of the magnitude, Laurent and finite-group inputs.</p>
 
-<h2 id="coeff">4. Coefficients, bad primes and certificates</h2>
-<p>Over Z, persistence modules do not decompose into intervals, so there is no integral barcode. Perseus 6 reports the next best thing:</p>
+<h2 id="coeff">5. Coefficients, bad primes and certificates</h2>
+<p>Over Z, persistence modules do not decompose into intervals, so there is no integral barcode. Perseus reports the next best thing:</p>
 <ul>
   <li>the barcode over Q, and</li>
   <li>the set of <b>bad primes</b>: those p for which the barcode over F<sub>p</sub> (same filtration, degrees 0 to <code>maxdim</code>) differs from the one over Q. For each bad prime you get the intervals that appear only over F<sub>p</sub> and those that appear only over Q.</li>
 </ul>
-<p>Equivalently, p is bad exactly when some relative homology group H<sub>q</sub>(X<sub>j</sub>, X<sub>i</sub>; Z) of the filtration, with q ≤ <code>maxdim</code>, has p-torsion. This is a theorem of Obayashi and Yoshiwaki. So the bad primes record where the filtration carries integral torsion, and every other prime gives the rational answer. For filtrations of planar complexes, such as 2D images without periodic axes, Alexander duality shows there is never any torsion, so there are no bad primes.</p>
+<p>Precisely, p is bad in degree q exactly when some relative homology group H<sub>q</sub>(K<sub>j</sub>, K<sub>i</sub>; Z) or H<sub>q−1</sub>(K<sub>i</sub>; Z) of the filtration has p-torsion (a refinement of a theorem of Obayashi and Yoshiwaki, proved in <a href="https://github.com/viditnanda/perseus/blob/main/docs/CERTIFICATE.md">docs/CERTIFICATE.md</a>). So the bad primes record where the filtration carries integral torsion, and every other prime gives the rational answer. For filtrations of planar complexes, such as 2D images without periodic axes, there is never any torsion, so there are no bad primes; Perseus proves this without arithmetic, since the boundary matrices involved are totally unimodular.</p>
 
 <h3>How the certificate works</h3>
 <ol>
   <li><b>The rational reduction.</b> A prime that divides no pivot value of the reduction over Q cannot change the barcode. These pivot values are invariants of the filtered complex: ratios of minors of the boundary matrix.</li>
-  <li><b>Arithmetic.</b> By default (<code>--mode auto</code>) the reduction over Q runs in exact 64-bit arithmetic with overflow checks, and the result is a proof. If the numbers outgrow 64 bits, which happens with heavy torsion, Perseus reduces modulo a few primes drawn at random from [2<sup>61</sup>, 2<sup>62</sup>) instead. It then reports a bound on the probability of error, which holds for every input (below 2<sup>−64</sup> by default); the probability is over a fresh 256-bit random seed. <code>--mode proved</code> uses exact arithmetic throughout, switching to big integers where needed. <code>--mode fast</code> always uses random primes.</li>
-  <li><b>Candidates.</b> The prime factors of the pivot values are the candidates. Each candidate is settled by a rerun modulo that prime, in parallel.</li>
+  <li><b>Exact arithmetic.</b> By default the reduction over Q is exact: 64-bit numerators and denominators with every operation checked for overflow, and big rationals in a degree where they overflow, as happens with heavy torsion. The barcode and the pivot values are exact, so the certificate is a proof. With <code>--mode fast</code>, Perseus reduces modulo a few primes drawn at random from [2<sup>61</sup>, 2<sup>62</sup>) instead, and reports a bound on the probability of error that holds for every input (below 2<sup>−64</sup> by default); that is not a proof, and every output says so.</li>
+  <li><b>Candidates.</b> The prime factors of the pivot values are the candidates. Each is settled by a run modulo that prime, in parallel; on explicit complexes, many small candidates can be settled at once by one sweep modulo their product.</li>
   <li><b>Numbers too hard to factor.</b> A pivot value that resists factoring does not leave a gap. One run modulo the number N itself either splits N, or proves that all prime factors of N behave identically. The certificate then states the answer for all of them at once, for example "every prime factor of N is bad".</li>
 </ol>
-<p>The output says what is guaranteed: "proved", or "probabilistic" with the error bound, and whether the description of the bad primes is complete. The mathematics, with proofs, is in <a href="https://github.com/viditnanda/perseus/blob/main/docs/CERTIFICATE.md">docs/CERTIFICATE.md</a>.</p>
+<p>The output says what is guaranteed, and whether the description of the bad primes is complete. The mathematics, with proofs, is in <a href="https://github.com/viditnanda/perseus/blob/main/docs/CERTIFICATE.md">docs/CERTIFICATE.md</a>.</p>
 
-<h2 id="formats">5. Input formats</h2>
+<h2 id="formats">6. Input formats</h2>
 <table>
   <tr><th>format</th><th>contents</th></tr>
   <tr><td><code>points</code></td><td>one point per line, coordinates separated by spaces or commas (Euclidean Vietoris–Rips)</td></tr>
@@ -144,45 +179,91 @@ bad primes: 2  (2 non-unit pivots)</pre>
   <tr><td><code>cubical</code></td><td>a cubical grid of top-cell values: a line with the sizes, then the values in numpy's (C) order; <code>nan</code> marks an absent cell</td></tr>
   <tr><td><code>npy</code></td><td>a numpy array file of top-cell values (any real or integer type, C or Fortran order), for images and volumes</td></tr>
   <tr><td><code>cubes</code></td><td>a sparse cubical complex: one top cube per line, its integer corner coordinates, then its birth</td></tr>
-  <tr><td><code>simplices</code></td><td>one simplex per line: vertex labels, then its birth (any real number). Faces are added automatically, born with their earliest coface.</td></tr>
-  <tr><td><code>cells</code></td><td>a general filtered cell complex: one cell per line, <code>dim birth face coeff face coeff …</code>, where faces are the (0-based) line numbers of earlier cells and coefficients are integers. For example, the Moore space M(Z/12, 1):<br><code>0 0</code><br><code>1 1</code><br><code>2 2 1 12</code></td></tr>
+  <tr><td><code>simplices</code></td><td>one simplex per line: vertex labels, then its birth (any real number). Faces that are not listed are added, born with their earliest coface.</td></tr>
+  <tr><td><code>cells</code></td><td>a filtered chain complex over Z: one cell per line, <code>dim birth face coeff face coeff …</code>, where faces are the (0-based) line numbers of earlier cells and coefficients are integers. For example, the Moore space M(Z/12, 1):<br><code>0 0</code><br><code>1 1</code><br><code>2 2 1 12</code></td></tr>
+  <tr><td><code>sset</code></td><td>a finite filtered simplicial set: one nondegenerate simplex per line, <code>dim birth d_0 … d_dim</code>; a face is an earlier line <code>y</code>, or <code>y@k1.k2…</code> for the degenerate simplex s<sub>k1</sub>s<sub>k2</sub>… y</td></tr>
+  <tr><td><code>laurent</code></td><td>a filtered chain complex over Z[t, t<sup>−1</sup>]: one cell per line, <code>dim birth face:polynomial …</code>, e.g. <code>2 0 1:t^2-t+1 2:-1+t^-1</code></td></tr>
+  <tr><td><code>magnitude</code></td><td>a graph, one edge <code>u v</code> per line (vertices 0, 1, …), for magnitude homology</td></tr>
+  <tr><td><code>pcgroup</code>, <code>sylow</code>, <code>pcseries</code></td><td>finite groups, written from GAP by the exporters in <code>tools/</code>: a solvable group with a polycyclic generating sequence; any finite group through its Sylow subgroups; a chain of homomorphisms</td></tr>
 </table>
-<p>Lines starting with <code>#</code> are comments. Small examples are in <code>examples/</code> in the source distribution.</p>
+<p>Lines starting with <code>#</code> are comments. There is an example of every format in <code>examples/data/</code>.</p>
 
-<h2 id="output">6. Understanding the output</h2>
+<h2 id="output">7. Understanding the output</h2>
 <ul>
   <li><code>prefix_k.txt</code> holds the intervals in degree k, one per line as <code>birth death</code>. A death of <code>−1</code> means the class never dies. This is the same format as Perseus 4, so <a href="../source/persdia.m">persdia.m</a> still plots it.</li>
   <li><code>prefix_betti.txt</code> holds the Betti numbers at every filtration value where they change.</li>
   <li><code>prefix_cert.json</code> (over Q) contains:
     <ul>
-      <li>the barcode and the certificate mode;</li>
-      <li>what is guaranteed, including the error bound and random seed in fast mode;</li>
+      <li>the barcode, the certificate mode and <code>"proof"</code> (true when everything is proved);</li>
       <li>the bad primes with their differing intervals, and whether that list is complete;</li>
-      <li>the exact values of all non-unit pivots.</li>
+      <li>the exact values of all non-unit pivots;</li>
+      <li>with <code>--integral</code>, <code>--image</code> or <code>--torsion</code>, the integral results (their text forms go to stderr).</li>
     </ul>
     An entry marked <code>every_prime_factor_of</code> applies to every prime factor of the number given.</li>
   <li>Without a prefix, intervals are printed to the screen in Ripser's style. Values are printed exactly: the shortest decimal that reads back as the same number.</li>
   <li>Intervals of length zero are not reported (<code>--zero-length</code> keeps them for explicit complexes).</li>
 </ul>
 
-<h2 id="python">7. Python</h2>
+<h2 id="beyond">8. Beyond barcodes: integral homology and more</h2>
+<h3>Integral homology, images and torsion</h3>
+<p>For explicit complexes (<code>simplices</code>, <code>cells</code>, <code>sset</code>) Perseus computes exactly, over Z: the homology of the whole complex with its torsion (<code>--integral</code>); the image of H<sub>*</sub>(K<sub>s</sub>; Z) → H<sub>*</sub>(K<sub>t</sub>; Z) (<code>--image s,t</code>); and the torsion subgroup of H<sub>q</sub>(K<sub>t</sub>; Z) at every value t where it changes, with its invariant factors (<code>--torsion</code>). Nothing is sampled. On a random 2-complex on 40 vertices (<code>examples/data/lm40.txt</code>):</p>
+<pre>$ perseus simplices lm40.txt --torsion --print none
+bad primes: 3 5 13  (36 non-unit pivots)
+torsion of H_1(K_t; Z), where it changes:
+  t = 661: Z/5
+  t = 666: Z/975
+  t = 667: Z/5
+  t = 671: 0</pre>
+<h3>Simplicial sets, nerves and classifying spaces</h3>
+<p>Finite filtered simplicial sets (normalised chains), with faces that may be degenerate: RP<sup>2</sup> needs one simplex in each dimension. In Python, also nerves of finite categories, weighted so that they are filtered, and bar constructions BM of finite monoids and groups.</p>
+<h3>Magnitude homology</h3>
+<p>MH<sub>k,l</sub>(G; Z) of a graph, directed or not, with its torsion, for lengths up to <code>--lmax</code>; <code>--pairs</code> restricts to chosen endpoints. On the graphs where both finish, it agrees with gramag (which computes ranks over F<sub>2</sub>) and is 7–9× faster on inputs with more than 100,000 generators.</p>
+<h3>Laurent coefficients</h3>
+<p>Chain complexes over Z[t, t<sup>−1</sup>]: infinite cyclic covers, Alexander modules, Novikov homology. Perseus gives the barcode over Q(t) (which counts Novikov Betti numbers), the irreducible polynomials and the primes for which the residue fields give a different barcode, and the homology over Q[t, t<sup>−1</sup>] and over F<sub>p</sub>[t, t<sup>−1</sup>] where it differs from the rational answer.</p>
+<h3>Finite groups</h3>
+<p>For a finite solvable group given by a polycyclic presentation (<code>pcgroup</code>), H<sub>n</sub>(G; Z) exactly and the mod-p cohomology ring (dimensions, minimal generators, cup products), through Anick's resolution rather than the bar construction. Any finite group goes through its Sylow subgroups (<code>sylow</code>), and a chain of homomorphisms gives the induced maps on mod-p homology and their persistence (<code>pcseries</code>; for normal series these are Ellis and King's persistence matrices). The GAP exporters in <code>tools/</code> write the inputs:</p>
+<pre>gap&gt; Read("tools/export_sylow.g"); WritePerseusSylow(MathieuGroup(11), "m11.txt");
+$ perseus sylow m11.txt --maxdim 8 --ring 2</pre>
+
+<h2 id="python">9. Python</h2>
 <pre>import numpy as np, perseus
 r = perseus.rips(points=X, maxdim=2)               # or distances=D
 r["barcode"][1]                                    # H1 as an (m, 2) array
-r["certificate"]["mode"]                           # "proved" or "fast"
+r["certificate"]["proof"]                          # True: proved
 perseus.bad_primes(r)                              # e.g. [2]
 r["certificate"]["bad_primes"][2]["only_over_Fp"]  # what changes over F_2
 perseus.cubical(image, periodic=[True, False])     # NaN = absent cell
 perseus.flag([(0, 1, 0.5), (1, 2, 0.7)], vertex_births=[0, 0, 0.2])
-perseus.simplices([((0, 1, 2), 1.0), ((1, 2, 3), 2.5)])
-perseus.cells([(0, 0.0, []), (1, 1.0, []), (2, 2.0, [(1, 12)])])
-perseus.rips(points=X, maxdim=2, coeff=2)          # just F_2
-perseus.rips(points=X, maxdim=2, mode="proved")    # exact throughout</pre>
-<p>Intervals come as numpy arrays, with death <code>inf</code> for classes that never die. In fast mode the certificate also carries <code>log2_error_bound</code> and the random <code>seed</code>. The <code>cells</code> line is the Moore space M(Z/12, 1), whose bad primes are 2 and 3.</p>
-<p>Every function takes the same options as the command line (<code>coeff</code>, <code>mode</code>, <code>seed</code>, <code>target</code>, <code>fp</code>, <code>threads</code>, <code>classify</code>).</p>
+perseus.simplices([((0, 1, 2), 1.0), ((1, 2, 3), 2.5)], torsion=True)
+perseus.cells([(0, 0.0, []), (1, 1.0, []), (2, 2.0, [(1, 12)])], integral=True)
+perseus.simplicial_set([(0, 0, []), (1, 0, [0, 0]), (2, 1, [1, (0, [0]), 1])], integral=True)   # RP^2
+perseus.magnitude(edges, lmax=6)
+perseus.laurent([(0, 0, []), (1, 0, [(0, "t - 1")])])
+perseus.pc_group(**perseus.read_pcgroup("g.txt"), maxdim=8, ring=2)
+perseus.rips(points=X, maxdim=2, coeff=2)          # just F_2</pre>
+<p>Intervals come as numpy arrays, with death <code>inf</code> for classes that never die. Every function takes the options of the command line (<code>coeff</code>, <code>mode</code>, <code>fp</code>, <code>threads</code>, …). The examples in <a href="#start">section 3</a> cover every function.</p>
 
-<h2 id="perf">8. Performance</h2>
-<p>All timings are wall clock on a 2-core 2.1 GHz Xeon, single-threaded except where candidate primes are settled in parallel. Every barcode in the comparisons below agrees exactly with the other tool's. The Rips comparisons can be rerun with the scripts in <code>bench/</code> in the source distribution.</p>
+<h2 id="perf">10. Performance</h2>
+<p>All timings are wall clock on a 2-core 2.1 GHz Xeon. Every answer in the comparisons below agrees exactly with the other tool's. The scripts that produce them are in <code>bench/</code> in the source, and the README has the complete tables.</p>
+
+<h3>Images (F<sub>2</sub>)</h3>
+<table>
+  <tr><th>image</th><th>Perseus 6.1</th><th>GUDHI 3.13</th><th>Cubical Ripser</th></tr>
+  <tr><td>photograph, 512²</td><td><b>9.8 ms</b> / 40 MB</td><td>13.1 ms / 147 MB</td><td>64.1 ms / 101 MB</td></tr>
+  <tr><td>smoothed noise, 4096²</td><td><b>0.23 s</b> / 253 MB</td><td>0.55 s / 499 MB</td><td>8.54 s / 3.0 GB</td></tr>
+  <tr><td>white noise, 4096²</td><td><b>1.60 s</b> / 451 MB</td><td>1.88 s / 682 MB</td><td>10.1 s / 3.0 GB</td></tr>
+  <tr><td>white noise, 8192²</td><td><b>7.51 s</b> / 1.6 GB</td><td>9.85 s / 2.3 GB</td><td>out of memory</td></tr>
+</table>
+<p class="muted">The planar engine is 1.2–2.4× faster than GUDHI's image algorithm, with 27–73% less memory. Over Q it costs nothing extra.</p>
+
+<h3>Volumes and 4D grids (F<sub>2</sub>)</h3>
+<table>
+  <tr><th>case</th><th>Perseus 6.1</th><th>Cubical Ripser</th><th>GUDHI 3.13</th></tr>
+  <tr><td>smoothed noise, 192³</td><td><b>3.41 s</b> / 764 MB</td><td>10.7 s / 800 MB</td><td>52.8 s / 2.7 GB</td></tr>
+  <tr><td>white noise, 192³</td><td><b>11.1 s</b> / 1.0 GB</td><td>26.4 s / 1.7 GB</td><td>98.4 s / 3.4 GB</td></tr>
+  <tr><td>smoothed noise, 48⁴</td><td><b>7.35 s</b> / 923 MB</td><td>18.8 s / 1.2 GB</td><td>88.0 s / 4.0 GB</td></tr>
+  <tr><td>white noise, 48⁴</td><td><b>37.5 s</b> / 1.6 GB</td><td>out of memory above 6 GB</td><td>436 s / 5.2 GB</td></tr>
+</table>
 
 <h3>Vietoris–Rips (F<sub>2</sub>)</h3>
 <table>
@@ -194,32 +275,31 @@ perseus.rips(points=X, maxdim=2, mode="proved")    # exact throughout</pre>
   <tr><td>sphere (192 points), H≤2</td><td>0.50 s</td><td>1.84 s</td><td>0.79 s</td><td>0.26 s</td></tr>
   <tr><td>dragon (2000 points), H≤1</td><td>0.63 s</td><td>22.2 s</td><td>1.70 s</td><td>0.21 s</td></tr>
 </table>
-<p class="muted">RedZeD remains faster for H<sub>1</sub> alone and on some small examples (the 192-point sphere), and edge collapse followed by Ripser is as fast on the 16-point example. For sparse point clouds Perseus builds the radius graph directly. For example, 8,000 points in the unit cube with 13,056 edges at r = 0.047 take 0.02 s and 13 MB through H<sub>2</sub>, close to GUDHI's <code>RipsPersistence</code> (0.016 s against 0.012 s, both in-process).</p>
+<p class="muted">RedZeD remains faster for H<sub>1</sub> alone and on some small examples, and edge collapse followed by Ripser is as fast on the 16-point example. For sparse point clouds Perseus builds the radius graph directly: 8,000 points in the unit cube at r = 0.047 take a few hundredths of a second through H<sub>2</sub>, on a par with GUDHI.</p>
 
 <h3>What the certificate costs</h3>
 <table>
-  <tr><th>case</th><th>F<sub>2</sub> only</th><th>Q with all bad primes</th><th>guarantee</th></tr>
-  <tr><td>1024 points on SO(3), H≤3</td><td>0.06 s</td><td>0.07 s</td><td>proved; bad prime 2</td></tr>
-  <tr><td>4096 points on SO(3), H≤3</td><td>0.85 s</td><td>0.99 s</td><td>proved; bad prime 2</td></tr>
-  <tr><td>sphere (192 points), H≤2</td><td>0.42 s</td><td>0.45 s</td><td>proved; no bad primes</td></tr>
-  <tr><td>RP<sup>2</sup> (600 points), H≤2</td><td>11.5 s</td><td>19.2 s</td><td>proved; bad prime 2</td></tr>
-  <tr><td>300 random distances, H≤1</td><td>0.15 s</td><td>2.1 s</td><td>proved; bad primes 2, 3, 5, 7, 47, 149</td></tr>
-  <tr><td>Linial–Meshulam complex, 70 vertices</td><td>0.03 s</td><td>4.5 s</td><td>error probability &lt; 2<sup>−88</sup>; 6 bad primes</td></tr>
-  <tr><td>Linial–Meshulam complex, 90 vertices</td><td>0.16 s</td><td>113 s</td><td>error probability &lt; 2<sup>−86</sup>; bad primes 2 and a 166-bit prime</td></tr>
+  <tr><th>case</th><th>F<sub>2</sub> only</th><th>Q, all bad primes, proved</th><th>bad primes</th></tr>
+  <tr><td>1024 points on SO(3), H≤3</td><td>0.06 s</td><td>0.07 s</td><td>2</td></tr>
+  <tr><td>4096 points on SO(3), H≤3</td><td>0.85 s</td><td>0.99 s</td><td>2</td></tr>
+  <tr><td>RP<sup>2</sup> (600 points), H≤2</td><td>11.5 s</td><td>19.2 s</td><td>2</td></tr>
+  <tr><td>Linial–Meshulam complex, 70 vertices</td><td>0.07 s</td><td>4.3 s</td><td>7 primes</td></tr>
+  <tr><td>Linial–Meshulam complex, 90 vertices</td><td>0.15 s</td><td>94 s</td><td>6 primes, one of 117 bits</td></tr>
 </table>
-<p class="muted">Time beyond F<sub>2</sub> is mostly spent settling candidate primes. Random 2-complexes near the threshold where their homology vanishes carry enormous torsion. At 90 vertices the rational reduction takes 1.3 s and produces 463 candidate primes, of which exactly two are bad.</p>
+<p class="muted">On geometric data a proof costs little beyond F<sub>2</sub>. Random 2-complexes near the threshold where their homology vanishes carry enormous torsion, and settling the hundreds of candidate primes their pivots produce takes most of the time; the default exact run never falls back to random primes.</p>
 
-<h3>Cubical complexes (F<sub>2</sub>)</h3>
+<h3>Finite groups, against HAP</h3>
 <table>
-  <tr><th>case</th><th>Perseus 6</th><th>Cubical Ripser</th><th>GUDHI 3.13</th></tr>
-  <tr><td>image, 1024 × 1024</td><td>0.37 s</td><td>0.29 s</td><td><b>0.010 s</b></td></tr>
-  <tr><td>image, 4096 × 4096 (smooth / noise)</td><td>8.0 s / 11.6 s</td><td>7.4 s / 8.5 s</td><td><b>0.43 s / 1.66 s</b></td></tr>
-  <tr><td>volume, 192³ (smooth / noise)</td><td>10.4 s / 26.0 s</td><td>9.3 s / 24.9 s</td><td>54.7 s / 89.8 s</td></tr>
-  <tr><td>4D grid, 48⁴ (smooth)</td><td>20.3 s</td><td>16.0 s</td><td>97.6 s</td></tr>
+  <tr><th>group</th><th>task</th><th>Perseus (with GAP export)</th><th>HAP 1.62</th></tr>
+  <tr><td>SmallGroup(64, 138)</td><td>H<sub>n</sub>(G; Z), n ≤ 8</td><td>0.23 s</td><td>101 s</td></tr>
+  <tr><td>SmallGroup(128, 2000)</td><td>H<sub>n</sub>(G; Z), n ≤ 6</td><td>0.47 s</td><td>32.3 s</td></tr>
+  <tr><td>M<sub>12</sub></td><td>mod-2 cohomology ring, degrees ≤ 6</td><td>0.80 s</td><td>162 s</td></tr>
+  <tr><td>PSL(3, 4)</td><td>H<sub>n</sub>(G; Z), n ≤ 6</td><td>0.53 s</td><td>81.6 s</td></tr>
+  <tr><td>SmallGroup(128, 1000)</td><td>mod-2 cohomology ring, degrees ≤ 8</td><td>0.19 s</td><td>over 300 s</td></tr>
 </table>
-<p class="muted">All three compute the same complex (top-cell values) and the same barcode. GUDHI times are for <code>CubicalPersistence</code>, its recommended entry point, which uses a dedicated algorithm for 2D images and is 20–35× faster than Perseus and Cubical Ripser there. In 3 and 4 dimensions it uses the general algorithm. Perseus uses less than a third of Cubical Ripser's memory on large images (0.9 GB against 3.1 GB at 4096²).</p>
+<p class="muted">Perseus's times include writing the input from GAP. For small groups that export is most of the time, and HAP is about as fast.</p>
 
-<h2 id="compat">9. Old Perseus files</h2>
+<h2 id="compat">11. Old Perseus files</h2>
 <p>Perseus 6 does not read the Perseus 4/5 input formats (<code>cubtop</code>, <code>scubtop</code>, <code>simtop</code>, <code>nmfsimtop</code>, <code>cellcomp</code>, <code>distmat</code>, <code>corrmat</code>, <code>rips</code>, <code>brips</code>) directly. Instead, convert them:</p>
 <pre>python3 tools/convert_legacy.py cubtop old.txt new.txt
 # prints the matching command, e.g.:  perseus cubical new.txt --coeff 2 --periodic 1</pre>
@@ -232,24 +312,24 @@ perseus.rips(points=X, maxdim=2, mode="proved")    # exact throughout</pre>
 </ul>
 <p>Older versions remain available: <a href="../source/perseusLin">Linux</a>, <a href="../source/perseusMac">macOS</a>, <a href="../source/perseusWin.exe">Windows</a>, <a href="../source/perseus_4_beta.zip">source</a> (Perseus 4 beta). The old example files are still here: <a href="../source/cubgrid.txt">cubgrid.txt</a>, <a href="../source/scubtop.txt">scubtop.txt</a>, <a href="../source/simtop.txt">simtop.txt</a>, <a href="../source/nmfst.txt">nmfst.txt</a>, <a href="../source/brips.txt">brips.txt</a>, <a href="../source/rips.txt">rips.txt</a>, <a href="../source/distmat.txt">distmat.txt</a>.</p>
 
-<h2 id="how">10. How it works, and credits</h2>
-<p>Perseus 4 and 5 were built on discrete Morse theory. Perseus 6 uses different algorithms, combining many published ideas with some of its own:</p>
+<h2 id="how">12. How it works, and credits</h2>
+<p>Perseus combines many published ideas with some of its own:</p>
 <ul>
   <li>persistent cohomology with clearing (de Silva–Morozov–Vejdemo-Johansson; Chen–Kerber);</li>
   <li>Ripser's implicit coboundaries and apparent pairs (Bauer);</li>
-  <li>edge collapse (Boissonnat–Pritam; Glisse–Pritam);</li>
-  <li>active enumeration for H<sub>1</sub> (Kapulkin–Kershaw's RedZeD);</li>
-  <li>annotation-based persistent cohomology (Dey–Fan–Wang; Boissonnat–Dey–Maria);</li>
-  <li>implicit cubical persistence, including union-find on the dual graph in the top degree (Kaji–Sudo–Ahara's Cubical Ripser);</li>
-  <li>multi-field persistence (Boissonnat–Maria);</li>
-  <li>the torsion characterisation of field dependence (Obayashi–Yoshiwaki);</li>
-  <li>multi-modular computer algebra (rational reconstruction after Wang) and integer factoring (Pollard–Brent).</li>
+  <li>edge collapse (Boissonnat–Pritam; Glisse–Pritam) and active enumeration for H<sub>1</sub> (Kapulkin–Kershaw's RedZeD);</li>
+  <li>filtered discrete Morse theory (Mischaikow–Nanda), the discrete gradients of grey-scale images (Robins–Wood–Sheppard) and union-find on critical cells (Guillou–Vidal–Tierny), for the cubical gradient engine;</li>
+  <li>the dual-then-primal union-finds of GUDHI's image algorithm (Glisse), for the planar engine, and implicit cubical persistence (Kaji–Sudo–Ahara's Cubical Ripser);</li>
+  <li>bit-tree working columns (PHAT);</li>
+  <li>multi-field persistence (Boissonnat–Maria), the torsion characterisation of field dependence (Obayashi–Yoshiwaki), and interval decompositions over a PID (Luo–Henselman-Petrusek);</li>
+  <li>multi-modular computer algebra (rational reconstruction after Wang), integer factoring (Pollard–Brent) and Howell forms;</li>
+  <li>Anick resolutions as Morse complexes of rewriting systems (Anick; Brown; Sköldberg; Jöllenbeck–Welker), with G. Ellis's HAP and the Green–King database of cohomology rings as ground truth.</li>
 </ul>
-<p>What is new is the certificate: exact or randomized rational reduction with a proven error bound, and classification of every candidate prime, including those that cannot be factored. The Rips engine also folds edge domination into the reduction itself. A full catalogue, saying what is new and what is not, is in <a href="https://github.com/viditnanda/perseus/blob/main/docs/TECHNIQUES.md">docs/TECHNIQUES.md</a>, and the proofs behind the certificate are in <a href="https://github.com/viditnanda/perseus/blob/main/docs/CERTIFICATE.md">docs/CERTIFICATE.md</a>.</p>
+<p>What is new is, above all, the certificate: an exact rational reduction and the classification of every candidate prime, including those that cannot be factored, with a theorem identifying the bad primes with the torsion of relative homology. A full catalogue, saying what is new and what is not, is in <a href="https://github.com/viditnanda/perseus/blob/main/docs/TECHNIQUES.md">docs/TECHNIQUES.md</a>, and the proofs behind the certificate are in <a href="https://github.com/viditnanda/perseus/blob/main/docs/CERTIFICATE.md">docs/CERTIFICATE.md</a>.</p>
 
-<h2 id="cite">11. Licence and citing</h2>
+<h2 id="cite">13. Licence and citing</h2>
 <p>Perseus 6 is released under the MIT licence. The software comes with no warranty.</p>
-<p>If Perseus helps your research, please cite the software: Vidit Nanda, <em>Perseus, the persistent homology software</em>, version 6.0.0, <a href="https://doi.org/10.5281/zenodo.24305983">doi:10.5281/zenodo.24305983</a>. For results obtained with Perseus 4 or 5, please also cite K. Mischaikow and V. Nanda, <em>Morse theory for filtrations and efficient computation of persistent homology</em>, Discrete &amp; Computational Geometry 50(2): 330–353, 2013.</p>
+<p>If Perseus helps your research, please cite the software with the version you used: Vidit Nanda, <em>Perseus, the persistent homology software</em>. Every release has its own DOI on Zenodo, linked from its <a href="https://github.com/viditnanda/perseus/releases">release page</a>; version 6.0.0 is <a href="https://doi.org/10.5281/zenodo.24305983">doi:10.5281/zenodo.24305983</a>. For results obtained with Perseus 4 or 5, please also cite K. Mischaikow and V. Nanda, <em>Morse theory for filtrations and efficient computation of persistent homology</em>, Discrete &amp; Computational Geometry 50(2): 330–353, 2013.</p>
 
 </main>
 </body>

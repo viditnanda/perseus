@@ -29,7 +29,7 @@ prime factor of its key. See docs/CERTIFICATE.md.
 from ._perseus import rips, flag, cells, simplices, cubical, simplicial_set, nerve, bar_construction, magnitude, laurent, pc_group, finite_group, pc_series
 
 __all__ = ["rips", "flag", "cells", "simplices", "cubical", "simplicial_set", "nerve", "bar_construction", "magnitude", "laurent", "pc_group", "read_pcgroup", "finite_group", "read_sylow", "pc_series", "read_pcseries", "bad_primes"]
-__version__ = "6.0.0"
+__version__ = "6.1.0"
 
 
 def bad_primes(result):
