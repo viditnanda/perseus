@@ -13,7 +13,7 @@
 Paths of external oracles are taken from environment variables (RIPSER, PERSEUS5, P2REF); a section
 whose oracle is missing is skipped.
 """
-import json, os, random, subprocess, sys, tempfile, math
+import itertools, json, os, random, subprocess, sys, tempfile, math
 from collections import Counter
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -472,6 +472,45 @@ def section_G(trials=60):
         check(f"G component split used with {threads} workers",
               f"2 nontrivial components, 1280 isolated vertices, {threads} workers" in stats, stats)
         check("G component field timing", "[solve " in stats and "field run " in stats, stats)
+
+    # The barycentric subdivision of RP^2 is flag. Wedge a contractible clique at
+    # one vertex of each copy to exercise the automatic split at this graph size.
+    with open(os.path.join(HERE, "..", "examples", "rp2_simplices.txt")) as fh:
+        triangles = [line.split()[:-1] for line in fh if not line.startswith("#")]
+    faces = sorted({frozenset(face) for t in triangles for k in (1, 2, 3)
+                    for face in itertools.combinations(t, k)}, key=lambda f: (len(f), sorted(f)))
+    path = f"{TMP}/component_rp2.flag"
+    with open(path, "w") as fh:
+        for v in range(2048):
+            print(v, 0, file=fh)
+        for offset in (0, 512):
+            for i, face in enumerate(faces):
+                for j, other in enumerate(faces[:i]):
+                    if other < face:
+                        weight = 0.5 if len(face) == 2 and face <= {"0", "1", "3"} else 1
+                        print(offset + j, offset + i, weight, file=fh)
+            for i, j in itertools.combinations([0] + list(range(len(faces), len(faces) + 260)), 2):
+                print(offset + i, offset + j, 1, file=fh)
+    args = ["flag", path, "--maxdim", "2", "--threshold", "1", "--print", "json"]
+    reference = json.loads(run([PERSEUS] + args + ["--proved", "--engine", "implicit"])[0])
+    for threads in (1, 2):
+        out, stats = run([PERSEUS] + args + ["--threads", str(threads), "--stats"])
+        got = json.loads(out)
+        check(f"G proved RP^2 split used with {threads} workers",
+              "2 nontrivial components," in stats and f"{threads} workers]" in stats, stats)
+        check("G candidate rerun reuses each collapsed graph", stats.count("[edge collapse:") == 2, stats)
+        check("G proved split matches unsplit certificate",
+              all(got[k] == reference[k] for k in ("barcode", "bad_primes", "proof", "complete")))
+        check("G proved split detects both copies of projective-plane torsion",
+              got["proof"] and got["complete"] and got["candidates"] == [2]
+              and [(b["p"], b["first_degree"], b["only_over_Fp"], b["only_over_Q"]) for b in got["bad_primes"]]
+              == [(2, 1, [[], [[0.5, None]] * 2, [[1, None]] * 2], [[], [[0.5, 1]] * 2, []])])
+    candidates, stats = run([PERSEUS] + args + ["--no-classify", "--stats"])
+    cert = json.loads(candidates)
+    check("G component candidate-only certificate", "nontrivial components," in stats and
+          cert["proof"] and cert["candidates"] == [2] and cert["bad_primes_status"] == "candidates only"
+          and not cert["complete"] and cert["bad_primes"] == [])
+
 
 if __name__ == "__main__":
     which = sys.argv[1:] or ["A", "B", "C", "D", "E", "F", "G"]

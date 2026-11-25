@@ -426,6 +426,11 @@ for threads, prime in ((1, 2), (2, 3)):
     check(f"Python component split with {threads} workers", r["coefficients"] == prime and
           len(r["barcode"]) == 8 and py_bars(r) == Counter({(0, "0", "inf"): 33}))
 
+r = perseus.rips(points=points, threshold=1, maxdim=7, threads=2)
+check("Python proved component split exceeds global indexing limit",
+      r["certificate"]["proof"] and r["certificate"]["complete"] and
+      r["certificate"]["bad_primes"] == {} and py_bars(r) == Counter({(0, "0", "inf"): 33}))
+
 print(f"\n{results['pass']} passed, {results['fail']} failed")
 for f in failures[:30]: print("  ", f)
 sys.exit(1 if results["fail"] else 0)
