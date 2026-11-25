@@ -39,6 +39,10 @@ test-chain: tests/t_chain.cpp tests/t_magnitude.cpp tests/t_laurent.cpp tests/t_
 	$(CXX) -std=c++17 -O2 -Wall -Wextra $(INC) tests/t_howell.cpp -o t_howell
 	./t_howell 2000
 
+test-rips-components: tests/t_rips_components.cpp $(HDR)
+	$(CXX) -std=c++17 -O2 -pthread $(INC) $< -o t_rips_components
+	./t_rips_components
+
 # finite solvable groups: Anick resolution, integral homology, mod-p cohomology rings (closed forms, Kunneth,
 # universal coefficients, HAP and Green-King ground truth)
 test-pcgroup: tests/t_pcgroup.cpp $(HDR)
@@ -51,4 +55,4 @@ examples: perseus
 	PERSEUS=$(CURDIR)/perseus sh examples/run_all.sh
 
 clean:
-	rm -f perseus t_cubical_morse t_bitcol t_cubical_planar t_chain t_magnitude t_laurent t_exact t_howell t_pcgroup
+	rm -f perseus t_rips_components t_cubical_morse t_bitcol t_cubical_planar t_chain t_magnitude t_laurent t_exact t_howell t_pcgroup
