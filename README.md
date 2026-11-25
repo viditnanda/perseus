@@ -571,4 +571,4 @@ Vidit Nanda (Perseus, 2010–). Perseus 6 builds on ideas from:
 
 ## Citing
 
-Vidit Nanda, *Perseus, the persistent homology software*, with the version you used. Zenodo gives every release its own DOI, linked from the [release page](https://github.com/viditnanda/perseus/releases); version 6.0.0 is [doi:10.5281/zenodo.24305983](https://doi.org/10.5281/zenodo.24305983). GitHub's "Cite this repository" button gives the entry from `CITATION.cff`.
+Vidit Nanda, *Perseus, the persistent homology software*, with the version you used. The DOI [10.5281/zenodo.24305982](https://doi.org/10.5281/zenodo.24305982) covers all versions and resolves to the newest; each release also has its own DOI on Zenodo, linked from its [release page](https://github.com/viditnanda/perseus/releases). GitHub's "Cite this repository" button gives the entry from `CITATION.cff`.
