@@ -3,7 +3,7 @@ message: "If Perseus helps your research, please cite the software as below."
 title: "Perseus: the Persistent Homology software"
 version: 6.1.0
 date-released: 2026-11-25
-doi: 10.5281/zenodo.24305983
+doi: 10.5281/zenodo.24305982
 license: MIT
 authors:
   - family-names: Nanda
